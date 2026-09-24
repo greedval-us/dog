@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import FormActions from '@/components/FormActions.vue';
 import FormField from '@/components/FormField.vue';
@@ -10,14 +11,15 @@ import { store } from '@/routes/register';
 defineProps<{ passwordRules: string }>();
 defineOptions({
     layout: {
-        title: 'Начнём нашу историю',
-        description: 'Создай аккаунт и обустрой своё место в DogLive.',
+        title: 'Let us start our story',
+        description: 'Create an account and make yourself at home in DogLive.',
     },
 });
+const { t } = useI18n();
 </script>
 <template>
     <div class="auth-content">
-        <Head title="Регистрация" />
+        <Head :title="t('Registration')" />
         <Form
             v-bind="store.form()"
             :reset-on-success="['password', 'password_confirmation']"
@@ -26,7 +28,7 @@ defineOptions({
         >
             <FormField
                 id="name"
-                label="Как тебя зовут?"
+                :label="t('What is your name?')"
                 :error="errors.name"
                 v-slot="{ field }"
                 ><Input
@@ -35,13 +37,17 @@ defineOptions({
                     required
                     v-focus
                     autocomplete="name"
-                    placeholder="Твоё имя"
+                    :placeholder="t('Your name')"
             /></FormField>
             <FormField
                 id="username"
-                label="Ник игрока"
+                :label="t('Player username')"
                 :error="errors.username"
-                hint="До 32 символов: маленькие латинские буквы, цифры и знак _."
+                :hint="
+                    t(
+                        'Up to 32 characters: lowercase Latin letters, numbers and underscores.',
+                    )
+                "
                 v-slot="{ field }"
                 ><Input
                     v-bind="field"
@@ -55,7 +61,7 @@ defineOptions({
             /></FormField>
             <FormField
                 id="email"
-                label="Электронная почта"
+                :label="t('Email address')"
                 :error="errors.email"
                 v-slot="{ field }"
                 ><Input
@@ -68,7 +74,7 @@ defineOptions({
             /></FormField>
             <FormField
                 id="password"
-                label="Пароль"
+                :label="t('Password')"
                 :error="errors.password"
                 v-slot="{ field }"
                 ><PasswordInput
@@ -76,12 +82,12 @@ defineOptions({
                     name="password"
                     required
                     autocomplete="new-password"
-                    placeholder="Придумай пароль"
+                    :placeholder="t('Choose a password')"
                     :passwordrules="passwordRules"
             /></FormField>
             <FormField
                 id="password_confirmation"
-                label="Повтори пароль"
+                :label="t('Confirm password')"
                 :error="errors.password_confirmation"
                 v-slot="{ field }"
                 ><PasswordInput
@@ -89,16 +95,17 @@ defineOptions({
                     name="password_confirmation"
                     required
                     autocomplete="new-password"
-                    placeholder="Ещё раз тот же пароль"
+                    :placeholder="t('Enter the same password again')"
                     :passwordrules="passwordRules"
             /></FormField>
             <FormActions
                 :processing="processing"
-                label="Создать аккаунт"
+                :label="t('Create account')"
                 test-id="register-user-button"
             />
             <p class="auth-footer">
-                Уже с нами? <TextLink :href="login()">Войти</TextLink>
+                {{ t('Already part of DogLive?') }}
+                <TextLink :href="login()">{{ t('Log in') }}</TextLink>
             </p>
         </Form>
     </div>

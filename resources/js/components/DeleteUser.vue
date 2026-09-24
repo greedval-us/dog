@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form } from '@inertiajs/vue3';
 import { useTemplateRef } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
@@ -17,22 +18,26 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 const passwordInput = useTemplateRef('passwordInput');
+const { t } = useI18n();
 </script>
 <template>
     <SurfaceCard
-        title="Удаление аккаунта"
-        description="Управление твоими данными в DogLive."
+        :title="t('Account deletion')"
+        :description="t('Manage your DogLive data.')"
         class="danger-card"
     >
         <p class="danger-message">
-            Удаление аккаунта необратимо. Все связанные с ним данные будут
-            удалены.
+            {{
+                t(
+                    'Deleting your account is permanent. All associated data will be deleted.',
+                )
+            }}
         </p>
         <Dialog
             ><DialogTrigger as-child
-                ><Button variant="destructive" data-test="delete-user-button"
-                    >Удалить аккаунт</Button
-                ></DialogTrigger
+                ><Button variant="destructive" data-test="delete-user-button">{{
+                    t('Delete account')
+                }}</Button></DialogTrigger
             >
             <DialogContent
                 ><Form
@@ -44,16 +49,18 @@ const passwordInput = useTemplateRef('passwordInput');
                     v-slot="{ errors, processing, reset, clearErrors }"
                 >
                     <DialogHeader
-                        ><DialogTitle>Удалить аккаунт?</DialogTitle
-                        ><DialogDescription
-                            >После удаления восстановить аккаунт и его данные не
-                            получится. Введи пароль, чтобы подтвердить
-                            действие.</DialogDescription
-                        ></DialogHeader
+                        ><DialogTitle>{{
+                            t('Delete your account?')
+                        }}</DialogTitle
+                        ><DialogDescription>{{
+                            t(
+                                'Your account and its data cannot be recovered after deletion. Enter your password to confirm.',
+                            )
+                        }}</DialogDescription></DialogHeader
                     >
                     <FormField
                         id="delete-password"
-                        label="Текущий пароль"
+                        :label="t('Current password')"
                         :error="errors.password"
                         v-slot="{ field }"
                         ><PasswordInput
@@ -62,7 +69,7 @@ const passwordInput = useTemplateRef('passwordInput');
                             ref="passwordInput"
                             required
                             autocomplete="current-password"
-                            placeholder="Твой пароль"
+                            :placeholder="t('Your password')"
                     /></FormField>
                     <DialogFooter
                         ><DialogClose as-child
@@ -75,14 +82,14 @@ const passwordInput = useTemplateRef('passwordInput');
                                         reset();
                                     }
                                 "
-                                >Отмена</Button
+                                >{{ t('Cancel') }}</Button
                             ></DialogClose
                         ><Button
                             type="submit"
                             variant="destructive"
                             :disabled="processing"
                             data-test="confirm-delete-user-button"
-                            >Удалить навсегда</Button
+                            >{{ t('Delete permanently') }}</Button
                         ></DialogFooter
                     >
                 </Form></DialogContent

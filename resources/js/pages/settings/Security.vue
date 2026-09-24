@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import FormActions from '@/components/FormActions.vue';
@@ -6,12 +7,15 @@ import FormField from '@/components/FormField.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 defineProps<{ passwordRules: string }>();
+const { t } = useI18n();
 </script>
 <template>
     <div class="settings-stack">
-        <Head title="Безопасность" /><SurfaceCard
-            title="Смена пароля"
-            description="Выбери длинный, уникальный пароль, чтобы защитить аккаунт."
+        <Head :title="t('Security')" /><SurfaceCard
+            :title="t('Change password')"
+            :description="
+                t('Choose a long, unique password to protect your account.')
+            "
         >
             <Form
                 v-bind="SecurityController.update.form()"
@@ -27,7 +31,7 @@ defineProps<{ passwordRules: string }>();
             >
                 <FormField
                     id="current_password"
-                    label="Текущий пароль"
+                    :label="t('Current password')"
                     :error="errors.current_password"
                     v-slot="{ field }"
                     ><PasswordInput
@@ -35,11 +39,11 @@ defineProps<{ passwordRules: string }>();
                         name="current_password"
                         required
                         autocomplete="current-password"
-                        placeholder="Текущий пароль"
+                        :placeholder="t('Current password')"
                 /></FormField>
                 <FormField
                     id="password"
-                    label="Новый пароль"
+                    :label="t('New password')"
                     :error="errors.password"
                     v-slot="{ field }"
                     ><PasswordInput
@@ -47,12 +51,12 @@ defineProps<{ passwordRules: string }>();
                         name="password"
                         required
                         autocomplete="new-password"
-                        placeholder="Придумай новый пароль"
+                        :placeholder="t('Choose a new password')"
                         :passwordrules="passwordRules"
                 /></FormField>
                 <FormField
                     id="password_confirmation"
-                    label="Повтори новый пароль"
+                    :label="t('Confirm new password')"
                     :error="errors.password_confirmation"
                     v-slot="{ field }"
                     ><PasswordInput
@@ -60,13 +64,13 @@ defineProps<{ passwordRules: string }>();
                         name="password_confirmation"
                         required
                         autocomplete="new-password"
-                        placeholder="Ещё раз тот же пароль"
+                        :placeholder="t('Enter the same password again')"
                         :passwordrules="passwordRules"
                 /></FormField>
                 <FormActions
                     :processing="processing"
                     :saved="recentlySuccessful"
-                    label="Обновить пароль"
+                    :label="t('Update password')"
                     test-id="update-password-button" /></Form
         ></SurfaceCard>
     </div>

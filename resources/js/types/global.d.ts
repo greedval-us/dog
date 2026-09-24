@@ -18,6 +18,8 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
+            locale: 'ru' | 'en';
+            locales: Record<'ru' | 'en', string>;
             auth: Auth;
             sidebarOpen: boolean;
             [key: string]: unknown;

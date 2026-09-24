@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ChevronDown, Coins, Gem, Menu, X } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
 import DogLiveNavigation from '@/components/DogLiveNavigation.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,44 +20,58 @@ const page = usePage();
 const menuOpen = ref(false);
 const user = computed(() => page.props.auth.user);
 const formatNumber = (value: unknown) =>
-    new Intl.NumberFormat('ru-RU').format(Number(value) || 0);
+    new Intl.NumberFormat(locale.value).format(Number(value) || 0);
 watch(
     () => page.url,
     () => {
         menuOpen.value = false;
     },
 );
+const { locale, t } = useI18n();
 </script>
 
 <template>
     <div class="doglive-shell">
-        <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+        <a class="skip-link" href="#main-content">{{ t('Skip to content') }}</a>
         <aside class="doglive-sidebar">
             <DogLiveBrand />
             <DogLiveNavigation />
             <div class="sidebar-story">
-                <span class="section-kicker">Каждый день — вместе</span>
-                <p>Большая дружба начинается с маленькой заботы.</p>
+                <span class="section-kicker">{{
+                    t('Together every day')
+                }}</span>
+                <p>{{ t('A great friendship starts with a little care.') }}</p>
             </div>
-            <Link :href="dashboard()" class="sidebar-caption"
-                >Твой маленький мир DogLive</Link
-            >
+            <Link :href="dashboard()" class="sidebar-caption">{{
+                t('Your little world of DogLive')
+            }}</Link>
         </aside>
         <div class="doglive-workspace">
             <header class="doglive-topbar">
                 <DogLiveBrand compact class="mobile-brand" />
                 <span class="topbar-greeting"
-                    >Рады видеть тебя,
+                    >{{ t('Good to see you,') }}
                     <strong>{{ user.username }}</strong></span
                 >
                 <div class="account-controls">
-                    <div class="wallet" aria-label="Баланс игрока">
-                        <span :title="formatNumber(user.coins) + ' монет'"
+                    <LanguageSwitcher />
+                    <div class="wallet" :aria-label="t('Player balance')">
+                        <span
+                            :title="
+                                t('Coins: {amount}', {
+                                    amount: formatNumber(user.coins),
+                                })
+                            "
                             ><Coins class="coin-icon" :size="20" /><b>{{
                                 formatNumber(user.coins)
                             }}</b></span
                         >
-                        <span :title="formatNumber(user.gems) + ' кристаллов'"
+                        <span
+                            :title="
+                                t('Gems: {amount}', {
+                                    amount: formatNumber(user.gems),
+                                })
+                            "
                             ><Gem class="gem-icon" :size="20" /><b>{{
                                 formatNumber(user.gems)
                             }}</b></span
@@ -66,7 +82,11 @@ watch(
                             <Button
                                 variant="plain"
                                 class="profile-link"
-                                :aria-label="'Меню игрока ' + user.username"
+                                :aria-label="
+                                    t('Player menu {username}', {
+                                        username: user.username,
+                                    })
+                                "
                             >
                                 <span class="player-avatar">{{
                                     user.username?.charAt(0).toUpperCase()
@@ -86,7 +106,9 @@ watch(
                         class="mobile-menu-button"
                         :aria-expanded="menuOpen"
                         aria-controls="mobile-navigation"
-                        :aria-label="menuOpen ? 'Закрыть меню' : 'Открыть меню'"
+                        :aria-label="
+                            menuOpen ? t('Close menu') : t('Open menu')
+                        "
                         @click="menuOpen = !menuOpen"
                         ><X v-if="menuOpen" /><Menu v-else
                     /></Button>

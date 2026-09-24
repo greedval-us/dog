@@ -1,45 +1,51 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight, Heart, PawPrint, Sprout } from '@lucide/vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard, login, register } from '@/routes';
 const page = usePage();
 const features = [
     {
         icon: Heart,
-        title: 'Забота каждый день',
-        text: 'Маленькие привычки, из которых складывается большая дружба.',
+        title: 'Everyday care',
+        text: 'Little habits that build a great friendship.',
     },
     {
         icon: PawPrint,
-        title: 'У каждого свой характер',
-        text: 'Мир собак, в котором интересно узнавать своего друга.',
+        title: 'Every dog has a personality',
+        text: 'A world of dogs where getting to know your friend is an adventure.',
     },
     {
         icon: Sprout,
-        title: 'Расти вместе',
-        text: 'Новые впечатления и счастливые моменты рядом.',
+        title: 'Grow together',
+        text: 'New experiences and happy moments together.',
     },
 ];
+const { t } = useI18n();
 </script>
 
 <template>
     <div class="public-shell">
-        <Head title="Больше, чем игра" />
-        <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+        <Head :title="t('More than a game')" />
+        <a class="skip-link" href="#main-content">{{ t('Skip to content') }}</a>
         <header class="public-header">
             <DogLiveBrand />
-            <nav class="public-navigation" aria-label="Аккаунт">
+            <nav class="public-navigation" :aria-label="t('Account')">
+                <LanguageSwitcher />
                 <Button v-if="page.props.auth.user" as-child
                     ><Link :href="dashboard()"
-                        >Моя собака <ArrowRight /></Link></Button
+                        >{{ t('My dog') }} <ArrowRight /></Link></Button
                 ><template v-else
                     ><Button variant="ghost" as-child
-                        ><Link :href="login()">Войти</Link></Button
+                        ><Link :href="login()">{{ t('Log in') }}</Link></Button
                     ><Button as-child
-                        ><Link :href="register()">Регистрация</Link></Button
+                        ><Link :href="register()">{{
+                            t('Registration')
+                        }}</Link></Button
                     ></template
                 >
             </nav>
@@ -48,13 +54,20 @@ const features = [
             <section class="welcome-hero">
                 <div class="welcome-copy">
                     <span class="section-kicker"
-                        ><PawPrint :size="16" /> Добро пожаловать в
-                        DogLive</span
+                        ><PawPrint :size="16" />
+                        {{ t('Welcome to DogLive') }}</span
                     >
-                    <h1>Большая дружба.<br /><em>Маленькие лапы.</em></h1>
+                    <h1>
+                        {{ t('Big friendship.') }}<br /><em>{{
+                            t('Little paws.')
+                        }}</em>
+                    </h1>
                     <p>
-                        Уютный мир о собаках, заботе и дружбе. Создай профиль и
-                        стань частью истории, которая только начинается.
+                        {{
+                            t(
+                                'A cozy world of dogs, care and friendship. Create a profile and join a story that is just beginning.',
+                            )
+                        }}
                     </p>
                     <Button size="lg" as-child
                         ><Link
@@ -63,34 +76,43 @@ const features = [
                             "
                             >{{
                                 page.props.auth.user
-                                    ? 'В свой мир'
-                                    : 'Начать свою историю'
+                                    ? t('Enter your world')
+                                    : t('Start your story')
                             }}
                             <ArrowRight /></Link></Button
-                    ><span class="welcome-note"
-                        >Проект развивается. Первые игровые возможности
-                        впереди.</span
-                    >
+                    ><span class="welcome-note">{{
+                        t(
+                            'DogLive is growing. The first gameplay features are on their way.',
+                        )
+                    }}</span>
                 </div>
                 <div class="welcome-image">
                     <img
                         src="/images/doglive-rey.png"
-                        alt="Дружелюбная овчарка среди гор и цветов"
+                        :alt="
+                            t(
+                                'A friendly shepherd dog among mountains and flowers',
+                            )
+                        "
                         width="1536"
                         height="1024"
                         fetchpriority="high"
                     /><span
-                        ><Heart :size="16" /> Счастье — в четырёх лапах</span
+                        ><Heart :size="16" />
+                        {{ t('Happiness has four paws') }}</span
                     >
                 </div>
             </section>
-            <section class="welcome-features" aria-label="Мир DogLive">
+            <section
+                class="welcome-features"
+                :aria-label="t('The world of DogLive')"
+            >
                 <article v-for="feature in features" :key="feature.title">
                     <span class="feature-icon"
                         ><component :is="feature.icon"
                     /></span>
-                    <h2>{{ feature.title }}</h2>
-                    <p>{{ feature.text }}</p>
+                    <h2>{{ t(feature.title) }}</h2>
+                    <p>{{ t(feature.text) }}</p>
                 </article>
             </section>
         </main>

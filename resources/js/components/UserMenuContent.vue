@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Link, router } from '@inertiajs/vue3';
 import { LogOut, Settings } from '@lucide/vue';
 import {
@@ -21,6 +22,7 @@ const handleLogout = () => {
 };
 
 defineProps<Props>();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -33,8 +35,7 @@ defineProps<Props>();
     <DropdownMenuGroup>
         <DropdownMenuItem :as-child="true">
             <Link class="block w-full cursor-pointer" :href="edit()" prefetch>
-                <Settings class="mr-2 h-4 w-4" />
-                Настройки
+                <Settings class="mr-2 h-4 w-4" /> {{ t('Settings') }}
             </Link>
         </DropdownMenuItem>
     </DropdownMenuGroup>
@@ -47,8 +48,7 @@ defineProps<Props>();
             as="button"
             data-test="logout-button"
         >
-            <LogOut class="mr-2 h-4 w-4" />
-            Выйти
+            <LogOut class="mr-2 h-4 w-4" /> {{ t('Log out') }}
         </Link>
     </DropdownMenuItem>
 </template>

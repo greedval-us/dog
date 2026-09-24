@@ -54,6 +54,28 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+.language-control {
+    flex-shrink: 0;
+}
+.language-switcher {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+.language-switcher .ui-button {
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 12px;
+    border-radius: 9px;
+}
+.language-switcher .ui-button[aria-pressed='true'] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+}
+
 /* DogLive: theme tokens. Both Starter Kit primitives and page components use these values. */
 @font-face {
     font-family: DogLive;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Link } from '@inertiajs/vue3';
 import { PawPrint, Settings } from '@lucide/vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
@@ -7,17 +8,18 @@ import { edit } from '@/routes/profile';
 
 const { currentUrl, isCurrentUrl } = useCurrentUrl();
 const items = [
-    { label: 'Моя собака', icon: PawPrint, href: dashboard(), settings: false },
-    { label: 'Настройки', icon: Settings, href: edit(), settings: true },
+    { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
+    { label: 'Settings', icon: Settings, href: edit(), settings: true },
 ];
 const isActive = (item: (typeof items)[number]) =>
     item.settings
         ? currentUrl.value.startsWith('/settings')
         : isCurrentUrl(item.href);
+const { t } = useI18n();
 </script>
 
 <template>
-    <nav class="side-nav" aria-label="Основная навигация">
+    <nav class="side-nav" :aria-label="t('Main navigation')">
         <Link
             v-for="item in items"
             :key="item.label"
@@ -25,8 +27,8 @@ const isActive = (item: (typeof items)[number]) =>
             class="nav-item"
             :class="{ active: isActive(item) }"
             :aria-current="isActive(item) ? 'page' : undefined"
-            :aria-label="item.label"
-            ><component :is="item.icon" /><span>{{ item.label }}</span></Link
+            :aria-label="t(item.label)"
+            ><component :is="item.icon" /><span>{{ t(item.label) }}</span></Link
         >
     </nav>
 </template>

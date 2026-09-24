@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import FormActions from '@/components/FormActions.vue';
@@ -8,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { update } from '@/routes/password';
 defineOptions({
     layout: {
-        title: 'Новый пароль',
-        description: 'Придумай надёжный пароль для своего аккаунта.',
+        title: 'New password',
+        description: 'Choose a strong password for your account.',
     },
 });
 const props = defineProps<{
@@ -18,10 +19,11 @@ const props = defineProps<{
     passwordRules: string;
 }>();
 const inputEmail = ref(props.email);
+const { t } = useI18n();
 </script>
 <template>
     <div class="auth-content">
-        <Head title="Новый пароль" /><Form
+        <Head :title="t('New password')" /><Form
             v-bind="update.form()"
             :transform="(data) => ({ ...data, token, email })"
             :reset-on-success="['password', 'password_confirmation']"
@@ -30,7 +32,7 @@ const inputEmail = ref(props.email);
         >
             <FormField
                 id="email"
-                label="Электронная почта"
+                :label="t('Email address')"
                 :error="errors.email"
                 v-slot="{ field }"
                 ><Input
@@ -43,7 +45,7 @@ const inputEmail = ref(props.email);
             /></FormField>
             <FormField
                 id="password"
-                label="Новый пароль"
+                :label="t('New password')"
                 :error="errors.password"
                 v-slot="{ field }"
                 ><PasswordInput
@@ -52,12 +54,12 @@ const inputEmail = ref(props.email);
                     autocomplete="new-password"
                     autofocus
                     required
-                    placeholder="Придумай пароль"
+                    :placeholder="t('Choose a password')"
                     :passwordrules="passwordRules"
             /></FormField>
             <FormField
                 id="password_confirmation"
-                label="Повтори пароль"
+                :label="t('Confirm password')"
                 :error="errors.password_confirmation"
                 v-slot="{ field }"
                 ><PasswordInput
@@ -65,12 +67,12 @@ const inputEmail = ref(props.email);
                     name="password_confirmation"
                     autocomplete="new-password"
                     required
-                    placeholder="Ещё раз тот же пароль"
+                    :placeholder="t('Enter the same password again')"
                     :passwordrules="passwordRules"
             /></FormField>
             <FormActions
                 :processing="processing"
-                label="Сохранить новый пароль"
+                :label="t('Save new password')"
                 test-id="reset-password-button"
         /></Form>
     </div>

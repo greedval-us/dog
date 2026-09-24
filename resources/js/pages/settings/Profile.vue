@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
@@ -9,13 +10,14 @@ import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Input } from '@/components/ui/input';
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+const { t } = useI18n();
 </script>
 <template>
     <div class="settings-stack">
-        <Head title="Профиль" />
+        <Head :title="t('Profile')" />
         <SurfaceCard
-            title="Твой профиль"
-            description="Имя и почта, по которым мы тебя узнаем."
+            :title="t('Your profile')"
+            :description="t('The name and email address we know you by.')"
         >
             <div class="profile-summary">
                 <span class="profile-avatar">{{
@@ -23,7 +25,7 @@ const user = computed(() => page.props.auth.user);
                 }}</span>
                 <div>
                     <strong>{{ user.username }}</strong
-                    ><span>Ник игрока</span>
+                    ><span>{{ t('Player username') }}</span>
                 </div>
             </div>
             <Form
@@ -33,7 +35,7 @@ const user = computed(() => page.props.auth.user);
             >
                 <FormField
                     id="name"
-                    label="Имя"
+                    :label="t('Name')"
                     :error="errors.name"
                     v-slot="{ field }"
                     ><Input
@@ -42,11 +44,11 @@ const user = computed(() => page.props.auth.user);
                         :default-value="user.name"
                         required
                         autocomplete="name"
-                        placeholder="Твоё имя"
+                        :placeholder="t('Your name')"
                 /></FormField>
                 <FormField
                     id="email"
-                    label="Электронная почта"
+                    :label="t('Email address')"
                     :error="errors.email"
                     v-slot="{ field }"
                     ><Input

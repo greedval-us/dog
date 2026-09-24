@@ -1,29 +1,39 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight } from '@lucide/vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { edit } from '@/routes/profile';
+const { t } = useI18n();
 </script>
 
 <template>
     <div class="my-dog-page">
-        <Head title="Моя собака" />
+        <Head :title="t('My dog')" />
         <Heading
-            title="Моя собака"
-            description="Место для твоего будущего лучшего друга."
+            :title="t('My dog')"
+            :description="t('A place for your future best friend.')"
         />
         <EmptyState
-            title="У тебя пока нет собаки"
-            description="Когда у тебя появится питомец, здесь будут его фотографии, характер и всё для заботы о нём."
+            :title="t('You do not have a dog yet')"
+            :description="
+                t(
+                    'When you get a dog, this is where you will find their photos, personality and everything you need to care for them.',
+                )
+            "
         >
             <p class="empty-state-note">
-                Возможность завести первого питомца ещё в разработке.
+                {{
+                    t(
+                        'The option to get your first dog is still in development.',
+                    )
+                }}
             </p>
             <Button as-child variant="secondary"
                 ><Link :href="edit()"
-                    >Настроить свой профиль <ArrowRight /></Link
+                    >{{ t('Set up your profile') }} <ArrowRight /></Link
             ></Button>
         </EmptyState>
     </div>

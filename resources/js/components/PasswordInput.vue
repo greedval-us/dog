@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Eye, EyeOff } from '@lucide/vue';
 import { ref, useTemplateRef } from 'vue';
 import type { HTMLAttributes } from 'vue';
@@ -14,6 +15,7 @@ const props = defineProps<{
 const showPassword = ref(false);
 const inputRef = useTemplateRef('inputRef');
 defineExpose({ $el: inputRef, focus: () => inputRef.value?.$el?.focus() });
+const { t } = useI18n();
 </script>
 <template>
     <div class="password-field">
@@ -28,7 +30,7 @@ defineExpose({ $el: inputRef, focus: () => inputRef.value?.$el?.focus() });
             variant="plain"
             class="password-toggle"
             @click="showPassword = !showPassword"
-            :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
+            :aria-label="showPassword ? t('Hide password') : t('Show password')"
             :aria-pressed="showPassword"
             ><EyeOff v-if="showPassword" :size="18" /><Eye v-else :size="18"
         /></Button>

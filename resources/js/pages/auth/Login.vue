@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { Form, Head } from '@inertiajs/vue3';
 import FormActions from '@/components/FormActions.vue';
 import FormField from '@/components/FormField.vue';
@@ -12,15 +13,16 @@ import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 defineOptions({
     layout: {
-        title: 'С возвращением',
-        description: 'Войди в свой маленький мир DogLive.',
+        title: 'Welcome back',
+        description: 'Log in to your little world of DogLive.',
     },
 });
 defineProps<{ status?: string; canResetPassword: boolean }>();
+const { t } = useI18n();
 </script>
 <template>
     <div class="auth-content">
-        <Head title="Вход" />
+        <Head :title="t('Login')" />
         <p v-if="status" class="form-notice" role="status">{{ status }}</p>
         <Form
             v-bind="store.form()"
@@ -30,7 +32,7 @@ defineProps<{ status?: string; canResetPassword: boolean }>();
         >
             <FormField
                 id="email"
-                label="Электронная почта"
+                :label="t('Email address')"
                 :error="errors.email"
                 v-slot="{ field }"
                 ><Input
@@ -42,32 +44,37 @@ defineProps<{ status?: string; canResetPassword: boolean }>();
                     autocomplete="email"
                     placeholder="you@example.com"
             /></FormField>
-            <FormField id="password" label="Пароль" :error="errors.password"
+            <FormField
+                id="password"
+                :label="t('Password')"
+                :error="errors.password"
                 ><template #aside
-                    ><TextLink v-if="canResetPassword" :href="request()"
-                        >Забыли пароль?</TextLink
-                    ></template
+                    ><TextLink v-if="canResetPassword" :href="request()">{{
+                        t('Forgot your password?')
+                    }}</TextLink></template
                 ><template #default="{ field }"
                     ><PasswordInput
                         v-bind="field"
                         name="password"
                         required
                         autocomplete="current-password"
-                        placeholder="Твой пароль" /></template
+                        :placeholder="t('Your password')" /></template
             ></FormField>
             <Label for="remember" class="remember-field"
-                ><Checkbox id="remember" name="remember" /><span
-                    >Запомнить меня</span
-                ></Label
+                ><Checkbox
+                    id="remember"
+                    name="remember"
+                    :aria-label="t('Remember me')"
+                /><span>{{ t('Remember me') }}</span></Label
             >
             <FormActions
                 :processing="processing"
-                label="Войти"
+                :label="t('Log in')"
                 test-id="login-button"
             />
             <p class="auth-footer">
-                Ещё нет аккаунта?
-                <TextLink :href="register()">Зарегистрироваться</TextLink>
+                {{ t('Do not have an account yet?') }}
+                <TextLink :href="register()">{{ t('Sign up') }}</TextLink>
             </p>
         </Form>
     </div>

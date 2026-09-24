@@ -1,6 +1,8 @@
+import LocaleController from './LocaleController'
 import Settings from './Settings'
 const Controllers = {
-    Settings: Object.assign(Settings, Settings),
+    LocaleController: Object.assign(LocaleController, LocaleController),
+Settings: Object.assign(Settings, Settings),
 }
 
 export default Controllers

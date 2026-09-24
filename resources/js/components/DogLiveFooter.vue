@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n';
 import { PawPrint } from '@lucide/vue';
+const { t } = useI18n();
 </script>
 
 <template>
     <footer class="doglive-footer">
-        <span><PawPrint :size="16" />DogLive <i>·</i> Больше, чем игра</span
-        ><span>Играй. Заботься. Расти вместе.</span>
+        <span
+            ><PawPrint :size="16" />DogLive <i>·</i>
+            {{ t('More than a game') }}</span
+        ><span>{{ t('Play. Care. Grow together.') }}</span>
     </footer>
 </template>
