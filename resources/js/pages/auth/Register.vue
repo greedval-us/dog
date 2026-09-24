@@ -1,114 +1,105 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import InputError from '@/components/InputError.vue';
+import FormActions from '@/components/FormActions.vue';
+import FormField from '@/components/FormField.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
-
-defineProps<{
-    passwordRules: string;
-}>();
-
+defineProps<{ passwordRules: string }>();
 defineOptions({
     layout: {
-        title: 'Create an account',
-        description: 'Enter your details below to create your account',
+        title: 'Начнём нашу историю',
+        description: 'Создай аккаунт и обустрой своё место в DogLive.',
     },
 });
 </script>
-
 <template>
-    <Head title="Register" />
-
-    <Form
-        v-bind="store.form()"
-        :reset-on-success="['password', 'password_confirmation']"
-        v-slot="{ errors, processing }"
-        class="flex flex-col gap-6"
-    >
-        <div class="grid gap-6">
-            <div class="grid gap-2">
-                <Label for="name">Name</Label>
-                <Input
-                    id="name"
-                    type="text"
+    <div class="auth-content">
+        <Head title="Регистрация" />
+        <Form
+            v-bind="store.form()"
+            :reset-on-success="['password', 'password_confirmation']"
+            v-slot="{ errors, processing }"
+            class="form-stack"
+        >
+            <FormField
+                id="name"
+                label="Как тебя зовут?"
+                :error="errors.name"
+                v-slot="{ field }"
+                ><Input
+                    v-bind="field"
+                    name="name"
                     required
                     v-focus
-                    :tabindex="1"
                     autocomplete="name"
-                    name="name"
-                    placeholder="Full name"
-                />
-                <InputError :message="errors.name" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="email">Email address</Label>
-                <Input
-                    id="email"
+                    placeholder="Твоё имя"
+            /></FormField>
+            <FormField
+                id="username"
+                label="Ник игрока"
+                :error="errors.username"
+                hint="До 32 символов: маленькие латинские буквы, цифры и знак _."
+                v-slot="{ field }"
+                ><Input
+                    v-bind="field"
+                    name="username"
+                    required
+                    maxlength="32"
+                    pattern="[a-z0-9_]+"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    placeholder="alex_greed"
+            /></FormField>
+            <FormField
+                id="email"
+                label="Электронная почта"
+                :error="errors.email"
+                v-slot="{ field }"
+                ><Input
+                    v-bind="field"
                     type="email"
-                    required
-                    :tabindex="2"
-                    autocomplete="email"
                     name="email"
-                    placeholder="email@example.com"
-                />
-                <InputError :message="errors.email" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="password">Password</Label>
-                <PasswordInput
-                    id="password"
                     required
-                    :tabindex="3"
-                    autocomplete="new-password"
+                    autocomplete="email"
+                    placeholder="you@example.com"
+            /></FormField>
+            <FormField
+                id="password"
+                label="Пароль"
+                :error="errors.password"
+                v-slot="{ field }"
+                ><PasswordInput
+                    v-bind="field"
                     name="password"
-                    placeholder="Password"
-                    :passwordrules="passwordRules"
-                />
-                <InputError :message="errors.password" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="password_confirmation">Confirm password</Label>
-                <PasswordInput
-                    id="password_confirmation"
                     required
-                    :tabindex="4"
                     autocomplete="new-password"
-                    name="password_confirmation"
-                    placeholder="Confirm password"
+                    placeholder="Придумай пароль"
                     :passwordrules="passwordRules"
-                />
-                <InputError :message="errors.password_confirmation" />
-            </div>
-
-            <Button
-                type="submit"
-                class="mt-2 w-full"
-                tabindex="5"
-                :disabled="processing"
-                data-test="register-user-button"
-            >
-                <Spinner v-if="processing" />
-                Create account
-            </Button>
-        </div>
-
-        <div class="text-center text-sm text-muted-foreground">
-            Already have an account?
-            <TextLink
-                :href="login()"
-                class="underline underline-offset-4"
-                :tabindex="6"
-                >Log in</TextLink
-            >
-        </div>
-    </Form>
+            /></FormField>
+            <FormField
+                id="password_confirmation"
+                label="Повтори пароль"
+                :error="errors.password_confirmation"
+                v-slot="{ field }"
+                ><PasswordInput
+                    v-bind="field"
+                    name="password_confirmation"
+                    required
+                    autocomplete="new-password"
+                    placeholder="Ещё раз тот же пароль"
+                    :passwordrules="passwordRules"
+            /></FormField>
+            <FormActions
+                :processing="processing"
+                label="Создать аккаунт"
+                test-id="register-user-button"
+            />
+            <p class="auth-footer">
+                Уже с нами? <TextLink :href="login()">Войти</TextLink>
+            </p>
+        </Form>
+    </div>
 </template>

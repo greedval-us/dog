@@ -1,90 +1,77 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import InputError from '@/components/InputError.vue';
+import FormActions from '@/components/FormActions.vue';
+import FormField from '@/components/FormField.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { update } from '@/routes/password';
-
 defineOptions({
     layout: {
-        title: 'Reset password',
-        description: 'Please enter your new password below',
+        title: 'Новый пароль',
+        description: 'Придумай надёжный пароль для своего аккаунта.',
     },
 });
-
 const props = defineProps<{
     token: string;
     email: string;
     passwordRules: string;
 }>();
-
 const inputEmail = ref(props.email);
 </script>
-
 <template>
-    <Head title="Reset password" />
-
-    <Form
-        v-bind="update.form()"
-        :transform="(data) => ({ ...data, token, email })"
-        :reset-on-success="['password', 'password_confirmation']"
-        v-slot="{ errors, processing }"
-    >
-        <div class="grid gap-6">
-            <div class="grid gap-2">
-                <Label for="email">Email</Label>
-                <Input
-                    id="email"
+    <div class="auth-content">
+        <Head title="Новый пароль" /><Form
+            v-bind="update.form()"
+            :transform="(data) => ({ ...data, token, email })"
+            :reset-on-success="['password', 'password_confirmation']"
+            v-slot="{ errors, processing }"
+            class="form-stack"
+        >
+            <FormField
+                id="email"
+                label="Электронная почта"
+                :error="errors.email"
+                v-slot="{ field }"
+                ><Input
+                    v-bind="field"
                     type="email"
                     name="email"
                     autocomplete="email"
                     v-model="inputEmail"
-                    class="mt-1 block w-full"
                     readonly
-                />
-                <InputError :message="errors.email" class="mt-2" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="password">Password</Label>
-                <PasswordInput
-                    id="password"
+            /></FormField>
+            <FormField
+                id="password"
+                label="Новый пароль"
+                :error="errors.password"
+                v-slot="{ field }"
+                ><PasswordInput
+                    v-bind="field"
                     name="password"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
                     autofocus
-                    placeholder="Password"
+                    required
+                    placeholder="Придумай пароль"
                     :passwordrules="passwordRules"
-                />
-                <InputError :message="errors.password" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="password_confirmation"> Confirm password </Label>
-                <PasswordInput
-                    id="password_confirmation"
+            /></FormField>
+            <FormField
+                id="password_confirmation"
+                label="Повтори пароль"
+                :error="errors.password_confirmation"
+                v-slot="{ field }"
+                ><PasswordInput
+                    v-bind="field"
                     name="password_confirmation"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
-                    placeholder="Confirm password"
+                    required
+                    placeholder="Ещё раз тот же пароль"
                     :passwordrules="passwordRules"
-                />
-                <InputError :message="errors.password_confirmation" />
-            </div>
-
-            <Button
-                type="submit"
-                class="mt-4 w-full"
-                :disabled="processing"
-                data-test="reset-password-button"
-            >
-                <Spinner v-if="processing" />
-                Reset password
-            </Button>
-        </div>
-    </Form>
+            /></FormField>
+            <FormActions
+                :processing="processing"
+                label="Сохранить новый пароль"
+                test-id="reset-password-button"
+        /></Form>
+    </div>
 </template>

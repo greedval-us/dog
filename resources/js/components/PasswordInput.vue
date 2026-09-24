@@ -3,46 +3,34 @@ import { Eye, EyeOff } from '@lucide/vue';
 import { ref, useTemplateRef } from 'vue';
 import type { HTMLAttributes } from 'vue';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 defineOptions({ inheritAttrs: false });
-
 const props = defineProps<{
     class?: HTMLAttributes['class'];
     autofocus?: boolean;
 }>();
-
 const showPassword = ref(false);
 const inputRef = useTemplateRef('inputRef');
-
-defineExpose({
-    $el: inputRef,
-    focus: () => inputRef.value?.$el?.focus(),
-});
+defineExpose({ $el: inputRef, focus: () => inputRef.value?.$el?.focus() });
 </script>
-
 <template>
-    <div class="relative">
+    <div class="password-field">
         <Input
-            v-focus="props.autofocus"
+            v-focus="props.autofocus ?? false"
             ref="inputRef"
             :type="showPassword ? 'text' : 'password'"
-            :class="cn('pr-10', props.class)"
+            :class="cn('password-field-input', props.class)"
             v-bind="$attrs"
-        />
-        <button
+        /><Button
             type="button"
+            variant="plain"
+            class="password-toggle"
             @click="showPassword = !showPassword"
-            :class="
-                cn(
-                    'absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none',
-                )
-            "
-            :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            :tabindex="-1"
-        >
-            <EyeOff v-if="showPassword" class="size-4" />
-            <Eye v-else class="size-4" />
-        </button>
+            :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
+            :aria-pressed="showPassword"
+            ><EyeOff v-if="showPassword" :size="18" /><Eye v-else :size="18"
+        /></Button>
     </div>
 </template>

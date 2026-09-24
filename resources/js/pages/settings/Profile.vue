@@ -3,81 +3,67 @@ import { Form, Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
-import Heading from '@/components/Heading.vue';
-import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
+import FormActions from '@/components/FormActions.vue';
+import FormField from '@/components/FormField.vue';
+import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { edit } from '@/routes/profile';
-
-defineOptions({
-    layout: {
-        breadcrumbs: [
-            {
-                title: 'Profile settings',
-                href: edit(),
-            },
-        ],
-    },
-});
-
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 </script>
-
 <template>
-    <Head title="Profile settings" />
-
-    <h1 class="sr-only">Profile settings</h1>
-
-    <div class="flex flex-col space-y-6">
-        <Heading
-            variant="small"
-            title="Profile"
-            description="Update your name and email address"
-        />
-
-        <Form
-            v-bind="ProfileController.update.form()"
-            class="space-y-6"
-            v-slot="{ errors, processing }"
+    <div class="settings-stack">
+        <Head title="Профиль" />
+        <SurfaceCard
+            title="Твой профиль"
+            description="Имя и почта, по которым мы тебя узнаем."
         >
-            <div class="grid gap-2">
-                <Label for="name">Name</Label>
-                <Input
+            <div class="profile-summary">
+                <span class="profile-avatar">{{
+                    user.username?.charAt(0).toUpperCase()
+                }}</span>
+                <div>
+                    <strong>{{ user.username }}</strong
+                    ><span>Ник игрока</span>
+                </div>
+            </div>
+            <Form
+                v-bind="ProfileController.update.form()"
+                class="form-stack"
+                v-slot="{ errors, processing, recentlySuccessful }"
+            >
+                <FormField
                     id="name"
-                    class="mt-1 block w-full"
-                    name="name"
-                    :default-value="user.name"
-                    required
-                    autocomplete="name"
-                    placeholder="Full name"
-                />
-                <InputError class="mt-2" :message="errors.name" />
-            </div>
-
-            <div class="grid gap-2">
-                <Label for="email">Email address</Label>
-                <Input
+                    label="Имя"
+                    :error="errors.name"
+                    v-slot="{ field }"
+                    ><Input
+                        v-bind="field"
+                        name="name"
+                        :default-value="user.name"
+                        required
+                        autocomplete="name"
+                        placeholder="Твоё имя"
+                /></FormField>
+                <FormField
                     id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    name="email"
-                    :default-value="user.email"
-                    required
-                    autocomplete="username"
-                    placeholder="Email address"
+                    label="Электронная почта"
+                    :error="errors.email"
+                    v-slot="{ field }"
+                    ><Input
+                        v-bind="field"
+                        type="email"
+                        name="email"
+                        :default-value="user.email"
+                        required
+                        autocomplete="email"
+                        placeholder="you@example.com"
+                /></FormField>
+                <FormActions
+                    :processing="processing"
+                    :saved="recentlySuccessful"
+                    test-id="update-profile-button"
                 />
-                <InputError class="mt-2" :message="errors.email" />
-            </div>
-
-            <div class="flex items-center gap-4">
-                <Button :disabled="processing" data-test="update-profile-button"
-                    >Save</Button
-                >
-            </div>
-        </Form>
+            </Form> </SurfaceCard
+        ><DeleteUser />
     </div>
-
-    <DeleteUser />
 </template>

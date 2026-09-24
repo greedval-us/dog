@@ -1,47 +1,30 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import PlaceholderPattern from '@/components/PlaceholderPattern.vue';
-import { dashboard } from '@/routes';
-
-defineOptions({
-    layout: {
-        breadcrumbs: [
-            {
-                title: 'Dashboard',
-                href: dashboard(),
-            },
-        ],
-    },
-});
+import { Head, Link } from '@inertiajs/vue3';
+import { ArrowRight } from '@lucide/vue';
+import EmptyState from '@/components/EmptyState.vue';
+import Heading from '@/components/Heading.vue';
+import { Button } from '@/components/ui/button';
+import { edit } from '@/routes/profile';
 </script>
 
 <template>
-    <Head title="Dashboard" />
-
-    <div
-        class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4"
-    >
-        <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
-            <div
-                class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <PlaceholderPattern />
-            </div>
-        </div>
-        <div
-            class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border"
+    <div class="my-dog-page">
+        <Head title="Моя собака" />
+        <Heading
+            title="Моя собака"
+            description="Место для твоего будущего лучшего друга."
+        />
+        <EmptyState
+            title="У тебя пока нет собаки"
+            description="Когда у тебя появится питомец, здесь будут его фотографии, характер и всё для заботы о нём."
         >
-            <PlaceholderPattern />
-        </div>
+            <p class="empty-state-note">
+                Возможность завести первого питомца ещё в разработке.
+            </p>
+            <Button as-child variant="secondary"
+                ><Link :href="edit()"
+                    >Настроить свой профиль <ArrowRight /></Link
+            ></Button>
+        </EmptyState>
     </div>
 </template>

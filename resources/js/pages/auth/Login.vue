@@ -1,107 +1,74 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import InputError from '@/components/InputError.vue';
+import FormActions from '@/components/FormActions.vue';
+import FormField from '@/components/FormField.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-
 defineOptions({
     layout: {
-        title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        title: 'С возвращением',
+        description: 'Войди в свой маленький мир DogLive.',
     },
 });
-
-defineProps<{
-    status?: string;
-    canResetPassword: boolean;
-}>();
+defineProps<{ status?: string; canResetPassword: boolean }>();
 </script>
-
 <template>
-    <Head title="Log in" />
-
-    <div
-        v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
-    >
-        {{ status }}
-    </div>
-
-    <Form
-        v-bind="store.form()"
-        :reset-on-success="['password']"
-        v-slot="{ errors, processing }"
-        class="flex flex-col gap-6"
-    >
-        <div class="grid gap-6">
-            <div class="grid gap-2">
-                <Label for="email">Email address</Label>
-                <Input
-                    id="email"
+    <div class="auth-content">
+        <Head title="Вход" />
+        <p v-if="status" class="form-notice" role="status">{{ status }}</p>
+        <Form
+            v-bind="store.form()"
+            :reset-on-success="['password']"
+            v-slot="{ errors, processing }"
+            class="form-stack"
+        >
+            <FormField
+                id="email"
+                label="Электронная почта"
+                :error="errors.email"
+                v-slot="{ field }"
+                ><Input
+                    v-bind="field"
                     type="email"
                     name="email"
                     required
                     v-focus
-                    :tabindex="1"
                     autocomplete="email"
-                    placeholder="email@example.com"
-                />
-                <InputError :message="errors.email" />
-            </div>
-
-            <div class="grid gap-2">
-                <div class="flex items-center justify-between">
-                    <Label for="password">Password</Label>
-                    <TextLink
-                        v-if="canResetPassword"
-                        :href="request()"
-                        class="text-sm"
-                        :tabindex="5"
-                    >
-                        Forgot your password?
-                    </TextLink>
-                </div>
-                <PasswordInput
-                    id="password"
-                    name="password"
-                    required
-                    :tabindex="2"
-                    autocomplete="current-password"
-                    placeholder="Password"
-                />
-                <InputError :message="errors.password" />
-            </div>
-
-            <div class="flex items-center justify-between">
-                <Label for="remember" class="flex items-center space-x-3">
-                    <Checkbox id="remember" name="remember" :tabindex="3" />
-                    <span>Remember me</span>
-                </Label>
-            </div>
-
-            <Button
-                type="submit"
-                class="mt-4 w-full"
-                :tabindex="4"
-                :disabled="processing"
-                data-test="login-button"
+                    placeholder="you@example.com"
+            /></FormField>
+            <FormField id="password" label="Пароль" :error="errors.password"
+                ><template #aside
+                    ><TextLink v-if="canResetPassword" :href="request()"
+                        >Забыли пароль?</TextLink
+                    ></template
+                ><template #default="{ field }"
+                    ><PasswordInput
+                        v-bind="field"
+                        name="password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="Твой пароль" /></template
+            ></FormField>
+            <Label for="remember" class="remember-field"
+                ><Checkbox id="remember" name="remember" /><span
+                    >Запомнить меня</span
+                ></Label
             >
-                <Spinner v-if="processing" />
-                Log in
-            </Button>
-        </div>
-
-        <div class="text-center text-sm text-muted-foreground">
-            Don't have an account?
-            <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
-        </div>
-    </Form>
+            <FormActions
+                :processing="processing"
+                label="Войти"
+                test-id="login-button"
+            />
+            <p class="auth-footer">
+                Ещё нет аккаунта?
+                <TextLink :href="register()">Зарегистрироваться</TextLink>
+            </p>
+        </Form>
+    </div>
 </template>
