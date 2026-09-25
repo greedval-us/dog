@@ -2,10 +2,10 @@
 
 namespace Database\Factories;
 
-use App\Enums\PetSex;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Enums\PetSex;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Pet> */

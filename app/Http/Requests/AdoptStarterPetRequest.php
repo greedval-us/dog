@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Data\AdoptStarterPetData;
 use App\Models\User;
+use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;

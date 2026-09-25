@@ -1,17 +1,17 @@
 <?php
 
-use App\Actions\AdoptStarterPet;
-use App\Data\AdoptStarterPetData;
-use App\Enums\DogSize;
-use App\Enums\PetSex;
-use App\Enums\PlayerStatus;
-use App\Exceptions\StarterBreedUnavailable;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
-use App\Queries\GetPlayerProfile;
-use App\Queries\GetPrimaryPet;
-use App\Queries\GetStarterBreeds;
+use App\Modules\Kennel\Actions\AdoptStarterPet;
+use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
+use App\Modules\Kennel\Queries\GetStarterBreeds;
+use App\Modules\Pets\Enums\DogSize;
+use App\Modules\Pets\Enums\PetSex;
+use App\Modules\Pets\Queries\GetPrimaryPet;
+use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Queries\GetPlayerProfile;
 use Illuminate\Support\Facades\DB;
 
 test('stored strings become enums and enum assignments preserve the database format', function (string $size, DogSize $expectedSize, string $sex, PetSex $expectedSex) {

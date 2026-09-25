@@ -9,11 +9,16 @@ import PetHero from '@/components/PetHero.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
-import { petScene } from '@/routes';
+import { image } from '@/routes/assets';
+import type { PetAppearance } from '@/types/appearance';
 import { index as kennel } from '@/routes/kennel';
 import type { PlayerPet } from '@/types/pet';
 
-defineProps<{ pet: PlayerPet | null; canClaimStarterPet: boolean }>();
+defineProps<{
+    pet: PlayerPet | null;
+    canClaimStarterPet: boolean;
+    appearance: PetAppearance | null;
+}>();
 const { t } = useI18n();
 </script>
 
@@ -41,33 +46,32 @@ const { t } = useI18n();
                 ></Button>
             </EmptyState>
         </template>
-        <div v-else class="pet-dossier">
+        <div v-else-if="appearance" class="pet-dossier">
             <img
+                v-if="appearance.backgroundId"
                 class="pet-profile-scene"
-                :src="petScene.url()"
+                :src="
+                    image.url({
+                        asset: appearance.backgroundId,
+                        variant: 'image',
+                    })
+                "
                 alt=""
                 aria-hidden="true"
                 width="1672"
                 height="941"
             />
             <div class="pet-stage">
-                <PetHero :pet="pet" />
+                <PetHero :pet="pet" :appearance="appearance" />
                 <aside
                     class="pet-sidebar"
                     :aria-label="t('Wellbeing and care')"
                 >
-                    <PetCondition :states="pet.states" />
+                    <PetCondition :states="pet.states" :energy="pet.energy" />
                     <PetQuickActions />
                 </aside>
             </div>
             <PetDetails :key="pet.id" :pet="pet" />
-            <p class="pet-illustration-note">
-                {{
-                    t(
-                        'Breed illustrations are examples. Your dog’s coat color may differ.',
-                    )
-                }}
-            </p>
         </div>
     </div>
 </template>

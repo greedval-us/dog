@@ -40,7 +40,7 @@ const number = (value: number) =>
             :label="t(label)"
             :icon="icons[key]"
             tone="violet"
-            show-potential
+            show-maximum
             :value="
                 typeof values[key] === 'number'
                     ? values[key]

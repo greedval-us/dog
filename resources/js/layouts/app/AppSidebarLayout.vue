@@ -8,6 +8,7 @@ import DogLiveFooter from '@/components/DogLiveFooter.vue';
 import DogLiveNavigation from '@/components/DogLiveNavigation.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
+import PlayerAvatar from '@/components/PlayerAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -88,10 +89,11 @@ const { locale, t } = useI18n();
                                     })
                                 "
                             >
-                                <span class="player-avatar">{{
-                                    user.username?.charAt(0).toUpperCase()
-                                }}</span
-                                ><span class="player-name">{{
+                                <PlayerAvatar
+                                    :username="user.username"
+                                    :version="user.avatarVersion"
+                                />
+                                <span class="player-name">{{
                                     user.username
                                 }}</span
                                 ><ChevronDown :size="14" />

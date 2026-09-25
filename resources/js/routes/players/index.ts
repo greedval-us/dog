@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
+import avatar from './avatar'
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
  * @see app/Http/Controllers/PlayerProfileController.php:13
@@ -102,7 +103,8 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
     
     show.form = showForm
 const players = {
-    show: Object.assign(show, show),
+    avatar: Object.assign(avatar, avatar),
+show: Object.assign(show, show),
 }
 
 export default players

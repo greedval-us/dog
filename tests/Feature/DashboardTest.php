@@ -1,12 +1,27 @@
 <?php
 
+use App\Models\CharacterTrait;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Services\PetActivityManager;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutVite();
 });
+
+test('the dashboard shows stored energy and the pets own maximum after spending energy', function (float $initial, int|float $remaining, int|float $percentage) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => $initial, 'energy_max' => 120]);
+    app(PetActivityManager::class)->start($pet->user, $pet->id, PetActivity::Walk, now()->addHour(), energyCost: 10);
+
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('pet.energy.value', $remaining)
+        ->where('pet.energy.maximum', 120)
+        ->where('pet.states.energy', $percentage)
+    );
+})->with(['partly spent' => [50.5, 40.5, 33.8], 'fully spent' => [10.0, 0, 0]]);
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -29,8 +44,10 @@ test('the dashboard shows only the current players dog and its saved characteris
     $pet = Pet::factory()->for($user)->create([
         'name' => 'Рэй', 'endurance' => 12, 'endurance_potential' => 145,
         'born_at' => '2026-09-01 10:00:00', 'description' => 'Любит прогулки.',
-        'is_purebred' => true, 'is_favorite' => false, 'traits' => ['friendly', 'active'],
+        'is_purebred' => true, 'is_favorite' => false,
     ]);
+    $traits = CharacterTrait::factory()->count(2)->sequence(['code' => 'friendly'], ['code' => 'active'])->create();
+    $pet->characterTraits()->attach($traits->modelKeys());
 
     $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
         ->where('pet.id', $pet->id)

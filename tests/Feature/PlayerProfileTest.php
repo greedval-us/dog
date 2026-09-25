@@ -34,6 +34,7 @@ test('other players can view the card by username without receiving private acco
             ->where('auth.user.id', $viewer->id)
             ->where('player', [
                 'name' => 'Анна', 'username' => 'anna_dogs', 'bio' => 'Люблю собак.',
+                'avatarVersion' => null,
                 'level' => 7, 'experience' => 4200, 'dogsCount' => 2,
                 'exhibitionWins' => 3, 'competitionWins' => 4, 'walksCount' => 31, 'trainingsCount' => 12,
             ])

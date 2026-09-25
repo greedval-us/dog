@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Enums\DogSize;
 use App\Models\Dog;
+use App\Modules\Pets\Enums\DogSize;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /** @extends Factory<Dog> */

@@ -1,14 +1,16 @@
 <?php
 
-use App\Actions\AdoptStarterPet;
-use App\Data\AdoptStarterPetData;
-use App\Enums\PetSex;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Kennel\Actions\AdoptStarterPet;
+use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Pets\Enums\PetSex;
 use Database\Seeders\DogSeeder;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
+use Random\Engine;
+use Random\Randomizer;
 
 beforeEach(function () {
     $this->withoutVite();
@@ -70,6 +72,32 @@ test('a player can adopt each starter breed for free with server chosen sex and 
         ->and($other->pets()->exists())->toBeFalse();
     $this->assertDatabaseCount('pets', 1);
 })->with(['german_shepherd', 'pit_bull', 'dachshund']);
+
+test('adoption persists the generated sex and coat through the container supplied randomness', function () {
+    $this->instance(Randomizer::class, new Randomizer(new class implements Engine
+    {
+        public function generate(): string
+        {
+            return pack('V', 1);
+        }
+    }));
+    $dog = Dog::factory()->create([
+        'is_starter' => true,
+        'coat_colors' => [
+            'black' => ['ru' => 'Чёрный', 'en' => 'Black'],
+            'brown' => ['ru' => 'Коричневый', 'en' => 'Brown'],
+        ],
+    ]);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('kennel.store'), ['dog_id' => $dog->id, 'name' => 'Рэй'])
+        ->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+
+    $pet = $user->pets()->sole();
+    expect($pet->sex)->toBe(PetSex::Female)
+        ->and($pet->coat_color)->toBe('brown')
+        ->and($user->fresh()->starter_pet_claimed_at)->not->toBeNull();
+});
 
 test('retrying adoption cannot issue a second pet even after the first is removed', function () {
     $dog = Dog::factory()->create(['is_starter' => true]);

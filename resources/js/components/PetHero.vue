@@ -1,23 +1,22 @@
 <script setup lang="ts">
 import {
     CalendarDays,
-    Camera,
-    ChevronLeft,
     ChevronRight,
     Ellipsis,
     Heart,
     Mars,
     Pencil,
-    Plus,
     ShieldCheck,
     Venus,
 } from '@lucide/vue';
-import BreedArtwork from '@/components/BreedArtwork.vue';
+import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
+import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
+import type { PetAppearance } from '@/types/appearance';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 
-defineProps<{ pet: PlayerPet }>();
+defineProps<{ pet: PlayerPet; appearance: PetAppearance }>();
 const { t, locale } = useI18n();
 const date = (value: string) =>
     new Intl.DateTimeFormat(locale.value, {
@@ -98,59 +97,12 @@ const date = (value: string) =>
             </p>
         </header>
         <figure class="pet-hero-portrait">
-            <BreedArtwork
-                :breed="pet.illustration"
+            <GameAssetArtwork
+                :asset-id="appearance.portraitId"
                 :alt="t('Illustration of {breed}', { breed: pet.breed })"
             />
-            <figcaption>{{ t('Breed illustration') }}</figcaption>
+            <figcaption>{{ pet.coatColor }}</figcaption>
         </figure>
-        <div class="pet-gallery" :aria-label="t('Dog photos')">
-            <div class="pet-gallery-strip">
-                <Button
-                    type="button"
-                    variant="plain"
-                    size="icon"
-                    class="pet-gallery-arrow"
-                    disabled
-                    :aria-label="t('Previous photo — coming soon')"
-                    :title="t('Photos — coming soon')"
-                    ><ChevronLeft
-                /></Button>
-                <span
-                    class="pet-photo-current"
-                    :aria-label="t('Breed illustration')"
-                    ><BreedArtwork :breed="pet.illustration" variant="icon"
-                /></span>
-                <span
-                    v-for="slot in 2"
-                    :key="slot"
-                    class="pet-photo-slot"
-                    aria-hidden="true"
-                    ><Camera :size="21"
-                /></span>
-                <Button
-                    type="button"
-                    variant="plain"
-                    class="pet-add-photo"
-                    disabled
-                    :title="t('Photos — coming soon')"
-                >
-                    <Plus :size="20" /><span
-                        >{{ t('Add photo')
-                        }}<small>{{ t('Soon') }}</small></span
-                    >
-                </Button>
-                <Button
-                    type="button"
-                    variant="plain"
-                    size="icon"
-                    class="pet-gallery-arrow"
-                    disabled
-                    :aria-label="t('Next photo — coming soon')"
-                    :title="t('Photos — coming soon')"
-                    ><ChevronRight
-                /></Button>
-            </div>
-        </div>
+        <PetAppearanceControls :pet-id="pet.id" :appearance="appearance" />
     </section>
 </template>

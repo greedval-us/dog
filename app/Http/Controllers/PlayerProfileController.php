@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Queries\GetPlayerProfile;
+use App\Modules\Players\Queries\GetPlayerProfile;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,6 +15,7 @@ class PlayerProfileController extends Controller
         return Inertia::render('PlayerProfile', [
             'player' => $profile->handle($user)->toArray(),
             'isOwner' => $request->user()->is($user),
+            'avatarLimits' => $request->user()->is($user) ? config('doglive.avatar') : null,
         ]);
     }
 }

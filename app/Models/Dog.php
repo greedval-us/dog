@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use App\Data\NewPetData;
-use App\Enums\DogSize;
-use App\Enums\PetStat;
-use App\Enums\PetState;
+use App\Modules\Pets\DTO\NewPetData;
+use App\Modules\Pets\Enums\DogSize;
+use App\Modules\Pets\Enums\PetStat;
+use App\Modules\Pets\Enums\PetState;
 use Database\Factories\DogFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -82,13 +82,15 @@ class Dog extends Model
      */
     public function petDefaults(): array
     {
+        $initializedAt = now();
         $attributes = [
             'size' => $this->size->value,
             'generation' => 1,
             'food_per_day' => $this->food_per_day,
             'water_per_day' => $this->water_per_day,
-            'born_at' => now(),
-            'state_updated_at' => now(),
+            'born_at' => $initializedAt,
+            'state_updated_at' => $initializedAt,
+            'stats_updated_at' => $initializedAt,
         ];
 
         foreach (PetStat::cases() as $stat) {

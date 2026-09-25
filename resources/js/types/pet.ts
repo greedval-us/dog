@@ -28,7 +28,6 @@ export type PlayerPet = {
     id: number;
     name: string;
     breed: string;
-    illustration: string | null;
     sex: 'male' | 'female';
     coatColor: string;
     size: DogSize;
@@ -39,5 +38,6 @@ export type PlayerPet = {
     isFavorite: boolean;
     traits: string[];
     states: Record<DogState, number>;
+    energy: { value: number; maximum: number };
     stats: Record<DogStat, { value: number; potential: number }>;
 };

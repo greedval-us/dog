@@ -12,9 +12,9 @@ import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { show as playerProfile } from '@/routes/players';
-import type { PlayerProfile } from '@/types/player';
+import type { AvatarLimits, PlayerProfile } from '@/types/player';
 
-defineProps<{ player: PlayerProfile }>();
+defineProps<{ player: PlayerProfile; avatarLimits: AvatarLimits }>();
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 const { t } = useI18n();
@@ -22,7 +22,7 @@ const { t } = useI18n();
 <template>
     <div class="settings-stack">
         <Head :title="t('Profile')" />
-        <PlayerCard :player="player">
+        <PlayerCard :player="player" :avatar-limits="avatarLimits">
             <template #actions>
                 <p class="field-hint">
                     {{

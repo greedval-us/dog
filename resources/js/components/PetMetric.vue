@@ -10,9 +10,9 @@ const props = withDefaults(
         maximum?: number;
         icon: Component;
         tone?: 'sage' | 'amber' | 'blue' | 'violet' | 'rose';
-        showPotential?: boolean;
+        showMaximum?: boolean;
     }>(),
-    { maximum: 100, tone: 'sage', showPotential: false },
+    { maximum: 100, tone: 'sage', showMaximum: false },
 );
 const id = useId();
 const { locale } = useI18n();
@@ -22,7 +22,9 @@ const percentage = computed(() =>
         : 0,
 );
 const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
+    new Intl.NumberFormat(locale.value, { maximumFractionDigits: 4 }).format(
+        value,
+    );
 </script>
 
 <template>
@@ -40,7 +42,7 @@ const number = (value: number) =>
             max="100"
             :aria-label="label"
             :aria-valuetext="
-                showPotential
+                showMaximum
                     ? number(value) + ' / ' + number(maximum)
                     : number(value) + '%'
             "
@@ -48,7 +50,7 @@ const number = (value: number) =>
             {{ number(percentage) }}%
         </progress>
         <span class="pet-metric-value"
-            >{{ number(value) }}<template v-if="!showPotential">%</template
+            >{{ number(value) }}<template v-if="!showMaximum">%</template
             ><small v-else> / {{ number(maximum) }}</small></span
         >
     </div>

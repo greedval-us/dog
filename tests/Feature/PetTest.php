@@ -1,10 +1,11 @@
 <?php
 
-use App\Data\NewPetData;
-use App\Enums\PetSex;
+use App\Models\CharacterTrait;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\NewPetData;
+use App\Modules\Pets\Enums\PetSex;
 use Database\Seeders\DogSeeder;
 use Illuminate\Database\QueryException;
 
@@ -163,14 +164,15 @@ test('pets cannot reference a nonexistent parent', function () {
         ->toThrow(QueryException::class);
 });
 
-test('birth dates photos and personality can be stored on an individual pet', function () {
+test('birth dates descriptions and personality can be stored on an individual pet', function () {
     $pet = Pet::factory()->create([
         'born_at' => '2026-09-01 10:00:00',
-        'photos' => ['pets/front.jpg', 'pets/side.jpg'],
-        'traits' => ['friendly', 'active'],
+        'description' => 'My first friend.',
     ])->refresh();
+    $traits = CharacterTrait::factory()->count(2)->sequence(['code' => 'friendly'], ['code' => 'active'])->create();
+    $pet->characterTraits()->attach($traits->modelKeys());
 
     expect($pet->born_at->format('Y-m-d H:i:s'))->toBe('2026-09-01 10:00:00');
-    expect($pet->photos)->toBe(['pets/front.jpg', 'pets/side.jpg']);
-    expect($pet->traits)->toBe(['friendly', 'active']);
+    expect($pet->description)->toBe('My first friend.');
+    expect($pet->characterTraits->pluck('code')->all())->toBe(['friendly', 'active']);
 });

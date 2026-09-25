@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\AdoptStarterPet;
-use App\Data\StarterBreedData;
-use App\Exceptions\StarterBreedUnavailable;
-use App\Exceptions\StarterPetAlreadyClaimed;
 use App\Http\Requests\AdoptStarterPetRequest;
 use App\Models\User;
-use App\Queries\GetStarterBreeds;
+use App\Modules\Kennel\Actions\AdoptStarterPet;
+use App\Modules\Kennel\DTO\StarterBreedData;
+use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
+use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
+use App\Modules\Kennel\Queries\GetStarterBreeds;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;

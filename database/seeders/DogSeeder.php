@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Enums\DogSize;
 use App\Models\Dog;
+use App\Modules\Pets\Enums\DogSize;
 use Illuminate\Database\Seeder;
 
 class DogSeeder extends Seeder

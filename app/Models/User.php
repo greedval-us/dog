@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\PlayerStatus;
+use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -48,7 +48,7 @@ use Illuminate\Notifications\Notifiable;
  * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['name', 'username', 'email', 'password', 'bio'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'avatar_path'])]
 class User extends Authenticatable implements HasLocalePreference
 {
     /** @use HasFactory<UserFactory> */
@@ -60,9 +60,20 @@ class User extends Authenticatable implements HasLocalePreference
         return $this->hasMany(Pet::class);
     }
 
+    /** @return HasMany<AssetUnlock, $this> */
+    public function assetUnlocks(): HasMany
+    {
+        return $this->hasMany(AssetUnlock::class);
+    }
+
     public function preferredLocale(): string
     {
         return $this->locale;
+    }
+
+    public function avatarVersion(): ?string
+    {
+        return $this->avatar_path === null ? null : hash('sha256', $this->avatar_path);
     }
 
     public function canClaimStarterPet(): bool

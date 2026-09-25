@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Settings;
 
 use App\Concerns\ProfileValidationRules;
-use App\Data\UpdatePlayerProfileData;
 use App\Models\User;
+use App\Modules\Players\DTO\UpdatePlayerProfileData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 

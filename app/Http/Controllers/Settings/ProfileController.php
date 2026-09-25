@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers\Settings;
 
-use App\Actions\UpdatePlayerProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\User;
-use App\Queries\GetPlayerProfile;
+use App\Modules\Players\Actions\UpdatePlayerAvatar;
+use App\Modules\Players\Actions\UpdatePlayerProfile;
+use App\Modules\Players\Queries\GetPlayerProfile;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,6 +31,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'player' => $profile->handle($user)->toArray(),
+            'avatarLimits' => config('doglive.avatar'),
         ]);
     }
 
@@ -50,13 +53,17 @@ class ProfileController extends Controller
     /**
      * Delete the user's profile.
      */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
+    public function destroy(ProfileDeleteRequest $request, UpdatePlayerAvatar $updateAvatar): RedirectResponse
     {
         $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
         Auth::logout();
 
-        $user->delete();
+        DB::transaction(function () use ($user, $updateAvatar): void {
+            $updateAvatar->handle($user, null);
+            $user->delete();
+        });
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

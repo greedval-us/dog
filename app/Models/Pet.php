@@ -2,21 +2,29 @@
 
 namespace App\Models;
 
-use App\Enums\DogSize;
-use App\Enums\PetSex;
-use App\Enums\PetState;
+use App\Modules\Pets\Calculators\StatePercentageCalculator;
+use App\Modules\Pets\Enums\DogSize;
+use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Enums\PetSex;
+use App\Modules\Pets\Enums\PetState;
 use Carbon\CarbonImmutable;
 use Database\Factories\PetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
  * @property int|null $user_id
  * @property int $dog_id
+ * @property int|null $portrait_asset_id
+ * @property int|null $background_asset_id
  * @property int|null $father_id
  * @property int|null $mother_id
  * @property string $name
@@ -26,11 +34,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $description
  * @property bool $is_purebred
  * @property bool $is_favorite
- * @property list<string>|null $traits
+ * @property Collection<int, CharacterTrait> $characterTraits
+ * @property Collection<int, Skill> $skills
+ * @property Collection<int, PetDisease> $diseaseEpisodes
+ * @property Collection<int, PetDisease> $activeDiseaseEpisodes
  * @property int $generation
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
  * @property CarbonImmutable $state_updated_at
+ * @property CarbonImmutable $stats_updated_at
+ * @property CarbonImmutable|null $last_activity_at
+ * @property PetActivity|null $activity
+ * @property string|null $activity_token
+ * @property CarbonImmutable|null $activity_started_at
+ * @property CarbonImmutable|null $activity_ends_at
  * @property Dog $dog
  * @property User|null $user
  * @property Pet|null $father
@@ -62,7 +79,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $bond
  * @property int $bond_max
  */
-#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'image_path', 'photos', 'traits', 'activity', 'activity_started_at', 'activity_ends_at', 'state_updated_at', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day'])]
+#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day'])]
 class Pet extends Model
 {
     /** @use HasFactory<PetFactory> */
@@ -78,6 +95,18 @@ class Pet extends Model
     public function dog(): BelongsTo
     {
         return $this->belongsTo(Dog::class);
+    }
+
+    /** @return BelongsTo<GameAsset, $this> */
+    public function portraitAsset(): BelongsTo
+    {
+        return $this->belongsTo(GameAsset::class, 'portrait_asset_id');
+    }
+
+    /** @return BelongsTo<GameAsset, $this> */
+    public function backgroundAsset(): BelongsTo
+    {
+        return $this->belongsTo(GameAsset::class, 'background_asset_id');
     }
 
     /** @return BelongsTo<Pet, $this> */
@@ -104,16 +133,53 @@ class Pet extends Model
         return $this->hasMany(self::class, 'mother_id');
     }
 
+    /** @return BelongsToMany<CharacterTrait, $this> */
+    public function characterTraits(): BelongsToMany
+    {
+        return $this->belongsToMany(CharacterTrait::class)->withTimestamps()->orderByPivot('id');
+    }
+
+    /** @return BelongsToMany<Skill, $this> */
+    public function skills(): BelongsToMany
+    {
+        return $this->belongsToMany(Skill::class)->withPivot(['level', 'experience'])->withTimestamps();
+    }
+
+    /** @return HasMany<PetDisease, $this> */
+    public function diseaseEpisodes(): HasMany
+    {
+        return $this->hasMany(PetDisease::class);
+    }
+
+    /** @return HasMany<PetDisease, $this> */
+    public function activeDiseaseEpisodes(): HasMany
+    {
+        return $this->diseaseEpisodes()->active();
+    }
+
+    public function isBusy(): bool
+    {
+        return $this->activity !== null;
+    }
+
+    /** @param Builder<Pet> $query */
+    #[Scope]
+    protected function availableForActivity(Builder $query): void
+    {
+        $query->whereNull('activity');
+    }
+
     /** @return array<string, float> */
     public function statePercentages(): array
     {
         $percentages = [];
+        $calculator = new StatePercentageCalculator;
 
         foreach (PetState::cases() as $state) {
-            $maximum = $this->getAttribute($state->maximumColumn());
-            $percentages[$state->value] = $maximum > 0
-                ? round(max(0, min(100, $this->getAttribute($state->value) / $maximum * 100)), 1)
-                : 0.0;
+            $percentages[$state->value] = $calculator->calculate(
+                $this->getAttribute($state->value),
+                $this->getAttribute($state->maximumColumn()),
+            );
         }
 
         return $percentages;
@@ -128,10 +194,13 @@ class Pet extends Model
             'born_at' => 'datetime',
             'retired_at' => 'datetime',
             'state_updated_at' => 'datetime',
+            'stats_updated_at' => 'datetime',
+            'last_activity_at' => 'datetime',
+            'activity' => PetActivity::class,
             'activity_started_at' => 'datetime',
             'activity_ends_at' => 'datetime',
-            'photos' => 'array',
-            'traits' => 'array',
+            'portrait_asset_id' => 'integer',
+            'background_asset_id' => 'integer',
             'generation' => 'integer',
             'is_purebred' => 'boolean',
             'is_favorite' => 'boolean',
