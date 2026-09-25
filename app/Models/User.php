@@ -24,6 +24,7 @@ use Illuminate\Notifications\Notifiable;
  * @property PlayerStatus $status
  * @property int $coins
  * @property int $gems
+ * @property int $pet_slots
  * @property int $experience
  * @property int $level
  * @property int $exhibition_wins
@@ -101,6 +102,7 @@ class User extends Authenticatable implements HasLocalePreference
             'password' => 'hashed',
             'coins' => 'integer',
             'gems' => 'integer',
+            'pet_slots' => 'integer',
             'experience' => 'integer',
             'level' => 'integer',
             'exhibition_wins' => 'integer',

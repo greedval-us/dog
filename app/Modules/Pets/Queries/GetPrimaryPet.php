@@ -7,9 +7,10 @@ use App\Modules\Pets\DTO\PetProfileData;
 
 final class GetPrimaryPet
 {
-    public function handle(User $user, string $locale): ?PetProfileData
+    public function handle(User $user, string $locale, ?int $petId = null): ?PetProfileData
     {
-        $pet = $user->pets()->with(['dog', 'characterTraits'])->oldest('id')->first();
+        $query = $user->pets()->with(['dog', 'characterTraits'])->oldest('id');
+        $pet = $petId === null ? $query->first() : $query->findOrFail($petId);
 
         return $pet === null ? null : PetProfileData::fromModel($pet, $pet->dog, $locale);
     }

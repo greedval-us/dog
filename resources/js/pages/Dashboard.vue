@@ -7,6 +7,8 @@ import PetCondition from '@/components/PetCondition.vue';
 import PetDetails from '@/components/PetDetails.vue';
 import PetHero from '@/components/PetHero.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
+import PetSlots from '@/components/PetSlots.vue';
+import type { PetSlot } from '@/types/pet-slot';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { image } from '@/routes/assets';
@@ -18,6 +20,7 @@ defineProps<{
     pet: PlayerPet | null;
     canClaimStarterPet: boolean;
     appearance: PetAppearance | null;
+    slots: PetSlot[];
 }>();
 const { t } = useI18n();
 </script>
@@ -25,6 +28,12 @@ const { t } = useI18n();
 <template>
     <div class="my-dog-page">
         <Head :title="t('My dog')" />
+        <PetSlots
+            :slots="slots"
+            :selected-pet-id="pet?.id ?? null"
+            :selected-portrait-id="appearance?.portraitId ?? null"
+            :can-claim-starter-pet="canClaimStarterPet"
+        />
         <template v-if="!pet">
             <Heading
                 :title="t('My dog')"

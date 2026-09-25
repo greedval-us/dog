@@ -7,6 +7,7 @@ use App\Http\Controllers\GameImageController;
 use App\Http\Controllers\KennelController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PetAppearanceController;
+use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::post('pet-slots', [PetSlotController::class, 'store'])->middleware('throttle:15,1')->name('pet-slots.store');
     Route::put('pets/{pet}/appearance', [PetAppearanceController::class, 'update'])
         ->middleware('throttle:30,1')->name('pets.appearance.update');
     Route::post('pets/{pet}/appearance/purchases', [AssetPurchaseController::class, 'store'])
