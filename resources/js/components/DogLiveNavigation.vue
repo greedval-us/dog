@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Link } from '@inertiajs/vue3';
-import { PawPrint, Settings } from '@lucide/vue';
+import { House, PawPrint, Settings } from '@lucide/vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
+import { index as kennel } from '@/routes/kennel';
 import { edit } from '@/routes/profile';
 
 const { currentUrl, isCurrentUrl } = useCurrentUrl();
 const items = [
     { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
+    { label: 'Kennel', icon: House, href: kennel(), settings: false },
     { label: 'Settings', icon: Settings, href: edit(), settings: true },
 ];
 const isActive = (item: (typeof items)[number]) =>

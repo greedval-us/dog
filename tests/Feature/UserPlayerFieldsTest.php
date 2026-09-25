@@ -65,3 +65,18 @@ test('player migration preserves existing accounts and assigns distinct public u
     ]);
     expect(DB::table('users')->count())->toBe(2);
 });
+
+test('statistics migration gives existing players initial values without changing their profile or experience', function () {
+    $migration = require database_path('migrations/2026_09_25_103052_add_player_statistics_to_users_table.php');
+    $migration->down();
+    $user = User::factory()->create(['bio' => 'Люблю собак.', 'experience' => 150]);
+
+    $migration->up();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id, 'name' => $user->name, 'username' => $user->username,
+        'bio' => 'Люблю собак.', 'experience' => 150,
+        'level' => 1, 'exhibition_wins' => 0, 'competition_wins' => 0,
+        'walks_count' => 0, 'trainings_count' => 0,
+    ]);
+});

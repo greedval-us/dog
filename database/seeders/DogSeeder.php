@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\DogSize;
 use App\Models\Dog;
 use Illuminate\Database\Seeder;
 
@@ -17,7 +18,7 @@ class DogSeeder extends Seeder
                 'breed' => 'german_shepherd',
                 'name' => ['ru' => 'Немецкая овчарка', 'en' => 'German Shepherd'],
                 'description' => ['ru' => 'Крупная, выносливая собака с высоким потенциалом послушания и интеллекта.', 'en' => 'A large, resilient dog with strong potential for obedience and intelligence.'],
-                'size' => 'large',
+                'size' => DogSize::Large,
                 'coat_colors' => [
                     'black_tan' => ['ru' => 'Чепрачный', 'en' => 'Black and tan'],
                     'sable' => ['ru' => 'Зонарный', 'en' => 'Sable'],
@@ -40,7 +41,7 @@ class DogSeeder extends Seeder
                 'breed' => 'pit_bull',
                 'name' => ['ru' => 'Питбуль', 'en' => 'Pit bull'],
                 'description' => ['ru' => 'Собака среднего размера с высоким потенциалом силы и выносливости.', 'en' => 'A medium-sized dog with strong potential for strength and endurance.'],
-                'size' => 'medium',
+                'size' => DogSize::Medium,
                 'coat_colors' => [
                     'fawn' => ['ru' => 'Палевый', 'en' => 'Fawn'],
                     'brindle' => ['ru' => 'Тигровый', 'en' => 'Brindle'],
@@ -63,7 +64,7 @@ class DogSeeder extends Seeder
                 'breed' => 'dachshund',
                 'name' => ['ru' => 'Такса', 'en' => 'Dachshund'],
                 'description' => ['ru' => 'Небольшая собака с высоким потенциалом ловкости и интеллекта.', 'en' => 'A small dog with strong potential for agility and intelligence.'],
-                'size' => 'small',
+                'size' => DogSize::Small,
                 'coat_colors' => [
                     'red' => ['ru' => 'Рыжий', 'en' => 'Red'],
                     'black_tan' => ['ru' => 'Чёрно-подпалый', 'en' => 'Black and tan'],

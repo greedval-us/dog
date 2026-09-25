@@ -1,5 +1,7 @@
 <?php
 
+use App\Data\NewPetData;
+use App\Enums\PetSex;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
@@ -27,12 +29,12 @@ test('starter catalogue seeds three localized breeds without giving pets to play
 test('new pets keep a personal snapshot of breed potential and body needs', function () {
     $dog = Dog::factory()->create(['endurance_potential' => 140, 'satiety_max' => 600, 'food_per_day' => 300]);
     $user = User::factory()->create();
-    $pet = $dog->newPet([
-        'name' => 'Рэй',
-        'sex' => 'male',
-        'coat_color' => 'black',
-        'description' => 'Любит прогулки.',
-    ]);
+    $pet = $dog->newPet(new NewPetData(
+        name: 'Рэй',
+        sex: PetSex::Male,
+        coatColor: 'black',
+        description: 'Любит прогулки.',
+    ));
 
     $user->pets()->save($pet);
     $dog->update(['endurance_potential' => 180, 'satiety_max' => 800, 'food_per_day' => 400]);

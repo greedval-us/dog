@@ -1,6 +1,6 @@
 ---
 name: doglive-ui
-description: "Develop and refine DogLive website UI in its existing visual style: Vue/Inertia pages, shared components, forms, responsive layouts, themes, and motion. Preserve one CSS stylesheet and Starter Kit reuse. Use for DogLive visual work; exclude MoonShine admin styling and backend-only tasks."
+description: "Develop and refine DogLive website UI in its existing visual style: Vue/Inertia pages, shared components, forms, responsive layouts, RU/EN localization, themes, and motion. Preserve one CSS stylesheet and Starter Kit reuse. Use for DogLive visual work; exclude MoonShine admin styling and backend-only tasks."
 ---
 
 # DogLive UI
@@ -22,6 +22,7 @@ description: "Develop and refine DogLive website UI in its existing visual style
 | Настройки: навигация и содержимое | `resources/js/layouts/settings/Layout.vue`, `resources/js/pages/settings/Profile.vue` |
 | Главная и иллюстрация | `resources/js/pages/Welcome.vue` |
 | Страница игры и состояние без питомца | `resources/js/pages/Dashboard.vue` |
+| Русский и английский языки | `resources/js/composables/useI18n.ts`, `resources/js/locales/ru.json`, `resources/js/locales/en.json`, `resources/js/components/LanguageSwitcher.vue`, `config/localization.php` |
 | Переключение светлой, тёмной и системной темы | `resources/js/composables/useAppearance.ts`, `resources/js/components/AppearanceTabs.vue` |
 
 В `app.ts` уже настроены layouts: `Welcome` без общего layout, `auth/*` с `AuthLayout`, `settings/*` с `[AppLayout, SettingsLayout]`, остальные страницы с `AppLayout`. Сохраняй эту композицию; не добавляй вторую оболочку внутри страницы. У auth-страниц заголовок и описание передаются существующим способом через `defineOptions({ layout: ... })`.
@@ -56,7 +57,8 @@ description: "Develop and refine DogLive website UI in its existing visual style
 ## Формы, данные и состояние страницы
 
 - Используй имеющиеся Inertia-формы и маршруты Wayfinder из `@/routes` и `@/actions`; сохраняй серверную валидацию, `processing`, сообщения ошибок и успеха. Для соответствующих изменений применяй проектные скилы Inertia, Wayfinder и Fortify.
-- Текущий язык интерфейса — русский, обращение на «ты». Сохраняй короткие понятные подписи, не выводи технические подробности реализации в пользовательских действиях.
+- Интерфейс поддерживает русский и английский языки. Получай видимые строки, подсказки, alt и доступные подписи через `useI18n().t`; добавляй и обновляй одинаковые ключи в `resources/js/locales/ru.json` и `resources/js/locales/en.json`. Параметры вида `{username}` должны совпадать в обоих переводах. В русских текстах сохраняй обращение на «ты». Не выводи технические подробности реализации в пользовательских действиях.
+- Используй существующий `LanguageSwitcher` и серверный выбор языка: настройка аккаунта → cookie → `config/localization.php`. Не создавай параллельное хранение языка. Числа форматируй с текущей locale. Серверные сообщения и письма переводятся отдельно в `lang`; не подменяй их клиентскими словарями.
 - Отображай реальные данные пользователя и питомцев. Отсутствие собаки — нормальное пустое состояние: не подставляй демонстрационного питомца, характеристики или баланс. При появлении механизма получения питомца подключай настоящее действие.
 - `public/images/doglive-rey.png` сейчас служит оформлением главной и авторизации. Наличие этой иллюстрации не означает владение собакой.
 - Добавляй в меню существующие доступные сценарии. Не заполняй его неработающими пунктами будущей игры. Концепция механики сама по себе не означает, что её поля и обработчики уже реализованы.
@@ -72,7 +74,7 @@ description: "Develop and refine DogLive website UI in its existing visual style
 
 ## Проверка изменения
 
-Для изменения UI проверь узкий и широкий экраны и обе темы; при затрагивании layout добавь планшет. Рабочие ориентиры: 320/390, 768 и 1440 CSS-пикселей. Проверяй изменённые состояния и реальные действия, а при изменении общего компонента — его репрезентативных потребителей в игре, настройках или авторизации.
+Для изменения UI проверь узкий и широкий экраны, обе темы и RU/EN; при затрагивании layout добавь планшет. Рабочие ориентиры: 320/390, 768 и 1440 CSS-пикселей. Проверяй изменённые состояния и реальные действия, а при изменении общего компонента — его репрезентативных потребителей в игре, настройках или авторизации.
 
 Запускай проверки по объёму изменения и текущим scripts в `package.json`: TypeScript — `npm run types:check`, сборка — `npm run build`, форматирование/линтер — настроенный Vite Plus для затронутых файлов. Новые тесты нужны для изменённого поведения с полезным регрессионным покрытием; для чистого оформления не создавай тесты, повторяющие CSS. Не заявляй о визуальной проверке без наблюдения в браузере.
 

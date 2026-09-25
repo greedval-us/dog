@@ -75,7 +75,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-    
+
     login.form = loginForm
 /**
 * @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
@@ -130,7 +130,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             action: logout.url(options),
             method: 'post',
         })
-    
+
     logout.form = logoutForm
 /**
 * @see \Laravel\Fortify\Http\Controllers\RegisteredUserController::register
@@ -208,7 +208,7 @@ register.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-    
+
     register.form = registerForm
 /**
 * @see \Inertia\Controller::__invoke
@@ -286,11 +286,11 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-    
+
     home.form = homeForm
 /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
 export const dashboard = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -304,8 +304,8 @@ dashboard.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
 dashboard.url = (options?: RouteQueryOptions) => {
@@ -313,8 +313,8 @@ dashboard.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
 dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -322,8 +322,8 @@ dashboard.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     method: 'get',
 })
 /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
 dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -332,8 +332,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
     /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
     const dashboardForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -342,8 +342,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     })
 
             /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
         dashboardForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -351,8 +351,8 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
             method: 'get',
         })
             /**
-* @see \Inertia\Controller::__invoke
- * @see vendor/inertiajs/inertia-laravel/src/Controller.php:13
+* @see \App\Http\Controllers\DashboardController::__invoke
+ * @see app/Http/Controllers/DashboardController.php:13
  * @route '/dashboard'
  */
         dashboardForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -364,5 +364,83 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-    
+
     dashboard.form = dashboardForm
+/**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+export const petScene = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: petScene.url(options),
+    method: 'get',
+})
+
+petScene.definition = {
+    methods: ["get","head"],
+    url: '/media/pet-scene',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+petScene.url = (options?: RouteQueryOptions) => {
+    return petScene.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+petScene.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: petScene.url(options),
+    method: 'get',
+})
+/**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: petScene.url(options),
+    method: 'head',
+})
+
+    /**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+    const petSceneForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+        action: petScene.url(options),
+        method: 'get',
+    })
+
+            /**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+        petSceneForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: petScene.url(options),
+            method: 'get',
+        })
+            /**
+* @see \App\Http\Controllers\GameImageController::petScene
+ * @see app/Http/Controllers/GameImageController.php:18
+ * @route '/media/pet-scene'
+ */
+        petSceneForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+            action: petScene.url({
+                        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+                            _method: 'HEAD',
+                            ...(options?.query ?? options?.mergeQuery ?? {}),
+                        }
+                    }),
+            method: 'get',
+        })
+
+    petScene.form = petSceneForm

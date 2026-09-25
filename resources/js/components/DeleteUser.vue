@@ -29,7 +29,7 @@ const { t } = useI18n();
         <p class="danger-message">
             {{
                 t(
-                    'Deleting your account is permanent. All associated data will be deleted.',
+                    'Deleting your account is permanent. Your pets and their pedigree will remain, but will no longer be linked to your account.',
                 )
             }}
         </p>
@@ -54,7 +54,7 @@ const { t } = useI18n();
                         }}</DialogTitle
                         ><DialogDescription>{{
                             t(
-                                'Your account and its data cannot be recovered after deletion. Enter your password to confirm.',
+                                'Your account cannot be recovered. Your pets and their pedigree will remain without an owner. Enter your password to confirm.',
                             )
                         }}</DialogDescription></DialogHeader
                     >

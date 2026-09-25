@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\DogSize;
 use App\Models\Dog;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,7 +16,7 @@ class DogFactory extends Factory
             'breed' => fake()->unique()->slug(),
             'name' => ['ru' => 'Тестовая порода', 'en' => 'Test breed'],
             'description' => ['ru' => 'Описание породы', 'en' => 'Breed description'],
-            'size' => 'medium',
+            'size' => DogSize::Medium,
             'coat_colors' => ['black' => ['ru' => 'Чёрный', 'en' => 'Black']],
             'is_starter' => false,
             'endurance_potential' => 100,

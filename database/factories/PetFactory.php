@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PetSex;
 use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
@@ -17,7 +18,7 @@ class PetFactory extends Factory
             'dog_id' => Dog::factory(),
             'user_id' => User::factory(),
             'name' => fake()->firstName(),
-            'sex' => 'male',
+            'sex' => PetSex::Male,
         ];
     }
 
@@ -38,7 +39,7 @@ class PetFactory extends Factory
 
     public function female(): static
     {
-        return $this->state(fn (): array => ['sex' => 'female']);
+        return $this->state(fn (): array => ['sex' => PetSex::Female]);
     }
 
     public function retired(): static

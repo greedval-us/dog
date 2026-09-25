@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\DogSize;
+use App\Enums\PetSex;
+use App\Enums\PetState;
 use Carbon\CarbonImmutable;
 use Database\Factories\PetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -11,14 +14,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property int $id
  * @property int|null $user_id
  * @property int $dog_id
  * @property int|null $father_id
  * @property int|null $mother_id
  * @property string $name
- * @property string $sex
+ * @property PetSex $sex
  * @property string $coat_color
- * @property string $size
+ * @property DogSize $size
+ * @property string|null $description
+ * @property bool $is_purebred
+ * @property bool $is_favorite
+ * @property list<string>|null $traits
  * @property int $generation
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
@@ -101,10 +109,10 @@ class Pet extends Model
     {
         $percentages = [];
 
-        foreach (Dog::STATE_NAMES as $state) {
-            $maximum = $this->getAttribute($state.'_max');
-            $percentages[$state] = $maximum > 0
-                ? round(max(0, min(100, $this->getAttribute($state) / $maximum * 100)), 1)
+        foreach (PetState::cases() as $state) {
+            $maximum = $this->getAttribute($state->maximumColumn());
+            $percentages[$state->value] = $maximum > 0
+                ? round(max(0, min(100, $this->getAttribute($state->value) / $maximum * 100)), 1)
                 : 0.0;
         }
 
@@ -115,6 +123,8 @@ class Pet extends Model
     protected function casts(): array
     {
         return [
+            'sex' => PetSex::class,
+            'size' => DogSize::class,
             'born_at' => 'datetime',
             'retired_at' => 'datetime',
             'state_updated_at' => 'datetime',

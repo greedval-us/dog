@@ -2,17 +2,25 @@
 
 namespace App\Models;
 
+use App\Data\NewPetData;
+use App\Enums\DogSize;
+use App\Enums\PetStat;
+use App\Enums\PetState;
 use Database\Factories\DogFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property int $id
  * @property string $breed
  * @property array<string, string> $name
  * @property array<string, string> $description
- * @property string $size
+ * @property DogSize $size
+ * @property bool $is_starter
  * @property array<string, array<string, string>> $coat_colors
  * @property int $endurance_potential
  * @property int $speed_potential
@@ -38,10 +46,6 @@ class Dog extends Model
 
     protected $table = 'dog';
 
-    public const STAT_NAMES = ['endurance', 'speed', 'strength', 'agility', 'obedience', 'intelligence'];
-
-    public const STATE_NAMES = ['health', 'energy', 'satiety', 'hydration', 'mood', 'cleanliness', 'bond'];
-
     /** @return HasMany<Pet, $this> */
     public function pets(): HasMany
     {
@@ -53,6 +57,23 @@ class Dog extends Model
         return $this->name[$locale ?? app()->getLocale()] ?? $this->name['en'] ?? $this->breed;
     }
 
+    public function illustration(): ?string
+    {
+        return in_array($this->breed, config('doglive.illustrated_breeds'), true) ? $this->breed : null;
+    }
+
+    public function canBeAdopted(): bool
+    {
+        return $this->is_starter && $this->coat_colors !== [];
+    }
+
+    /** @param Builder<Dog> $query */
+    #[Scope]
+    protected function starter(Builder $query): void
+    {
+        $query->where('is_starter', true);
+    }
+
     /**
      * Snapshot breed defaults so later catalogue changes do not change existing pets.
      * Food and water use game units; satiety and hydration are remaining reserves.
@@ -62,7 +83,7 @@ class Dog extends Model
     public function petDefaults(): array
     {
         $attributes = [
-            'size' => $this->size,
+            'size' => $this->size->value,
             'generation' => 1,
             'food_per_day' => $this->food_per_day,
             'water_per_day' => $this->water_per_day,
@@ -70,24 +91,29 @@ class Dog extends Model
             'state_updated_at' => now(),
         ];
 
-        foreach (self::STAT_NAMES as $stat) {
-            $attributes[$stat] = 0;
-            $attributes[$stat.'_potential'] = $this->getAttribute($stat.'_potential');
+        foreach (PetStat::cases() as $stat) {
+            $attributes[$stat->value] = 0;
+            $attributes[$stat->potentialColumn()] = $this->getAttribute($stat->potentialColumn());
         }
 
-        foreach (self::STATE_NAMES as $state) {
-            $maximum = $this->getAttribute($state.'_max');
-            $attributes[$state.'_max'] = $maximum;
-            $attributes[$state] = $state === 'bond' ? 0 : $maximum;
+        foreach (PetState::cases() as $state) {
+            $maximum = $this->getAttribute($state->maximumColumn());
+            $attributes[$state->maximumColumn()] = $maximum;
+            $attributes[$state->value] = $state === PetState::Bond ? 0 : $maximum;
         }
 
         return $attributes;
     }
 
-    /** @param array<string, mixed> $attributes */
-    public function newPet(array $attributes = []): Pet
+    public function newPet(NewPetData $data): Pet
     {
-        $pet = new Pet([...$this->petDefaults(), ...$attributes]);
+        $pet = new Pet([
+            ...$this->petDefaults(),
+            'name' => $data->name,
+            'sex' => $data->sex,
+            'coat_color' => $data->coatColor,
+            'description' => $data->description,
+        ]);
         $pet->dog()->associate($this);
 
         return $pet;
@@ -97,6 +123,7 @@ class Dog extends Model
     protected function casts(): array
     {
         return [
+            'size' => DogSize::class,
             'name' => 'array',
             'description' => 'array',
             'coat_colors' => 'array',
