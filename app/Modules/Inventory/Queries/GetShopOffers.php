@@ -19,6 +19,7 @@ final class GetShopOffers
         return ShopOffer::query()
             ->with('item.category')
             ->where('is_active', true)
+            ->where('currency', 'coins')
             ->where(fn (Builder $query) => $query->whereNull('stock')->orWhere('stock', '>', 0))
             ->whereHas('item', function (Builder $query) use ($categoryId): void {
                 $query->where('is_active', true)

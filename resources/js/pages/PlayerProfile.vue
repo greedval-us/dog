@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowRight, PawPrint, Pencil } from '@lucide/vue';
+import { ArrowRight, Package, PawPrint, Pencil } from '@lucide/vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import Heading from '@/components/Heading.vue';
@@ -11,14 +11,18 @@ import { edit } from '@/routes/profile';
 import { dashboard } from '@/routes';
 import { image } from '@/routes/assets';
 import { index as kennel } from '@/routes/kennel';
+import { index as inventory } from '@/routes/inventory';
 import type { PlayerDog, PlayerProfile } from '@/types/player';
 
 defineProps<{
     player: PlayerProfile;
     isOwner: boolean;
+    inventoryCount: number | null;
     dogs: PlayerDog[];
 }>();
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const number = (value: number) =>
+    new Intl.NumberFormat(locale.value).format(value);
 </script>
 
 <template>
@@ -31,6 +35,14 @@ const { t } = useI18n();
         <Heading :title="t('Player card')" />
         <PlayerCard :player="player">
             <template v-if="isOwner" #header-actions>
+                <Button as-child variant="secondary">
+                    <Link :href="inventory()"
+                        ><Package aria-hidden="true" />{{ t('Inventory')
+                        }}<span class="inventory-link-count">{{
+                            number(inventoryCount ?? 0)
+                        }}</span></Link
+                    >
+                </Button>
                 <Button as-child
                     ><Link :href="edit()"
                         ><Pencil />{{ t('Edit profile') }}</Link

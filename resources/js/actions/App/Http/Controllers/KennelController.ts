@@ -75,7 +75,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\KennelController::store
@@ -130,7 +130,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             action: store.url(options),
             method: 'post',
         })
-
+    
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\KennelController::purchase
@@ -185,7 +185,7 @@ purchase.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             action: purchase.url(options),
             method: 'post',
         })
-
+    
     purchase.form = purchaseForm
 const KennelController = { index, store, purchase }
 

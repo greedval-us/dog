@@ -23,7 +23,7 @@ final class PurchaseItem
     public function handle(User $user, PurchaseItemData $data): ItemPurchase
     {
         if ($data->offerId < 1 || $data->itemId < 1 || $data->expectedPrice < 1
-            || ! in_array($data->expectedCurrency, ['coins', 'gems'], true) || ! Str::isUuid($data->token)) {
+            || $data->expectedCurrency !== 'coins' || ! Str::isUuid($data->token)) {
             throw new InvalidArgumentException('Invalid item purchase.');
         }
 
@@ -51,11 +51,11 @@ final class PurchaseItem
             $item = Item::query()->sharedLock()->findOrFail($offer->item_id);
             $category = ItemCategory::query()->sharedLock()->findOrFail($item->item_category_id);
 
-            if (! $offer->is_active || ! $item->is_active || ! $category->is_active || $offer->stock === 0) {
+            if ($offer->currency !== 'coins' || ! $offer->is_active || ! $item->is_active || ! $category->is_active || $offer->stock === 0) {
                 throw new ItemUnavailable('This item is not available in the shop.');
             }
 
-            if ($item->id !== $data->itemId || $offer->currency !== $data->expectedCurrency || $offer->price !== $data->expectedPrice) {
+            if ($item->id !== $data->itemId || $offer->price !== $data->expectedPrice) {
                 throw new ItemUnavailable('The offer has changed. Refresh the shop before purchasing.');
             }
 

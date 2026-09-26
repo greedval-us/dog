@@ -4,13 +4,14 @@ namespace App\Modules\Inventory\Queries;
 
 use App\Models\InventoryItem;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\CursorPaginator;
 use InvalidArgumentException;
 
 final class GetPlayerInventory
 {
     /** @return CursorPaginator<int, InventoryItem> */
-    public function handle(User $user, ?int $itemId = null, int $perPage = 24): CursorPaginator
+    public function handle(User $user, ?int $itemId = null, int $perPage = 24, ?int $categoryId = null): CursorPaginator
     {
         if ($perPage < 1 || $perPage > 100) {
             throw new InvalidArgumentException('Page size must be between 1 and 100.');
@@ -20,6 +21,10 @@ final class GetPlayerInventory
 
         if ($itemId !== null) {
             $query->where('item_id', $itemId);
+        }
+
+        if ($categoryId !== null) {
+            $query->whereHas('item', fn (Builder $item): Builder => $item->where('item_category_id', $categoryId));
         }
 
         return $query->orderBy('id')->cursorPaginate($perPage);

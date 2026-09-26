@@ -24,22 +24,22 @@ function itemPurchaseData(ShopOffer $offer, ?string $token = null): PurchaseItem
     return new PurchaseItemData($offer->id, $offer->item_id, $offer->currency, $offer->price, $token ?? (string) Str::uuid());
 }
 
-test('purchases charge the chosen currency and create independent item instances', function (string $currency) {
+test('purchases charge only coins and create independent item instances', function () {
     $user = User::factory()->create(['coins' => 100, 'gems' => 100]);
     $item = Item::factory()->create(['quality' => 10, 'usage_limit' => 3, 'characteristics' => ['mood' => 12, 'size' => 'small']]);
-    $offer = ShopOffer::factory()->for($item)->create(['currency' => $currency, 'stock' => 2]);
+    $offer = ShopOffer::factory()->for($item)->create(['currency' => 'coins', 'stock' => 2]);
 
     $purchase = app(PurchaseItem::class)->handle($user, itemPurchaseData($offer));
     $second = app(PurchaseItem::class)->handle($user, itemPurchaseData($offer));
 
     expect($purchase->inventoryItem->id)->not->toBe($second->inventoryItem->id);
     expect($purchase->inventoryItem->characteristics)->toBe(['mood' => 12, 'size' => 'small']);
-    $this->assertDatabaseHas('users', ['id' => $user->id, $currency => 50]);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 50, 'gems' => 100]);
     $this->assertDatabaseHas('shop_offers', ['id' => $offer->id, 'stock' => 0]);
     $this->assertDatabaseHas('inventory_items', ['item_purchase_id' => $purchase->id, 'quality' => 10, 'usage_limit' => 3, 'remaining_uses' => 3]);
-    $this->assertDatabaseHas('currency_transactions', ['id' => $purchase->currency_transaction_id, 'currency' => $currency, 'amount' => -25]);
+    $this->assertDatabaseHas('currency_transactions', ['id' => $purchase->currency_transaction_id, 'currency' => 'coins', 'amount' => -25]);
     $this->assertDatabaseCount('inventory_items', 2);
-})->with(['coins', 'gems']);
+});
 
 test('purchase retries survive catalogue changes and item destruction without charging or granting again', function () {
     $user = User::factory()->create(['coins' => 100]);
@@ -105,6 +105,7 @@ test('malformed purchase arguments cannot charge a player', function (int $offer
 })->with([
     'offer' => [0, 1, 'coins', 25, '6b639cae-3484-4e11-8ce8-873c547211bc'],
     'item' => [1, 0, 'coins', 25, '6b639cae-3484-4e11-8ce8-873c547211bc'],
+    'gems' => [1, 1, 'gems', 25, '6b639cae-3484-4e11-8ce8-873c547211bc'],
     'currency' => [1, 1, 'experience', 25, '6b639cae-3484-4e11-8ce8-873c547211bc'],
     'price' => [1, 1, 'coins', 0, '6b639cae-3484-4e11-8ce8-873c547211bc'],
     'token' => [1, 1, 'coins', 25, 'invalid'],

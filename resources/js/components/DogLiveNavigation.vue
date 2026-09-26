@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Link, usePage } from '@inertiajs/vue3';
-import { House, PawPrint, Settings, UserRound } from '@lucide/vue';
+import { House, PawPrint, Settings, ShoppingBag, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
+import { index as shop } from '@/routes/shop';
 import { edit } from '@/routes/profile';
 import { show as playerProfile } from '@/routes/players';
 
@@ -20,6 +21,7 @@ const items = computed(() => [
     },
     { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
+    { label: 'Shop', icon: ShoppingBag, href: shop(), settings: false },
     { label: 'Settings', icon: Settings, href: edit(), settings: true },
 ]);
 const isActive = (item: (typeof items.value)[number]) =>

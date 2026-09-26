@@ -17,6 +17,7 @@ class PlayerProfileController extends Controller
             'player' => $profile->handle($user)->toArray(),
             'dogs' => $dogs->handle($user, app()->getLocale()),
             'isOwner' => $request->user()->is($user),
+            'inventoryCount' => $request->user()->is($user) ? $user->inventoryItems()->count() : null,
             'avatarLimits' => $request->user()->is($user) ? config('doglive.avatar') : null,
         ]);
     }
