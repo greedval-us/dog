@@ -54,6 +54,30 @@ test('the shop localizes items and only counts inventory belonging to its player
     );
 })->with([['ru', 'Мяч'], ['en', 'Ball']]);
 
+test('shop labels preserve translation fallback and empty strings', function (array $translations, string $expectedName, string $expectedDescription) {
+    $user = User::factory()->create(['locale' => 'ru']);
+    $category = ItemCategory::factory()->create(['code' => 'toys', 'name' => $translations]);
+    $item = Item::factory()->for($category, 'category')->create([
+        'code' => 'ball', 'name' => $translations, 'description' => $translations,
+    ]);
+    ShopOffer::factory()->for($item)->create();
+
+    $this->actingAs($user)->get(route('shop.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('categories.0', ['id' => $category->id, 'code' => 'toys', 'name' => $expectedName === 'ball' ? 'toys' : $expectedName])
+        ->where('offers.0.name', $expectedName)
+        ->where('offers.0.category', $expectedName === 'ball' ? 'toys' : $expectedName)
+        ->where('offers.0.description', $expectedDescription)
+    );
+})->with([
+    'selected language' => [['ru' => 'Мяч', 'en' => 'Ball'], 'Мяч', 'Мяч'],
+    'missing selected language' => [['en' => 'Ball'], 'Ball', 'Ball'],
+    'null selected language' => [['ru' => null, 'en' => 'Ball'], 'Ball', 'Ball'],
+    'empty selected language' => [['ru' => '', 'en' => 'Ball'], '', ''],
+    'empty English fallback' => [['en' => ''], '', ''],
+    'missing translations' => [[], 'ball', ''],
+    'null translations' => [['ru' => null, 'en' => null], 'ball', ''],
+]);
+
 test('category filters and cursor pages keep catalogue results isolated', function () {
     $user = User::factory()->create();
     $category = ItemCategory::factory()->create();
@@ -68,9 +92,14 @@ test('category filters and cursor pages keep catalogue results isolated', functi
         ->where('offers.0.id', $offers[0]->id)
         ->where('previousCursor', null)
     );
-    $this->get(route('shop.index', ['category' => $category->id, 'cursor' => $first->inertiaProps('nextCursor')]))
+    $second = $this->get(route('shop.index', ['category' => $category->id, 'cursor' => $first->inertiaProps('nextCursor')]));
+    $second->assertInertia(fn (Assert $page) => $page
+        ->has('offers', 1)->where('offers.0.id', $offers[12]->id)->where('nextCursor', null)
+    );
+    $this->get(route('shop.index', ['category' => $category->id, 'cursor' => $second->inertiaProps('previousCursor')]))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('offers', 1)->where('offers.0.id', $offers[12]->id)->where('nextCursor', null)
+            ->has('offers', 12)->where('offers.0.id', $offers[0]->id)
+            ->where('selectedCategory', $category->id)->where('previousCursor', null)
         );
 });
 

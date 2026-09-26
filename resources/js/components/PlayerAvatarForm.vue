@@ -9,16 +9,12 @@ import { store, destroy } from '@/routes/players/avatar';
 import type { AvatarLimits } from '@/types/player';
 
 const props = defineProps<{ limits: AvatarLimits; hasAvatar: boolean }>();
-const { t, locale } = useI18n();
+const { t, number } = useI18n();
 const upload = useForm<{ avatar: File | null }>({ avatar: null });
 const removal = useForm({});
 const fileInput = ref<HTMLInputElement | null>(null);
 const processing = computed(() => upload.processing || removal.processing);
-const maxMegabytes = computed(() =>
-    new Intl.NumberFormat(locale.value).format(
-        props.limits.max_kilobytes / 1024,
-    ),
-);
+const maxMegabytes = computed(() => number(props.limits.max_kilobytes / 1024));
 
 function selectFile(event: Event) {
     const input = event.target as HTMLInputElement;

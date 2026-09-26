@@ -20,15 +20,14 @@ import { dashboard } from '@/routes';
 const page = usePage();
 const menuOpen = ref(false);
 const user = computed(() => page.props.auth.user);
-const formatNumber = (value: unknown) =>
-    new Intl.NumberFormat(locale.value).format(Number(value) || 0);
+const formatNumber = (value: unknown) => number(Number(value) || 0);
 watch(
     () => page.url,
     () => {
         menuOpen.value = false;
     },
 );
-const { locale, t } = useI18n();
+const { t, number } = useI18n();
 </script>
 
 <template>

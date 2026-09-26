@@ -32,10 +32,8 @@ const props = defineProps<{
     price: number;
     adoptionToken: string;
 }>();
-const { t, locale } = useI18n();
+const { t, number } = useI18n();
 const page = usePage();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
 const form = useForm({
     dog_id: props.breeds[0]?.id ?? (null as number | null),
     name: '',

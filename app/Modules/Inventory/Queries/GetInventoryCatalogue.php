@@ -26,18 +26,14 @@ final class GetInventoryCatalogue
             'categories' => ItemCategory::query()
                 ->whereHas('items.inventoryItems', fn (Builder $query) => $query->where('user_id', $user->id))
                 ->orderBy('sort_order')->orderBy('id')->get()
-                ->map(fn (ItemCategory $category): array => [
-                    'id' => $category->id,
-                    'code' => $category->code,
-                    'name' => $category->name[$locale] ?? $category->name['en'] ?? $category->code,
-                ])->all(),
+                ->map(fn (ItemCategory $category): array => CatalogueLabels::category($category, $locale))->all(),
             'items' => $items->getCollection()->map(function (InventoryItem $instance) use ($locale): array {
                 $category = $instance->item->category;
 
                 return [
                     'id' => $instance->id,
-                    'name' => $instance->name[$locale] ?? $instance->name['en'] ?? $instance->item->code,
-                    'category' => $category->name[$locale] ?? $category->name['en'] ?? $category->code,
+                    'name' => CatalogueLabels::text($instance->name, $locale, $instance->item->code),
+                    'category' => CatalogueLabels::text($category->name, $locale, $category->code),
                     'categoryCode' => $category->code,
                     'quality' => $instance->quality,
                     'usageLimit' => $instance->usage_limit,

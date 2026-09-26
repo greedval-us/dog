@@ -8,6 +8,9 @@ const dictionaries: Record<string, Record<string, string>> = { en, ru };
 export function useI18n() {
     const page = usePage();
     const locale = computed(() => page.props.locale);
+    const numberFormatter = computed(() => new Intl.NumberFormat(locale.value));
+    const number = (value: number): string =>
+        numberFormatter.value.format(value);
 
     const t = (
         key: string,
@@ -23,5 +26,5 @@ export function useI18n() {
         );
     };
 
-    return { locale, t };
+    return { locale, t, number };
 }

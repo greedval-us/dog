@@ -27,9 +27,7 @@ const icons = {
     obedience: HeartHandshake,
     intelligence: Brain,
 };
-const { t, locale } = useI18n();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
+const { t, number } = useI18n();
 </script>
 
 <template>

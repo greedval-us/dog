@@ -1,4 +1,6 @@
 <laravel-boost-guidelines>
+Architecture and module contracts: [docs/architecture.md](docs/architecture.md).
+
 === foundation rules ===
 
 # Laravel Boost Guidelines

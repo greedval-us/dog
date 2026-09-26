@@ -6,10 +6,12 @@ import {
     Layers,
     Package,
     ShoppingBag,
-    SlidersHorizontal,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import CategoryTabs from '@/components/CategoryTabs.vue';
+import CursorPagination from '@/components/CursorPagination.vue';
 import Heading from '@/components/Heading.vue';
+import ItemCharacteristics from '@/components/ItemCharacteristics.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { Button } from '@/components/ui/button';
@@ -29,11 +31,9 @@ const props = defineProps<{
     nextCursor: string | null;
     previousCursor: string | null;
 }>();
-const { t, locale } = useI18n();
+const { t, locale, number } = useI18n();
 const page = usePage();
 const loading = ref(false);
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
 const date = (value: string) =>
     new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(
         new Date(`${value}T12:00:00`),
@@ -44,8 +44,10 @@ const categoryName = computed(
             (category) => category.id === props.selectedCategory,
         )?.name ?? t('All my items'),
 );
+const categoryLink = (category: number | null) =>
+    index.url({ query: { category } });
 const pageLink = (cursor: string) =>
-    index({ query: { category: props.selectedCategory, cursor } });
+    index.url({ query: { category: props.selectedCategory, cursor } });
 </script>
 
 <template>
@@ -97,39 +99,17 @@ const pageLink = (cursor: string) =>
             </dl>
         </div>
 
-        <nav
+        <CategoryTabs
             v-if="categories.length"
-            class="shop-categories"
-            :aria-label="t('Inventory categories')"
-            :inert="loading"
-        >
-            <Link
-                :href="index()"
-                class="shop-category"
-                :class="{ 'is-active': selectedCategory === null }"
-                :aria-current="selectedCategory === null ? 'page' : undefined"
-                preserve-scroll
-                @start="loading = true"
-                @finish="loading = false"
-                ><SlidersHorizontal :size="16" aria-hidden="true" />{{
-                    t('All my items')
-                }}</Link
-            >
-            <Link
-                v-for="category in categories"
-                :key="category.id"
-                :href="index({ query: { category: category.id } })"
-                class="shop-category"
-                :class="{ 'is-active': selectedCategory === category.id }"
-                :aria-current="
-                    selectedCategory === category.id ? 'page' : undefined
-                "
-                preserve-scroll
-                @start="loading = true"
-                @finish="loading = false"
-                >{{ category.name }}</Link
-            >
-        </nav>
+            :categories="categories"
+            :selected-category="selectedCategory"
+            :category-link="categoryLink"
+            :label="t('Inventory categories')"
+            :all-label="t('All my items')"
+            :disabled="loading"
+            @start="loading = true"
+            @finish="loading = false"
+        />
 
         <section
             class="inventory-collection"
@@ -196,21 +176,9 @@ const pageLink = (cursor: string) =>
                                 {{ t('Item characteristics')
                                 }}<Layers :size="16" aria-hidden="true" />
                             </summary>
-                            <dl class="shop-properties">
-                                <div
-                                    v-for="(value, key) in item.characteristics"
-                                    :key="key"
-                                >
-                                    <dt>{{ t(key) }}</dt>
-                                    <dd>
-                                        {{
-                                            typeof value === 'number'
-                                                ? number(value)
-                                                : t(String(value))
-                                        }}
-                                    </dd>
-                                </div>
-                            </dl>
+                            <ItemCharacteristics
+                                :characteristics="item.characteristics"
+                            />
                         </details>
                     </div>
                 </article>
@@ -242,33 +210,15 @@ const pageLink = (cursor: string) =>
                         }}<ArrowRight :size="17" aria-hidden="true" /></Link
                 ></Button>
             </EmptyState>
-            <nav
-                v-if="previousCursor || nextCursor"
-                class="shop-pagination"
-                :aria-label="t('Inventory pages')"
-                :inert="loading"
-            >
-                <Button v-if="previousCursor" as-child variant="outline"
-                    ><Link
-                        :href="pageLink(previousCursor)"
-                        preserve-scroll
-                        @start="loading = true"
-                        @finish="loading = false"
-                        ><ArrowLeft :size="17" aria-hidden="true" />{{
-                            t('Previous')
-                        }}</Link
-                    ></Button
-                >
-                <Button v-if="nextCursor" as-child variant="outline"
-                    ><Link
-                        :href="pageLink(nextCursor)"
-                        preserve-scroll
-                        @start="loading = true"
-                        @finish="loading = false"
-                        >{{ t('Next')
-                        }}<ArrowRight :size="17" aria-hidden="true" /></Link
-                ></Button>
-            </nav>
+            <CursorPagination
+                :previous-cursor="previousCursor"
+                :next-cursor="nextCursor"
+                :page-link="pageLink"
+                :label="t('Inventory pages')"
+                :disabled="loading"
+                @start="loading = true"
+                @finish="loading = false"
+            />
             <p v-if="inventoryCount" class="inventory-note">
                 <Package :size="17" aria-hidden="true" />{{
                     t(

@@ -3,6 +3,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import { Check, Coins, Package, ShoppingBag } from '@lucide/vue';
 import { computed, nextTick, useTemplateRef, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import ItemCharacteristics from '@/components/ItemCharacteristics.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -15,10 +16,8 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ buy: [] }>();
-const { t, locale } = useI18n();
+const { t, number } = useI18n();
 const page = usePage();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
 const balance = computed(() => Number(page.props.auth.user.coins));
 const affordable = computed(() => balance.value >= props.offer.price);
 const errorSummary = useTemplateRef<HTMLDivElement>('errorSummary');
@@ -41,7 +40,7 @@ watch(
             <h3>{{ offer.name }}</h3>
             <p>{{ offer.description }}</p>
         </div>
-        <dl class="shop-properties">
+        <ItemCharacteristics :characteristics="offer.characteristics">
             <div>
                 <dt>{{ t('Quality') }}</dt>
                 <dd>{{ number(offer.quality) }} / 10</dd>
@@ -54,17 +53,7 @@ watch(
                 <dt>{{ t('In stock') }}</dt>
                 <dd>{{ number(offer.stock) }}</dd>
             </div>
-            <div v-for="(value, key) in offer.characteristics" :key="key">
-                <dt>{{ t(key) }}</dt>
-                <dd>
-                    {{
-                        typeof value === 'number'
-                            ? number(value)
-                            : t(String(value))
-                    }}
-                </dd>
-            </div>
-        </dl>
+        </ItemCharacteristics>
         <p class="shop-owned">
             <Package :size="17" aria-hidden="true" />{{
                 t('In your inventory: {count}', { count: number(offer.owned) })

@@ -18,9 +18,7 @@ import { petScene } from '@/routes';
 import type { PlayerProfile } from '@/types/player';
 
 const props = defineProps<{ player: PlayerProfile }>();
-const { t, locale } = useI18n();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
+const { t, locale, number } = useI18n();
 const joined = computed(() =>
     props.player.joinedAt
         ? new Intl.DateTimeFormat(locale.value, {

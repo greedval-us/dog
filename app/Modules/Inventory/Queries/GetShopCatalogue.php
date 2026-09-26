@@ -28,11 +28,7 @@ final class GetShopCatalogue
         return [
             'categories' => ItemCategory::query()->where('is_active', true)
                 ->orderBy('sort_order')->orderBy('id')->get()
-                ->map(fn (ItemCategory $category): array => [
-                    'id' => $category->id,
-                    'code' => $category->code,
-                    'name' => $category->name[$locale] ?? $category->name['en'] ?? $category->code,
-                ])->all(),
+                ->map(fn (ItemCategory $category): array => CatalogueLabels::category($category, $locale))->all(),
             'offers' => $offers->getCollection()->map(function (ShopOffer $offer) use ($locale, $owned): array {
                 $item = $offer->item;
                 $category = $item->category;
@@ -40,9 +36,9 @@ final class GetShopCatalogue
                 return [
                     'id' => $offer->id,
                     'itemId' => $item->id,
-                    'name' => $item->name[$locale] ?? $item->name['en'] ?? $item->code,
-                    'description' => $item->description[$locale] ?? $item->description['en'] ?? '',
-                    'category' => $category->name[$locale] ?? $category->name['en'] ?? $category->code,
+                    'name' => CatalogueLabels::text($item->name, $locale, $item->code),
+                    'description' => CatalogueLabels::text($item->description, $locale, ''),
+                    'category' => CatalogueLabels::text($category->name, $locale, $category->code),
                     'categoryCode' => $category->code,
                     'quality' => $item->quality,
                     'usageLimit' => $item->usage_limit,

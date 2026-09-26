@@ -41,6 +41,27 @@ test('inventory displays only the players localized snapshots including disconti
         );
 })->with([['ru', 'Мяч'], ['en', 'Ball']]);
 
+test('inventory localizes snapshot names without falling back to current item names', function (array $translations, string $expectedName) {
+    $player = User::factory()->create(['locale' => 'ru']);
+    $category = ItemCategory::factory()->create(['name' => ['en' => 'Toys'], 'is_active' => false]);
+    $item = Item::factory()->for($category, 'category')->create(['code' => 'ball', 'name' => ['ru' => 'Changed']]);
+    InventoryItem::factory()->for($player, 'user')->for($item)->create(['name' => $translations]);
+
+    $this->actingAs($player)->get(route('inventory.index'))->assertInertia(fn (Assert $page) => $page
+        ->has('items', 1)
+        ->where('items.0.name', $expectedName)
+        ->where('items.0.category', 'Toys')
+        ->where('categories.0', ['id' => $category->id, 'code' => $category->code, 'name' => 'Toys'])
+    );
+})->with([
+    'English snapshot' => [['en' => 'Original'], 'Original'],
+    'null selected language' => [['ru' => null, 'en' => 'Original'], 'Original'],
+    'empty selected language' => [['ru' => '', 'en' => 'Original'], ''],
+    'empty English fallback' => [['en' => ''], ''],
+    'missing translations' => [[], 'ball'],
+    'null translations' => [['ru' => null, 'en' => null], 'ball'],
+]);
+
 test('inventory category pagination retains separate instances and global totals', function () {
     $player = User::factory()->create();
     $item = Item::factory()->create();
@@ -56,10 +77,16 @@ test('inventory category pagination retains separate instances and global totals
         ->where('selectedCategory', $item->item_category_id)
         ->where('previousCursor', null)
     );
-    $this->get(route('inventory.index', ['category' => $item->item_category_id, 'cursor' => $first->inertiaProps('nextCursor')]))
+    $second = $this->get(route('inventory.index', ['category' => $item->item_category_id, 'cursor' => $first->inertiaProps('nextCursor')]));
+    $second->assertInertia(fn (Assert $page) => $page
+        ->has('items', 1)->where('items.0.id', $instances[12]->id)
+        ->where('nextCursor', null)->where('inventoryCount', 14)
+    );
+    $this->get(route('inventory.index', ['category' => $item->item_category_id, 'cursor' => $second->inertiaProps('previousCursor')]))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('items', 1)->where('items.0.id', $instances[12]->id)
-            ->where('nextCursor', null)->where('inventoryCount', 14)
+            ->has('items', 12)->where('items.0.id', $instances[0]->id)
+            ->where('selectedCategory', $item->item_category_id)->where('previousCursor', null)
+            ->where('inventoryCount', 14)
         );
 });
 
@@ -90,8 +117,15 @@ test('a purchase appears in inventory and its count is visible only on the owner
         'purchase_token' => (string) Str::uuid(),
     ])->assertSessionHasNoErrors();
 
+    $offer->item->update([
+        'name' => ['ru' => 'Changed', 'en' => 'Changed'],
+        'quality' => 9, 'usage_limit' => 20, 'characteristics' => ['mood' => 99],
+    ]);
+
     $this->get(route('inventory.index'))->assertInertia(fn (Assert $page) => $page
-        ->has('items', 1)->where('items.0.remainingUses', $offer->item->usage_limit)
+        ->has('items', 1)->where('items.0.remainingUses', 5)
+        ->where('items.0.quality', 3)->where('items.0.usageLimit', 5)
+        ->where('items.0.characteristics', ['mood' => 10, 'size' => 'medium'])
         ->where('inventoryCount', 1)
     );
     $this->get(route('players.show', $player->username))->assertInertia(fn (Assert $page) => $page

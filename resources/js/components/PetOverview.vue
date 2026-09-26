@@ -17,9 +17,7 @@ import { sizeLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
 
 defineProps<{ pet: PlayerPet }>();
-const { t, locale } = useI18n();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
+const { t, number } = useI18n();
 const traits: Record<string, string> = {
     friendly: 'Friendly',
     active: 'Active',

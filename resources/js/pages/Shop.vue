@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import {
-    ArrowLeft,
-    ArrowRight,
-    Check,
-    Coins,
-    Package,
-    ShoppingBag,
-    SlidersHorizontal,
-} from '@lucide/vue';
+import { ArrowRight, Check, Coins, Package, ShoppingBag } from '@lucide/vue';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
+import CategoryTabs from '@/components/CategoryTabs.vue';
+import CursorPagination from '@/components/CursorPagination.vue';
 import Heading from '@/components/Heading.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import ShopPurchasePanel from '@/components/ShopPurchasePanel.vue';
@@ -37,9 +31,7 @@ const props = defineProps<{
     nextCursor: string | null;
     previousCursor: string | null;
 }>();
-const { t, locale } = useI18n();
-const number = (value: number) =>
-    new Intl.NumberFormat(locale.value).format(value);
+const { t, number } = useI18n();
 const selectedId = ref<number | null>(props.offers[0]?.id ?? null);
 const selectedOffer = computed(
     () =>
@@ -67,8 +59,10 @@ watch(
     () => purchaseForm.clearErrors(),
 );
 const loading = ref(false);
+const categoryLink = (category: number | null) =>
+    index.url({ query: { category } });
 const pageLink = (cursor: string) =>
-    index({ query: { category: props.selectedCategory, cursor } });
+    index.url({ query: { category: props.selectedCategory, cursor } });
 
 function select(offer: ShopOffer, event: MouseEvent) {
     if (purchasing.value) return;
@@ -146,38 +140,16 @@ function buy() {
             }}</span>
         </div>
 
-        <nav
-            class="shop-categories"
-            :aria-label="t('Item categories')"
-            :inert="purchasing || loading"
-        >
-            <Link
-                :href="index()"
-                class="shop-category"
-                :class="{ 'is-active': selectedCategory === null }"
-                :aria-current="selectedCategory === null ? 'page' : undefined"
-                preserve-scroll
-                @start="loading = true"
-                @finish="loading = false"
-                ><SlidersHorizontal :size="16" aria-hidden="true" />{{
-                    t('All items')
-                }}</Link
-            >
-            <Link
-                v-for="category in categories"
-                :key="category.id"
-                :href="index({ query: { category: category.id } })"
-                class="shop-category"
-                :class="{ 'is-active': selectedCategory === category.id }"
-                :aria-current="
-                    selectedCategory === category.id ? 'page' : undefined
-                "
-                preserve-scroll
-                @start="loading = true"
-                @finish="loading = false"
-                >{{ category.name }}</Link
-            >
-        </nav>
+        <CategoryTabs
+            :categories="categories"
+            :selected-category="selectedCategory"
+            :category-link="categoryLink"
+            :label="t('Item categories')"
+            :all-label="t('All items')"
+            :disabled="purchasing || loading"
+            @start="loading = true"
+            @finish="loading = false"
+        />
 
         <div class="shop-layout" :aria-busy="loading">
             <section class="shop-catalogue" :aria-label="categoryName">
@@ -276,33 +248,15 @@ function buy() {
                         }}</Link></Button
                     >
                 </SurfaceCard>
-                <nav
-                    v-if="previousCursor || nextCursor"
-                    class="shop-pagination"
-                    :aria-label="t('Catalogue pages')"
-                    :inert="purchasing || loading"
-                >
-                    <Button v-if="previousCursor" as-child variant="outline"
-                        ><Link
-                            :href="pageLink(previousCursor)"
-                            preserve-scroll
-                            @start="loading = true"
-                            @finish="loading = false"
-                            ><ArrowLeft :size="17" aria-hidden="true" />{{
-                                t('Previous')
-                            }}</Link
-                        ></Button
-                    >
-                    <Button v-if="nextCursor" as-child variant="outline"
-                        ><Link
-                            :href="pageLink(nextCursor)"
-                            preserve-scroll
-                            @start="loading = true"
-                            @finish="loading = false"
-                            >{{ t('Next')
-                            }}<ArrowRight :size="17" aria-hidden="true" /></Link
-                    ></Button>
-                </nav>
+                <CursorPagination
+                    :previous-cursor="previousCursor"
+                    :next-cursor="nextCursor"
+                    :page-link="pageLink"
+                    :label="t('Catalogue pages')"
+                    :disabled="purchasing || loading"
+                    @start="loading = true"
+                    @finish="loading = false"
+                />
             </section>
 
             <aside
