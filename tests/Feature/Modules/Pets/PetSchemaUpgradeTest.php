@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Dog;
 use App\Models\Pet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -86,3 +87,27 @@ test('appearance migration refuses to discard existing photos', function () {
 
     expect(json_decode(DB::table('pets')->where('id', $pet->id)->value('photos'), true))->toBe(['legacy.png']);
 });
+
+test('standardizing energy updates existing dogs without refilling spent energy or resetting state clocks', function (int $maximum, float $energy, float $expected) {
+    $dog = Dog::factory()->create(['energy_max' => $maximum, 'health_max' => 120]);
+    $pet = Pet::factory()->for($dog)->create([
+        'energy_max' => $maximum, 'energy' => $energy, 'satiety' => 42,
+        'state_updated_at' => '2026-09-25 12:00:00', 'stats_updated_at' => '2026-09-25 11:00:00',
+    ]);
+    $migration = require database_path('migrations/2026_09_26_080015_standardize_dog_energy_capacity.php');
+
+    $migration->up();
+
+    $this->assertDatabaseHas('dog', ['id' => $dog->id, 'energy_max' => 100, 'health_max' => 120]);
+    $this->assertDatabaseHas('pets', [
+        'id' => $pet->id, 'energy_max' => 100, 'energy' => $expected, 'satiety' => 42,
+        'state_updated_at' => '2026-09-25 12:00:00', 'stats_updated_at' => '2026-09-25 11:00:00',
+    ]);
+})->with([
+    'above the new capacity' => [120, 120.0, 100.0],
+    'spent energy' => [110, 72.25, 72.25],
+    'exhausted dog' => [120, 0.0, 0.0],
+    'previously smaller capacity' => [90, 90.0, 90.0],
+    'already standard capacity' => [100, 100.0, 100.0],
+    'excess energy with standard capacity' => [100, 120.0, 100.0],
+]);

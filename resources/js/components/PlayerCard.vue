@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-    Camera,
-    ChevronDown,
     Dumbbell,
     Footprints,
     Medal,
@@ -11,11 +9,10 @@ import {
 } from '@lucide/vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
-import PlayerAvatarForm from '@/components/PlayerAvatarForm.vue';
 import { useI18n } from '@/composables/useI18n';
-import type { AvatarLimits, PlayerProfile } from '@/types/player';
+import type { PlayerProfile } from '@/types/player';
 
-defineProps<{ player: PlayerProfile; avatarLimits?: AvatarLimits | null }>();
+defineProps<{ player: PlayerProfile }>();
 const { t, locale } = useI18n();
 const number = (value: number) =>
     new Intl.NumberFormat(locale.value).format(value);
@@ -95,25 +92,6 @@ const statistics = [
                     </div>
                 </dl>
             </section>
-            <details v-if="avatarLimits" class="player-avatar-editor">
-                <summary>
-                    <Camera :size="19" aria-hidden="true" />
-                    <span>{{
-                        player.avatarVersion
-                            ? t('Change avatar')
-                            : t('Add avatar')
-                    }}</span>
-                    <ChevronDown
-                        class="player-avatar-chevron"
-                        :size="18"
-                        aria-hidden="true"
-                    />
-                </summary>
-                <PlayerAvatarForm
-                    :limits="avatarLimits"
-                    :has-avatar="player.avatarVersion !== null"
-                />
-            </details>
             <div v-if="$slots.actions" class="player-card-actions">
                 <slot name="actions" />
             </div>

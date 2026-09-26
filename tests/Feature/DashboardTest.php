@@ -13,15 +13,15 @@ beforeEach(function () {
 
 test('the dashboard shows stored energy and the pets own maximum after spending energy', function (float $initial, int|float $remaining, int|float $percentage) {
     $this->freezeSecond();
-    $pet = Pet::factory()->create(['energy' => $initial, 'energy_max' => 120]);
+    $pet = Pet::factory()->create(['energy' => $initial, 'energy_max' => 100]);
     app(PetActivityManager::class)->start($pet->user, $pet->id, PetActivity::Walk, now()->addHour(), energyCost: 10);
 
     $this->actingAs($pet->user)->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page) => $page
         ->where('pet.energy.value', $remaining)
-        ->where('pet.energy.maximum', 120)
+        ->where('pet.energy.maximum', 100)
         ->where('pet.states.energy', $percentage)
     );
-})->with(['partly spent' => [50.5, 40.5, 33.8], 'fully spent' => [10.0, 0, 0]]);
+})->with(['partly spent' => [50.5, 40.5, 40.5], 'fully spent' => [10.0, 0, 0]]);
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));

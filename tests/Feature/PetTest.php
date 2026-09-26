@@ -16,9 +16,9 @@ test('starter catalogue seeds three localized breeds without giving pets to play
     $this->assertDatabaseCount('dog', 3);
     $this->assertDatabaseCount('pets', 0);
     $this->assertDatabaseCount('users', 0);
-    $this->assertDatabaseHas('dog', ['breed' => 'german_shepherd', 'size' => 'large', 'is_starter' => true]);
-    $this->assertDatabaseHas('dog', ['breed' => 'pit_bull', 'size' => 'medium', 'is_starter' => true]);
-    $this->assertDatabaseHas('dog', ['breed' => 'dachshund', 'size' => 'small', 'is_starter' => true]);
+    $this->assertDatabaseHas('dog', ['breed' => 'german_shepherd', 'size' => 'large', 'is_starter' => true, 'energy_max' => 100]);
+    $this->assertDatabaseHas('dog', ['breed' => 'pit_bull', 'size' => 'medium', 'is_starter' => true, 'energy_max' => 100]);
+    $this->assertDatabaseHas('dog', ['breed' => 'dachshund', 'size' => 'small', 'is_starter' => true, 'energy_max' => 100]);
 
     $dog = Dog::query()->where('breed', 'german_shepherd')->firstOrFail();
     expect($dog->localizedName('ru'))->toBe('Немецкая овчарка');
@@ -87,7 +87,7 @@ test('all six genetic limits are independent of current training and may exceed 
 test('raw condition values produce the seven percentages shown in the sketch', function () {
     $pet = Pet::factory()->create([
         'health' => 120, 'health_max' => 120,
-        'energy' => 102, 'energy_max' => 120,
+        'energy' => 85, 'energy_max' => 100,
         'satiety' => 540, 'satiety_max' => 600,
         'hydration' => 855, 'hydration_max' => 900,
         'mood' => 80, 'mood_max' => 100,

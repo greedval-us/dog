@@ -65,6 +65,8 @@ test('a player can adopt each starter breed for free with server chosen sex and 
         ->and($pet->endurance)->toBe(0)
         ->and($pet->endurance_potential)->toBe($dog->endurance_potential)
         ->and($pet->health)->toBe((float) $dog->health_max)
+        ->and($pet->energy)->toBe(100.0)
+        ->and($pet->energy_max)->toBe(100)
         ->and($pet->bond)->toBe(0.0)
         ->and($user->fresh()->starter_pet_claimed_at)->not->toBeNull()
         ->and($user->fresh()->coins)->toBe(123)
