@@ -35,5 +35,9 @@
   "This dog slot is unavailable.": "Это место для собаки недоступно.",
   "Unlock dog slots in order.": "Открывай места для собак по порядку.",
   "You do not have enough currency for this dog slot.": "Не хватает выбранной валюты для покупки места.",
-  "Dog slot unlocked.": "Место для собаки открыто."
+  "Dog slot unlocked.": "Место для собаки открыто.",
+  "You need a free dog slot. Unlock a place on the My dog page.": "Нужно свободное место. Открой его на странице «Моя собака».",
+  "You do not have enough coins for this dog.": "Не хватает монет для покупки собаки.",
+  "Your first dog is free. Refresh the kennel to claim it.": "Первая собака бесплатна. Обнови питомник, чтобы забрать её.",
+  "Your new dog is home!": "Твоя новая собака дома!"
 }

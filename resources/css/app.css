@@ -7,38 +7,79 @@
 .my-dog-page {
     min-width: 0;
 }
-.kennel-form {
-    gap: 28px;
-}
-.kennel-intro {
+.kennel-heading {
     display: flex;
-    align-items: center;
-    gap: 16px;
+    align-items: flex-start;
     flex-wrap: wrap;
+    gap: 16px 24px;
+    margin-bottom: 22px;
 }
-.kennel-intro p {
-    color: var(--muted-foreground);
-    font-size: 14px;
+.kennel-heading .page-heading {
+    margin-bottom: 0;
 }
 .kennel-gift {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 9px 13px;
-    border-radius: 12px;
+    gap: 9px;
+    margin-top: 6px;
+    padding: 11px 18px;
+    border-radius: 30px;
     background: var(--sage-surface);
     color: var(--sage-ink);
     font-weight: 600;
+    font-size: 14px;
+}
+.kennel-gift svg {
+    flex-shrink: 0;
+}
+.kennel-banner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 125px;
+    padding: 24px 32px;
+    margin-bottom: 18px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--surface-soft);
+}
+.kennel-banner > img,
+.player-card-cover > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 57%;
+}
+.kennel-banner p,
+.kennel-banner > span {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 220px;
+    padding: 9px 13px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--card) 90%, transparent);
+    color: var(--foreground);
+    font-size: 17px;
+    font-style: italic;
+    line-height: 1.4;
+}
+.kennel-banner > span {
+    align-self: flex-end;
+    font-size: 15px;
+}
+.kennel-form {
+    gap: 20px;
 }
 .breed-picker {
     min-width: 0;
     border: 0;
     padding: 0;
-}
-.breed-picker legend {
-    margin-bottom: 14px;
-    font-weight: 700;
-    font-size: 18px;
 }
 .breed-grid {
     display: grid;
@@ -49,11 +90,13 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    align-items: center;
     min-width: 0;
-    padding: 18px;
-    border: 2px solid var(--border);
-    border-radius: 23px;
+    padding: 3px 3px 16px;
+    border: 2px solid var(--card);
+    border-radius: 20px;
     background: var(--card);
+    box-shadow: var(--shadow-card);
     cursor: pointer;
     transition:
         border-color 0.18s,
@@ -64,7 +107,7 @@
 }
 .breed-choice.is-selected {
     border-color: var(--primary);
-    box-shadow: var(--shadow-soft);
+    box-shadow: 0 0 0 1px var(--primary);
 }
 .breed-choice:has(input:focus-visible) {
     outline: 3px solid var(--ring);
@@ -80,22 +123,40 @@
     cursor: wait;
     opacity: 0.7;
 }
-.breed-choice-check {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    display: grid;
-    place-items: center;
-    width: 25px;
-    height: 25px;
-    border: 1px solid var(--border);
-    border-radius: 50%;
+.breed-choice-scene {
+    position: relative;
+    display: block;
+    isolation: isolate;
+    width: 100%;
+    border-radius: 15px;
+    overflow: hidden;
     background: var(--surface-soft);
 }
+.breed-choice-landscape,
+.player-dog-landscape {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 70%;
+}
+.breed-choice-check {
+    position: absolute;
+    z-index: 1;
+    top: 13px;
+    right: 13px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+}
 .is-selected .breed-choice-check {
-    border-color: var(--primary);
     background: var(--primary);
     color: var(--primary-foreground);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--card) 75%, transparent);
 }
 .breed-artwork {
     display: flex;
@@ -111,13 +172,12 @@
 }
 .breed-artwork-portrait {
     width: 100%;
-    height: 220px;
+    height: 250px;
     border-radius: 16px;
-    background: radial-gradient(
-        ellipse at center,
-        var(--sage-surface),
-        transparent 72%
-    );
+}
+.breed-choice .breed-artwork-portrait {
+    height: clamp(210px, 22vw, 310px);
+    padding: 10px 12px 0;
 }
 .breed-artwork-portrait > svg {
     width: 80px;
@@ -134,31 +194,48 @@
     color: var(--brand-paw);
 }
 .breed-choice-name {
+    padding-inline: 8px;
     margin-top: 12px;
     font-size: 19px;
     font-weight: 700;
+    text-align: center;
     overflow-wrap: anywhere;
 }
 .breed-choice-size {
-    margin-top: 4px;
+    margin-top: 7px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    background: var(--sage-surface);
     color: var(--sage-ink);
     font-size: 13px;
 }
-.breed-choice-description {
-    margin-top: 10px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--muted-foreground);
+.breed-choice:first-child .breed-choice-size {
+    background: var(--secondary);
+    color: var(--primary);
 }
-.kennel-details {
+.kennel-adoption-grid {
     display: grid;
     grid-template-columns: 1.15fr 1fr;
-    align-items: start;
-    gap: 22px;
+    gap: 30px;
+}
+.kennel-name-panel {
+    align-content: start;
+}
+.kennel-name-panel h2 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+.kennel-checkout {
+    border-left: 1px solid var(--border);
+    padding-left: 30px;
+}
+.kennel-checkout.form-stack {
+    gap: 12px;
 }
 .breed-summary {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     align-items: center;
     min-width: 0;
 }
@@ -168,22 +245,116 @@
 .breed-summary strong {
     display: block;
     overflow-wrap: anywhere;
+    font-size: 17px;
 }
 .breed-summary span:not(.breed-artwork) {
     display: block;
     font-size: 13px;
     color: var(--muted-foreground);
 }
-.kennel-random-note {
+.kennel-random-note,
+.kennel-availability {
     display: flex;
-    gap: 10px;
+    gap: 9px;
     color: var(--muted-foreground);
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.6;
 }
-.kennel-random-note svg {
+.kennel-random-note svg,
+.kennel-availability svg {
     flex-shrink: 0;
-    margin-top: 3px;
+    margin-top: 2px;
+}
+.kennel-notice {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    font-size: 14px;
+    line-height: 1.5;
+}
+.kennel-price-note {
+    text-align: center;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.kennel-checkout .ui-button {
+    white-space: normal;
+    height: auto;
+    min-height: 44px;
+    text-align: center;
+}
+.kennel-potential {
+    min-width: 0;
+    padding: 16px 22px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--card);
+}
+.kennel-potential summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    list-style: none;
+    cursor: pointer;
+    color: var(--primary);
+    font-weight: 600;
+}
+.kennel-potential summary::-webkit-details-marker {
+    display: none;
+}
+.kennel-potential summary:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 5px;
+}
+.kennel-potential[open] summary svg {
+    transform: rotate(180deg);
+}
+.kennel-potential > p {
+    margin-block: 16px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+}
+@media (max-width: 900px) {
+    .kennel-adoption-grid {
+        gap: 22px;
+    }
+    .kennel-checkout {
+        padding-left: 22px;
+    }
+}
+@media (max-width: 650px) {
+    .kennel-heading {
+        gap: 10px;
+    }
+    .kennel-gift {
+        margin-top: 0;
+        font-size: 13px;
+    }
+    .kennel-banner {
+        min-height: 110px;
+        padding: 18px;
+    }
+    .kennel-banner > span {
+        display: none;
+    }
+    .breed-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+    .breed-choice .breed-artwork-portrait {
+        height: 240px;
+    }
+    .kennel-adoption-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .kennel-checkout {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        padding: 22px 0 0;
+    }
 }
 .dog-stats {
     display: grid;
@@ -211,9 +382,6 @@
     color: var(--muted-foreground);
     font-size: 16px;
     font-weight: 400;
-}
-.breed-art-caption {
-    margin-top: 18px;
 }
 /* Pet profile: each panel can be connected to its own game feature. */
 .pet-dossier {
@@ -397,12 +565,6 @@
     margin: 0;
     position: relative;
     z-index: 1;
-}
-.pet-hero-portrait figcaption {
-    color: var(--foreground);
-    font-size: 10px;
-    text-align: center;
-    text-shadow: 0 1px 8px var(--background);
 }
 .pet-hero-quote {
     display: flex;
@@ -905,35 +1067,6 @@
         grid-template-columns: 16px minmax(72px, 1fr) minmax(30px, 1fr) auto;
     }
 }
-@media (max-width: 1100px) {
-    .breed-artwork-portrait {
-        height: 180px;
-    }
-    .breed-choice {
-        padding: 14px;
-    }
-}
-@media (max-width: 900px) {
-    .kennel-details {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-@media (max-width: 650px) {
-    .breed-grid {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 14px;
-    }
-    .breed-choice {
-        padding: 20px;
-    }
-    .breed-artwork-portrait {
-        height: 210px;
-    }
-    .kennel-details {
-        gap: 18px;
-    }
-}
-
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
@@ -1956,199 +2089,317 @@
     gap: 25px;
 }
 .player-profile-page {
-    max-width: 920px;
-    margin-inline: auto;
     min-width: 0;
 }
-.surface-card.player-card {
-    --player-card-inset: 30px;
-    padding-top: 0;
-    gap: 26px;
-    overflow: clip;
+.player-card {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
     container-type: inline-size;
 }
-.surface-card.player-card > [data-slot='card-header'] {
-    padding-inline: 0;
-    gap: 0;
-}
-.surface-card.player-card > [data-slot='card-content'] {
-    padding-inline: var(--player-card-inset);
+.player-card-hero {
+    border-radius: 20px;
+    background: var(--card);
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--border);
 }
 .player-card-cover {
     position: relative;
-    height: 110px;
+    height: 210px;
     overflow: hidden;
-    background:
-        radial-gradient(
-            ellipse at 15% 0%,
-            color-mix(in srgb, var(--primary) 20%, transparent),
-            transparent 65%
-        ),
-        linear-gradient(
-            115deg,
-            var(--secondary),
-            var(--surface-soft) 55%,
-            var(--sage-surface)
-        );
+    border-radius: 19px 19px 0 0;
+    background: var(--surface-soft);
 }
-.player-card-cover::after {
-    content: '';
+.player-card-cover > span {
     position: absolute;
-    width: 360px;
-    height: 200px;
-    right: -70px;
-    top: 40px;
-    border: 1px solid color-mix(in srgb, var(--sage-ink) 14%, transparent);
-    border-radius: 50%;
-    transform: rotate(-18deg);
-}
-.player-card-cover > svg {
-    position: absolute;
-    color: var(--sage-ink);
-    opacity: 0.13;
-}
-.player-cover-paw {
-    width: 104px;
-    height: 104px;
-    right: 45px;
-    top: 13px;
-    transform: rotate(18deg);
-}
-.player-cover-paw-small {
-    width: 44px;
-    height: 44px;
-    right: 166px;
-    top: 14px;
-    transform: rotate(-16deg);
+    top: 25px;
+    right: 28px;
+    max-width: 200px;
+    padding: 9px 13px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--card) 85%, transparent);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--foreground);
 }
 .player-card-heading {
     position: relative;
-    padding-inline: var(--player-card-inset);
-    margin-top: -42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 18px;
+    padding: 16px 28px 22px;
 }
 .player-card-identity {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px 20px;
     min-width: 0;
-    gap: 24px;
+    flex: 1;
 }
 .player-card-portrait {
+    position: relative;
     flex-shrink: 0;
+    margin-top: -82px;
     padding: 6px;
     border-radius: 50%;
     background: var(--card);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 .profile-avatar {
-    width: 120px;
-    height: 120px;
-    font-size: 46px;
+    width: 138px;
+    height: 138px;
+    font-size: 52px;
 }
 .player-card-name {
     min-width: 0;
-    padding-top: 54px;
 }
 .player-card-name h2 {
     overflow-wrap: anywhere;
-    font-size: clamp(24px, 4cqi, 32px);
+    font-size: clamp(24px, 3cqi, 32px);
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: -0.8px;
+    letter-spacing: -0.6px;
 }
 .player-card-name p {
-    margin-top: 6px;
+    margin-top: 5px;
     overflow-wrap: anywhere;
     color: var(--muted-foreground);
-    font-size: 14px;
+    font-size: 15px;
 }
 .player-level {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 12px;
-    padding: 5px 10px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 24px;
     background: var(--sage-surface);
     color: var(--sage-ink);
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 14px;
     font-weight: 600;
-    overflow-wrap: anywhere;
 }
 .player-level svg {
     flex-shrink: 0;
 }
-.player-card-content {
+.player-header-actions {
+    max-width: 100%;
+}
+.player-card-panels {
     display: grid;
-    gap: 26px;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 20px;
     min-width: 0;
 }
+.player-card-panels .surface-card {
+    min-width: 0;
+    border-radius: 18px;
+    padding-block: 22px;
+}
+.player-card-panels .surface-card > [data-slot='card-content'] {
+    padding-inline: 22px;
+}
 .player-about h3,
-.player-statistics-section h3 {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted-foreground);
-    margin-bottom: 12px;
+.player-statistics-section h3,
+.player-dogs h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 21px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+.player-about h3 svg {
+    color: var(--sage-ink);
+}
+.player-statistics-section h3 svg,
+.player-dogs h2 svg {
+    color: var(--primary);
 }
 .player-bio {
     white-space: pre-line;
     overflow-wrap: anywhere;
     font-size: 15px;
-    line-height: 1.75;
-    max-width: 68ch;
+    line-height: 1.7;
 }
 .player-bio-empty {
     color: var(--muted-foreground);
-    font-size: 14px;
+}
+.player-joined {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 16px;
+    margin-top: 22px;
+    border-top: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+.player-joined svg {
+    flex-shrink: 0;
+    color: var(--primary);
 }
 .player-statistics {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
 }
 .player-statistics > div {
     min-width: 0;
-    padding: 17px;
-    border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-    border-radius: 16px;
+    padding: 13px 6px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
     background: var(--surface-soft);
 }
 .player-statistics dt {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     color: var(--muted-foreground);
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
-.player-stat-icon {
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    width: 34px;
-    height: 34px;
-    border-radius: 11px;
-    background: var(--card);
-    color: var(--primary);
+.player-statistics dt svg {
+    color: var(--sage-ink);
 }
 .player-statistics dd {
-    margin-top: 10px;
-    font-size: 30px;
+    margin-top: 6px;
+    font-size: 29px;
     line-height: 1.2;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.7px;
     overflow-wrap: anywhere;
 }
-.player-statistics .player-stat-care {
-    background: var(--sage-surface);
-    border-color: transparent;
+.player-statistics-extra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 13px;
+    margin-top: 13px;
+    color: var(--muted-foreground);
+    font-size: 11px;
 }
-.player-stat-care dt,
-.player-stat-care dd,
-.player-stat-care .player-stat-icon {
-    color: var(--sage-ink);
+.player-statistics-extra span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.player-dogs {
+    margin-top: 20px;
+    border-radius: 18px;
+}
+.player-dogs h2 {
+    margin: 0;
+}
+.player-dogs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.player-dog {
+    display: flex;
+    gap: 14px;
+    min-width: 0;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface-soft);
+}
+.player-dog-picture {
+    position: relative;
+    isolation: isolate;
+    flex: 0 0 44%;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 9px;
+}
+.player-dog-picture .game-asset-artwork {
+    height: 150px;
+    padding: 7px 3px 0;
+}
+.player-dog-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    min-width: 0;
+    padding: 10px 6px 10px 0;
+}
+.player-dog-info h3 {
+    font-size: 18px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.player-dog-info p {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+}
+.player-dog-info .ui-button {
+    margin-top: 15px;
+}
+.player-dogs-empty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: var(--muted-foreground);
+}
+@container (max-width: 760px) {
+    .player-card-panels {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .player-card-heading {
+        padding-inline: 20px;
+    }
+    .player-card-identity {
+        flex-basis: 100%;
+    }
+}
+@container (max-width: 420px) {
+    .player-card-cover {
+        height: 160px;
+    }
+    .player-card-cover > span {
+        top: 15px;
+        right: 15px;
+        font-size: 12px;
+        max-width: 160px;
+    }
+    .player-card-portrait {
+        margin-top: -65px;
+    }
+    .profile-avatar {
+        width: 96px;
+        height: 96px;
+        font-size: 38px;
+    }
+    .player-card-name {
+        flex-basis: 100%;
+    }
+    .player-header-actions,
+    .player-header-actions .ui-button {
+        width: 100%;
+    }
+    .player-statistics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 1100px) {
+    .player-dogs-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 650px) {
+    .player-dogs-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 .player-avatar-editor {
     border: 1px solid var(--border);
@@ -2218,51 +2469,6 @@
 }
 .player-card-actions > p {
     flex: 1 1 220px;
-}
-@container (max-width: 600px) {
-    .player-statistics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-@container (max-width: 420px) {
-    .player-card-heading {
-        margin-top: -48px;
-    }
-    .player-card-identity {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 16px;
-    }
-    .profile-avatar {
-        width: 96px;
-        height: 96px;
-        font-size: 38px;
-    }
-    .player-card-name {
-        padding-top: 0;
-    }
-    .player-statistics {
-        gap: 10px;
-    }
-    .player-statistics > div {
-        padding: 13px;
-    }
-    .player-statistics dt {
-        align-items: flex-start;
-        flex-direction: column-reverse;
-        gap: 10px;
-    }
-    .player-statistics dd {
-        font-size: 27px;
-    }
-    .player-card-actions > .ui-button {
-        width: 100%;
-    }
-}
-@media (max-width: 650px) {
-    .surface-card.player-card {
-        --player-card-inset: 20px;
-    }
 }
 .danger-card {
     border-color: var(--danger-border);

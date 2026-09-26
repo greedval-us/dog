@@ -6,6 +6,7 @@ use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
@@ -18,6 +19,12 @@ final class AdoptStarterPet
     public function handle(User $user, AdoptStarterPetData $data): Pet
     {
         return DB::transaction(function () use ($user, $data): Pet {
+            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($owner->pets()->active()->count() >= $owner->pet_slots) {
+                throw new AdoptionUnavailable('You need a free dog slot. Unlock a place on the My dog page.');
+            }
+
             $claimed = User::query()
                 ->whereKey($user->id)
                 ->eligibleForStarterPet()

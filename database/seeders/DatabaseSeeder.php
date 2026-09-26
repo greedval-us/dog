@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([DogSeeder::class, CharacterTraitSeeder::class, GameAssetSeeder::class]);
+        $this->call([DogSeeder::class, CharacterTraitSeeder::class, GameAssetSeeder::class, ItemCategorySeeder::class]);
 
         // User::factory(10)->create();
 

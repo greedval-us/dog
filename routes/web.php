@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('players/{user:username}', PlayerProfileController::class)->name('players.show');
     Route::get('kennel', [KennelController::class, 'index'])->name('kennel.index');
     Route::post('kennel', [KennelController::class, 'store'])->name('kennel.store');
+    Route::post('kennel/purchases', [KennelController::class, 'purchase'])->middleware('throttle:15,1')->name('kennel.purchase');
     Route::get('media/breeds/{breed}/{variant}', [GameImageController::class, 'breed'])
         ->where('breed', '[a-z_]+')->whereIn('variant', ['portrait', 'icon'])->name('breeds.image');
     Route::get('media/pet-scene', [GameImageController::class, 'scene'])->name('pet-scene');

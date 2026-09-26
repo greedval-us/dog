@@ -4,10 +4,13 @@ use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Kennel\Actions\AdoptStarterPet;
+use App\Modules\Kennel\Actions\PurchaseKennelPet;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Pets\Enums\PetSex;
 use Database\Seeders\DogSeeder;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Random\Engine;
 use Random\Randomizer;
@@ -197,4 +200,143 @@ test('a failed pet insert does not consume the first gift', function () {
 test('the kennel handles an empty catalogue', function () {
     $this->actingAs(User::factory()->create())->get(route('kennel.index'))
         ->assertInertia(fn (Assert $page) => $page->has('breeds', 0)->where('canClaimStarterPet', true));
+});
+
+test('additional dogs cost 500 coins once per purchase and belong to the buyer', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['pet_slots' => 3, 'coins' => 1000, 'gems' => 20]);
+    Pet::factory()->for($user)->create();
+    $other = User::factory()->create();
+    $payload = [
+        'dog_id' => $dog->id, 'name' => '  Луна  ', 'expected_price' => 500,
+        'adoption_token' => (string) Str::uuid(),
+        'user_id' => $other->id, 'currency' => 'gems', 'sex' => 'forged', 'generation' => 999,
+    ];
+
+    $this->actingAs($user)->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
+    $newPet = $user->pets()->latest('id')->firstOrFail();
+    $this->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
+
+    $this->assertDatabaseCount('pets', 2);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('currency_transactions', [
+        'user_id' => $user->id, 'amount' => -500, 'currency' => 'coins', 'reason' => 'kennel_purchase',
+    ]);
+    expect($user->fresh()->coins)->toBe(500);
+    expect($user->fresh()->gems)->toBe(20);
+    expect($newPet->name)->toBe('Луна')
+        ->and($newPet->dog_id)->toBe($dog->id)
+        ->and($newPet->generation)->toBe(1)
+        ->and($newPet->sex)->toBeIn([PetSex::Male, PetSex::Female])
+        ->and($newPet->coat_color)->toBeIn(array_keys($dog->coat_colors));
+    expect($other->pets()->exists())->toBeFalse();
+
+    $payload['adoption_token'] = (string) Str::uuid();
+    $this->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('pets', 3);
+    expect($user->fresh()->coins)->toBe(0);
+});
+
+test('purchases with unavailable places funds or changed prices leave the account unchanged', function (int $slots, int $coins, int $price, string $message) {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['locale' => 'en', 'pet_slots' => $slots, 'coins' => $coins]);
+    Pet::factory()->for($user)->create();
+
+    $this->actingAs($user)->post(route('kennel.purchase'), [
+        'dog_id' => $dog->id, 'name' => 'Luna', 'expected_price' => $price,
+        'adoption_token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors(['adoption' => $message]);
+
+    $this->assertDatabaseCount('pets', 1);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    expect($user->fresh()->coins)->toBe($coins);
+    expect($user->fresh()->starter_pet_claimed_at)->toBeNull();
+})->with([
+    'full places' => [1, 1000, 500, 'You need a free dog slot. Unlock a place on the My dog page.'],
+    'insufficient coins' => [2, 499, 500, 'You do not have enough coins for this dog.'],
+    'stale quote' => [2, 1000, 499, 'The price has changed. Refresh the page before purchasing.'],
+]);
+
+test('a retired dog frees its place but does not restore a free gift', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 500]);
+    Pet::factory()->for($user)->retired()->create();
+
+    $this->actingAs($user)->get(route('kennel.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('freeSlots', 1)->where('price', 500)->where('canClaimStarterPet', false));
+    $this->post(route('kennel.purchase'), [
+        'dog_id' => $dog->id, 'name' => 'Луна', 'expected_price' => 500,
+        'adoption_token' => (string) Str::uuid(),
+    ])->assertSessionHasNoErrors();
+
+    $this->assertDatabaseCount('pets', 2);
+    expect($user->fresh()->coins)->toBe(0);
+    expect($user->fresh()->starter_pet_claimed_at)->not->toBeNull();
+    $this->get(route('kennel.index'))->assertInertia(fn (Assert $page) => $page->where('freeSlots', 0));
+});
+
+test('a first dog cannot be charged and a free gift also requires an open place', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 500, 'pet_slots' => 0, 'locale' => 'en']);
+
+    $this->actingAs($user)->post(route('kennel.store'), ['dog_id' => $dog->id, 'name' => 'Luna'])
+        ->assertSessionHasErrors(['adoption' => 'You need a free dog slot. Unlock a place on the My dog page.']);
+    $this->post(route('kennel.purchase'), [
+        'dog_id' => $dog->id, 'name' => 'Luna', 'expected_price' => 500,
+        'adoption_token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors(['adoption' => 'Your first dog is free. Refresh the kennel to claim it.']);
+
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    expect($user->fresh()->coins)->toBe(500);
+    expect($user->fresh()->starter_pet_claimed_at)->toBeNull();
+});
+
+test('paid adoption validates input and catalogue availability before spending coins', function (array $changes, string $field, bool $starter, bool $coats) {
+    $dog = Dog::factory()->create(['is_starter' => $starter, ...($coats ? [] : ['coat_colors' => []])]);
+    $user = User::factory()->create(['coins' => 500, 'starter_pet_claimed_at' => now()]);
+
+    $this->actingAs($user)->post(route('kennel.purchase'), array_replace([
+        'dog_id' => $dog->id, 'name' => 'Луна', 'expected_price' => 500,
+        'adoption_token' => (string) Str::uuid(),
+    ], $changes))->assertSessionHasErrors($field);
+
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    expect($user->fresh()->coins)->toBe(500);
+})->with([
+    'missing token' => [['adoption_token' => null], 'adoption_token', true, true],
+    'invalid token' => [['adoption_token' => 'invalid'], 'adoption_token', true, true],
+    'blank name' => [['name' => ' '], 'name', true, true],
+    'long name' => [['name' => str_repeat('я', 65)], 'name', true, true],
+    'missing quote' => [['expected_price' => null], 'expected_price', true, true],
+    'free quote' => [['expected_price' => 0], 'expected_price', true, true],
+    'unavailable breed' => [[], 'dog_id', false, true],
+    'empty coats' => [[], 'dog_id', true, false],
+]);
+
+test('a failed paid pet insert rolls back the coins and allows retrying the same purchase', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 500, 'starter_pet_claimed_at' => now()]);
+    $data = new PurchaseKennelPetData($dog->id, 'Луна', 500, (string) Str::uuid());
+    Event::listen('eloquent.creating: '.Pet::class, function (): void {
+        throw new RuntimeException('Pet insert failed');
+    });
+
+    expect(fn () => app(PurchaseKennelPet::class)->handle($user, $data))
+        ->toThrow(RuntimeException::class, 'Pet insert failed');
+
+    expect($user->fresh()->coins)->toBe(500);
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    Event::forget('eloquent.creating: '.Pet::class);
+    app(PurchaseKennelPet::class)->handle($user, $data);
+    expect($user->fresh()->coins)->toBe(0);
+    $this->assertDatabaseCount('pets', 1);
+});
+
+test('guests cannot purchase dogs', function () {
+    $this->post(route('kennel.purchase'))->assertRedirect(route('login'));
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
 });

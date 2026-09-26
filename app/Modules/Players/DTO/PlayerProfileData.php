@@ -20,6 +20,7 @@ final readonly class PlayerProfileData implements Arrayable
         public int $competitionWins,
         public int $walksCount,
         public int $trainingsCount,
+        public ?string $joinedAt,
     ) {}
 
     public static function fromModel(User $user, int $dogsCount): self
@@ -36,10 +37,11 @@ final readonly class PlayerProfileData implements Arrayable
             competitionWins: $user->competition_wins,
             walksCount: $user->walks_count,
             trainingsCount: $user->trainings_count,
+            joinedAt: $user->created_at?->toDateString(),
         );
     }
 
-    /** @return array{name: string, username: string, avatarVersion: string|null, bio: string|null, level: int, experience: int, dogsCount: int, exhibitionWins: int, competitionWins: int, walksCount: int, trainingsCount: int} */
+    /** @return array{name: string, username: string, avatarVersion: string|null, bio: string|null, level: int, experience: int, dogsCount: int, exhibitionWins: int, competitionWins: int, walksCount: int, trainingsCount: int, joinedAt: string|null} */
     public function toArray(): array
     {
         return [
@@ -54,6 +56,7 @@ final readonly class PlayerProfileData implements Arrayable
             'competitionWins' => $this->competitionWins,
             'walksCount' => $this->walksCount,
             'trainingsCount' => $this->trainingsCount,
+            'joinedAt' => $this->joinedAt,
         ];
     }
 }

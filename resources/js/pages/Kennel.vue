@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowRight, Check, Gift, Shuffle } from '@lucide/vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import {
+    ArrowRight,
+    Check,
+    ChevronDown,
+    Coins,
+    Gift,
+    House,
+    PawPrint,
+    Shuffle,
+} from '@lucide/vue';
 import { computed, useTemplateRef } from 'vue';
 import BreedArtwork from '@/components/BreedArtwork.vue';
 import DogStats from '@/components/DogStats.vue';
-import EmptyState from '@/components/EmptyState.vue';
-import FormActions from '@/components/FormActions.vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -14,59 +21,85 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/composables/useI18n';
 import { sizeLabels } from '@/lib/petLabels';
-import { dashboard } from '@/routes';
-import { store } from '@/routes/kennel';
+import { dashboard, petScene } from '@/routes';
+import { purchase, store } from '@/routes/kennel';
 import type { StarterBreed } from '@/types/pet';
 
 const props = defineProps<{
     breeds: StarterBreed[];
     canClaimStarterPet: boolean;
+    freeSlots: number;
+    price: number;
+    adoptionToken: string;
 }>();
-const { t } = useI18n();
-const form = useForm<{ dog_id: number | null; name: string; adoption: string }>(
-    {
-        dog_id: props.breeds[0]?.id ?? null,
-        name: '',
-        adoption: '',
-    },
-);
+const { t, locale } = useI18n();
+const page = usePage();
+const number = (value: number) =>
+    new Intl.NumberFormat(locale.value).format(value);
+const form = useForm({
+    dog_id: props.breeds[0]?.id ?? (null as number | null),
+    name: '',
+    adoption: '',
+    expected_price: props.price,
+    adoption_token: props.adoptionToken,
+});
 const selectedBreed = computed(() =>
     props.breeds.find((breed) => breed.id === form.dog_id),
 );
+const affordable = computed(
+    () =>
+        props.canClaimStarterPet ||
+        Number(page.props.auth.user.coins) >= props.price,
+);
 const adoptionForm = useTemplateRef<HTMLFormElement>('adoptionForm');
-const submit = () =>
-    form
-        .transform(({ dog_id, name }) => ({ dog_id, name }))
-        .submit(store(), {
-            preserveScroll: true,
-            onError: () =>
-                adoptionForm.value
-                    ?.querySelector<HTMLElement>('[aria-invalid="true"]')
-                    ?.focus(),
-        });
+function submit() {
+    if (form.processing || !affordable.value || props.freeSlots < 1) return;
+    form.transform(({ dog_id, name, expected_price, adoption_token }) =>
+        props.canClaimStarterPet
+            ? { dog_id, name }
+            : { dog_id, name, expected_price, adoption_token },
+    ).submit(props.canClaimStarterPet ? store() : purchase(), {
+        preserveScroll: true,
+        onError: () =>
+            adoptionForm.value
+                ?.querySelector<HTMLElement>(
+                    '[aria-invalid="true"], [role="alert"]',
+                )
+                ?.focus(),
+    });
+}
 </script>
 
 <template>
     <div class="kennel-page">
         <Head :title="t('Kennel')" />
-        <Heading
-            :title="t('Kennel')"
-            :description="t('Your friendship starts here.')"
-        />
-        <EmptyState
-            v-if="!canClaimStarterPet"
-            :title="t('You have already started your story')"
-            :description="
-                t('The kennel gives one free first dog to each player.')
-            "
-        >
-            <Button as-child
-                ><Link :href="dashboard()"
-                    >{{ t('Go to my dog') }} <ArrowRight /></Link
-            ></Button>
-        </EmptyState>
+        <div class="kennel-heading">
+            <Heading
+                :title="t('Kennel')"
+                :description="t('Your friendship starts here.')"
+            />
+            <span class="kennel-gift">
+                <Gift v-if="canClaimStarterPet" :size="21" aria-hidden="true" />
+                <Coins v-else :size="21" aria-hidden="true" />
+                {{
+                    canClaimStarterPet
+                        ? t('Your first dog is free')
+                        : t('A new friend for {amount} coins', {
+                              amount: number(price),
+                          })
+                }}
+            </span>
+        </div>
+        <div class="kennel-banner">
+            <img :src="petScene.url()" alt="" aria-hidden="true" />
+            <p>
+                {{ t('New stories start here') }}
+                <PawPrint :size="20" aria-hidden="true" />
+            </p>
+            <span>{{ t('Friends for life') }}</span>
+        </div>
         <SurfaceCard
-            v-else-if="breeds.length === 0"
+            v-if="breeds.length === 0"
             :title="t('No breeds available yet')"
             :description="t('Please visit the kennel again later.')"
         />
@@ -77,18 +110,6 @@ const submit = () =>
             @submit.prevent="submit"
             :aria-busy="form.processing"
         >
-            <div class="kennel-intro">
-                <span class="kennel-gift"
-                    ><Gift :size="18" /> {{ t('Your first dog is free') }}</span
-                >
-                <p>
-                    {{
-                        t(
-                            'Choose a breed and a name. Sex and coat color will be a surprise.',
-                        )
-                    }}
-                </p>
-            </div>
             <fieldset
                 class="breed-picker"
                 :disabled="form.processing"
@@ -96,7 +117,7 @@ const submit = () =>
                     form.errors.dog_id ? 'breed-error' : undefined
                 "
             >
-                <legend>{{ t('Choose a breed') }}</legend>
+                <legend class="sr-only">{{ t('Choose a breed') }}</legend>
                 <div class="breed-grid">
                     <label
                         v-for="breed in breeds"
@@ -113,44 +134,34 @@ const submit = () =>
                             :aria-invalid="Boolean(form.errors.dog_id)"
                             :aria-label="breed.name"
                         />
+                        <span class="breed-choice-scene">
+                            <img
+                                class="breed-choice-landscape"
+                                :src="petScene.url()"
+                                alt=""
+                                aria-hidden="true"
+                            />
+                            <BreedArtwork :breed="breed.illustration" />
+                        </span>
                         <span class="breed-choice-check" aria-hidden="true"
-                            ><Check v-if="form.dog_id === breed.id" :size="16"
+                            ><Check v-if="form.dog_id === breed.id" :size="19"
                         /></span>
-                        <BreedArtwork :breed="breed.illustration" />
                         <span class="breed-choice-name">{{ breed.name }}</span>
                         <span class="breed-choice-size">{{
                             t(sizeLabels[breed.size])
-                        }}</span>
-                        <span class="breed-choice-description">{{
-                            breed.description
                         }}</span>
                     </label>
                 </div>
                 <InputError id="breed-error" :message="form.errors.dog_id" />
             </fieldset>
-            <div v-if="selectedBreed" class="kennel-details">
-                <SurfaceCard
-                    :title="t('Meet your new friend')"
-                    :description="
-                        t('A name is the beginning of your story together.')
-                    "
-                >
-                    <div class="form-stack">
-                        <div class="breed-summary">
-                            <BreedArtwork
-                                :breed="selectedBreed.illustration"
-                                variant="icon"
-                            />
-                            <div>
-                                <strong>{{ selectedBreed.name }}</strong
-                                ><span>{{ t('Generation one') }}</span>
-                            </div>
-                        </div>
+            <SurfaceCard v-if="selectedBreed" class="kennel-adoption">
+                <div class="kennel-adoption-grid">
+                    <div class="kennel-name-panel form-stack">
+                        <h2>{{ t('Meet your new friend') }}</h2>
                         <FormField
                             id="pet-name"
                             :label="t('Dog name')"
                             :error="form.errors.name"
-                            :hint="t('Up to 64 characters.')"
                             v-slot="{ field }"
                         >
                             <Input
@@ -165,49 +176,114 @@ const submit = () =>
                             />
                         </FormField>
                         <p class="kennel-random-note">
-                            <Shuffle :size="18" />
-                            {{
+                            <Shuffle :size="18" aria-hidden="true" />{{
                                 t(
                                     'Sex and coat color are assigned randomly when you take your dog home.',
                                 )
                             }}
                         </p>
-                        <InputError
-                            :message="form.errors.adoption"
-                            role="alert"
-                        />
-                        <FormActions
-                            :processing="form.processing"
-                            :label="t('Take home for free')"
-                            test-id="adopt-starter-pet"
-                        />
-                        <p class="field-hint">
+                    </div>
+                    <div class="kennel-checkout form-stack">
+                        <div class="breed-summary">
+                            <BreedArtwork
+                                :breed="selectedBreed.illustration"
+                                variant="icon"
+                            />
+                            <div>
+                                <strong>{{ selectedBreed.name }}</strong
+                                ><span>{{ t('Generation one') }}</span>
+                            </div>
+                        </div>
+                        <span class="kennel-availability"
+                            ><House :size="17" aria-hidden="true" />{{
+                                t('Free places: {count}', {
+                                    count: number(freeSlots),
+                                })
+                            }}</span
+                        >
+                        <p
+                            v-if="freeSlots < 1"
+                            class="kennel-notice"
+                            role="status"
+                        >
                             {{
                                 t(
-                                    'One first dog per account. No coins or gems required.',
+                                    'You need a free dog slot. Unlock a place on the My dog page.',
                                 )
                             }}
                         </p>
+                        <p
+                            v-else-if="!affordable"
+                            class="kennel-notice"
+                            role="status"
+                        >
+                            {{
+                                t('You do not have enough coins for this dog.')
+                            }}
+                        </p>
+                        <InputError
+                            :message="
+                                form.errors.adoption ||
+                                form.errors.expected_price ||
+                                form.errors.adoption_token
+                            "
+                            role="alert"
+                            tabindex="-1"
+                        />
+                        <Button v-if="freeSlots < 1" as-child
+                            ><Link :href="dashboard()"
+                                >{{ t('Manage dog places')
+                                }}<ArrowRight /></Link
+                        ></Button>
+                        <Button
+                            v-else
+                            type="submit"
+                            :disabled="form.processing || !affordable"
+                            data-test="adopt-kennel-pet"
+                        >
+                            {{
+                                form.processing
+                                    ? t('Bringing your dog home...')
+                                    : canClaimStarterPet
+                                      ? t('Take home for free')
+                                      : t('Take home for {amount} coins', {
+                                            amount: number(price),
+                                        })
+                            }}
+                        </Button>
+                        <p class="kennel-price-note">
+                            {{
+                                canClaimStarterPet
+                                    ? t(
+                                          'Your first dog is free. Each next dog costs {amount} coins.',
+                                          { amount: number(price) },
+                                      )
+                                    : t('One dog takes one free place.')
+                            }}
+                        </p>
                     </div>
-                </SurfaceCard>
-                <SurfaceCard
-                    :title="t('Breed potential')"
-                    :description="
+                </div>
+            </SurfaceCard>
+            <details v-if="selectedBreed" class="kennel-potential">
+                <summary>
+                    {{ t('Breed potential')
+                    }}<ChevronDown :size="17" aria-hidden="true" />
+                </summary>
+                <p>{{ selectedBreed.description }}</p>
+                <DogStats :values="selectedBreed.potentials" />
+                <p class="field-hint">
+                    {{
                         t(
                             'Starting genetic limits. Trained skills begin at zero.',
                         )
-                    "
-                >
-                    <DogStats :values="selectedBreed.potentials" />
-                    <p class="field-hint breed-art-caption">
-                        {{
-                            t(
-                                'Breed illustrations are examples. Your dog’s coat color may differ.',
-                            )
-                        }}
-                    </p>
-                </SurfaceCard>
-            </div>
+                    }}
+                    {{
+                        t(
+                            'Breed illustrations are examples. Your dog’s coat color may differ.',
+                        )
+                    }}
+                </p>
+            </details>
         </form>
     </div>
 </template>

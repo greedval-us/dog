@@ -101,7 +101,6 @@ const date = (value: string) =>
                 :asset-id="appearance.portraitId"
                 :alt="t('Illustration of {breed}', { breed: pet.breed })"
             />
-            <figcaption>{{ pet.coatColor }}</figcaption>
         </figure>
         <PetAppearanceControls :pet-id="pet.id" :appearance="appearance" />
     </section>

@@ -129,11 +129,18 @@ function purchase() {
                 </Link>
                 <template v-else-if="slot.unlocked">
                     <Link
-                        v-if="canClaimStarterPet && slot.number === 1"
                         :href="kennel()"
                         class="pet-slot-action"
-                        :title="t('Get your first dog')"
-                        :aria-label="t('Get your first dog')"
+                        :title="
+                            canClaimStarterPet
+                                ? t('Get your first dog')
+                                : t('Visit the kennel')
+                        "
+                        :aria-label="
+                            canClaimStarterPet
+                                ? t('Get your first dog')
+                                : t('Visit the kennel')
+                        "
                     >
                         <span class="pet-slot-symbol"
                             ><Plus :size="20" aria-hidden="true" /></span
@@ -141,18 +148,6 @@ function purchase() {
                             t('Slot {number}', { number: slot.number })
                         }}</span>
                     </Link>
-                    <div
-                        v-else
-                        class="pet-slot-action"
-                        :title="t('Free dog slot')"
-                        :aria-label="t('Free dog slot')"
-                    >
-                        <span class="pet-slot-symbol"
-                            ><Plus :size="20" aria-hidden="true" /></span
-                        ><span>{{
-                            t('Slot {number}', { number: slot.number })
-                        }}</span>
-                    </div>
                 </template>
                 <button
                     v-else

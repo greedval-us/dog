@@ -49,7 +49,7 @@ const { t } = useI18n();
                         : t('There are currently no dogs in your care.')
                 "
             >
-                <Button v-if="canClaimStarterPet" as-child
+                <Button as-child
                     ><Link :href="kennel()"
                         >{{ t('Visit the kennel') }} <ArrowRight /></Link
                 ></Button>

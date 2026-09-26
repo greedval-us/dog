@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'kennel_price' => 500,
     'illustrated_breeds' => ['german_shepherd', 'pit_bull', 'dachshund'],
     'avatar' => [
         'max_kilobytes' => 2048,

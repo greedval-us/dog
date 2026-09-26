@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Link } from '@inertiajs/vue3';
-import { House, PawPrint, Settings } from '@lucide/vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { House, PawPrint, Settings, UserRound } from '@lucide/vue';
+import { computed } from 'vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
 import { edit } from '@/routes/profile';
+import { show as playerProfile } from '@/routes/players';
 
 const { currentUrl, isCurrentUrl } = useCurrentUrl();
-const items = [
+const page = usePage();
+const items = computed(() => [
+    {
+        label: 'Player card',
+        icon: UserRound,
+        href: playerProfile(page.props.auth.user.username),
+        settings: false,
+    },
     { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
     { label: 'Settings', icon: Settings, href: edit(), settings: true },
-];
-const isActive = (item: (typeof items)[number]) =>
+]);
+const isActive = (item: (typeof items.value)[number]) =>
     item.settings
         ? currentUrl.value.startsWith('/settings')
         : isCurrentUrl(item.href);

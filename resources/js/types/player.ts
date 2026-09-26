@@ -10,6 +10,15 @@ export type PlayerProfile = {
     competitionWins: number;
     walksCount: number;
     trainingsCount: number;
+    joinedAt: string | null;
+};
+
+export type PlayerDog = {
+    id: number;
+    name: string;
+    breed: string;
+    portraitId: number | null;
+    backgroundId: number | null;
 };
 
 export type AvatarLimits = {

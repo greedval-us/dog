@@ -67,6 +67,24 @@ class User extends Authenticatable implements HasLocalePreference
         return $this->hasMany(AssetUnlock::class);
     }
 
+    /** @return HasMany<InventoryItem, $this> */
+    public function inventoryItems(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
+    /** @return HasMany<ItemPurchase, $this> */
+    public function itemPurchases(): HasMany
+    {
+        return $this->hasMany(ItemPurchase::class);
+    }
+
+    /** @return HasMany<ItemUsage, $this> */
+    public function itemUsages(): HasMany
+    {
+        return $this->hasMany(ItemUsage::class);
+    }
+
     public function preferredLocale(): string
     {
         return $this->locale;
