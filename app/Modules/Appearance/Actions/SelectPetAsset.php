@@ -17,7 +17,7 @@ final class SelectPetAsset
         DB::transaction(function () use ($user, $petId, $assetId): void {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
-            $asset = GameAsset::query()->lockForUpdate()->findOrFail($assetId);
+            $asset = GameAsset::query()->sharedLock()->findOrFail($assetId);
 
             $this->availability->ensureAvailable($owner, $pet, $asset);
 

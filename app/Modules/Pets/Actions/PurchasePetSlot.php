@@ -5,10 +5,14 @@ namespace App\Modules\Pets\Actions;
 use App\Models\User;
 use App\Modules\Pets\DTO\PurchasePetSlotData;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 
 final class PurchasePetSlot
 {
+    public function __construct(private PlayerWallet $wallet) {}
+
     public function handle(User $user, PurchasePetSlotData $data): void
     {
         DB::transaction(function () use ($user, $data): void {
@@ -32,14 +36,13 @@ final class PurchasePetSlot
                 throw new PetUnavailable('The price has changed. Refresh the page before purchasing.');
             }
 
-            $charged = User::query()->whereKey($owner->id)
-                ->where('pet_slots', $owner->pet_slots)
-                ->where($data->currency, '>=', $price)
-                ->decrement($data->currency, $price, ['pet_slots' => $data->slot]);
-
-            if ($charged !== 1) {
+            try {
+                $this->wallet->change($owner, $data->currency, -$price, 'pet-slot:'.$data->slot, 'pet_slot_purchase');
+            } catch (InsufficientFunds) {
                 throw new PetUnavailable('You do not have enough currency for this dog slot.');
             }
+
+            User::query()->whereKey($owner->id)->update(['pet_slots' => $data->slot]);
         }, 3);
     }
 }

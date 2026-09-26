@@ -9,17 +9,18 @@ use App\Modules\Appearance\DTO\AssetPriceData;
 use App\Modules\Appearance\DTO\PetAppearanceData;
 use App\Modules\Appearance\Enums\AssetCurrency;
 use App\Modules\Appearance\Enums\AssetKind;
+use Illuminate\Database\Eloquent\Builder;
 
 final class GetPetAppearance
 {
     public function handle(User $user, int $petId, string $locale): PetAppearanceData
     {
         $pet = $user->pets()->findOrFail($petId);
-        $unlocks = $user->assetUnlocks()->pluck('game_asset_id')->all();
         $assets = GameAsset::query()->where('is_active', true)->compatibleWith($pet)
+            ->withExists(['unlocks as is_unlocked' => fn (Builder $query) => $query->whereBelongsTo($user)])
             ->orderBy('sort_order')->orderBy('id')->get()
             ->filter(fn (GameAsset $asset): bool => $asset->hasValidPrice() && $asset->hasFiles())
-            ->map(function (GameAsset $asset) use ($locale, $unlocks): AppearanceAssetData {
+            ->map(function (GameAsset $asset) use ($locale): AppearanceAssetData {
                 $prices = [];
                 foreach (AssetCurrency::cases() as $currency) {
                     $amount = $asset->priceFor($currency);
@@ -30,7 +31,7 @@ final class GetPetAppearance
 
                 return new AppearanceAssetData(
                     $asset->id, $asset->kind, $asset->localizedName($locale), $prices,
-                    $asset->isFree() || in_array($asset->id, $unlocks, true),
+                    $asset->isFree() || (bool) $asset->getAttribute('is_unlocked'),
                 );
             });
 

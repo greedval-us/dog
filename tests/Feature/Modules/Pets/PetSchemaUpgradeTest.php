@@ -58,3 +58,31 @@ test('pets without traits retain an empty collection after migration', function 
 
     expect($pet->refresh()->characterTraits)->toBeEmpty();
 })->with(['sql null' => null, 'json null' => 'null', 'empty array' => '[]']);
+
+test('appearance migration preserves pets with empty legacy photo lists', function (?string $photos) {
+    $pet = Pet::factory()->create(['strength' => 17]);
+    $indexes = require database_path('migrations/2026_09_26_072820_add_game_lookup_indexes.php');
+    $migration = require database_path('migrations/2026_09_25_150513_add_appearance_assets_to_pets.php');
+    $indexes->down();
+    $migration->down();
+    DB::table('pets')->where('id', $pet->id)->update(['photos' => $photos]);
+
+    $migration->up();
+    $indexes->up();
+
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'strength' => 17]);
+    expect(Schema::hasColumn('pets', 'photos'))->toBeFalse();
+})->with(['sql null' => null, 'json null' => 'null', 'empty array' => '[]']);
+
+test('appearance migration refuses to discard existing photos', function () {
+    $pet = Pet::factory()->create();
+    $indexes = require database_path('migrations/2026_09_26_072820_add_game_lookup_indexes.php');
+    $migration = require database_path('migrations/2026_09_25_150513_add_appearance_assets_to_pets.php');
+    $indexes->down();
+    $migration->down();
+    DB::table('pets')->where('id', $pet->id)->update(['photos' => '["legacy.png"]']);
+
+    expect(fn () => $migration->up())->toThrow(RuntimeException::class);
+
+    expect(json_decode(DB::table('pets')->where('id', $pet->id)->value('photos'), true))->toBe(['legacy.png']);
+});

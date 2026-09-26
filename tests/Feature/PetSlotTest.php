@@ -36,6 +36,11 @@ test('buying a slot charges only the selected currency and repeat requests do no
     expect($other->fresh()->coins)->toBe(1000);
     expect($other->fresh()->gems)->toBe(100);
     $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('currency_transactions', [
+        'user_id' => $user->id, 'currency' => $currency, 'amount' => -$price,
+        'operation_key' => 'pet-slot:2', 'reason' => 'pet_slot_purchase',
+    ]);
 })->with(['coins' => ['coins', 100, 900, 100], 'gems' => ['gems', 10, 1000, 90]]);
 
 test('invalid purchases preserve the balance and available slots', function (int $unlocked, int $slot, string $currency, int $price, int $coins, int $gems, string $error) {
@@ -46,6 +51,7 @@ test('invalid purchases preserve the balance and available slots', function (int
     expect($user->fresh()->pet_slots)->toBe($unlocked);
     expect($user->fresh()->coins)->toBe($coins);
     expect($user->fresh()->gems)->toBe($gems);
+    $this->assertDatabaseCount('currency_transactions', 0);
 })->with([
     'insufficient coins' => [1, 2, 'coins', 100, 99, 100, 'slot'],
     'insufficient gems' => [1, 2, 'gems', 10, 1000, 9, 'slot'],
@@ -90,4 +96,15 @@ test('players can switch between their own dogs but cannot select another player
         ->where('slots.1.pet.id', $pets[1]->id)
         ->where('slots.2.pet', null));
     $this->get(route('dashboard', ['pet' => $other->id]))->assertNotFound();
+});
+
+test('retired dogs leave active slots and the default selection but remain viewable', function () {
+    $user = User::factory()->create();
+    $retired = Pet::factory()->for($user)->retired()->create();
+    $active = Pet::factory()->for($user)->create();
+
+    $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->where('pet.id', $active->id)->where('slots.0.pet.id', $active->id)->where('slots.1.pet', null));
+    $this->get(route('dashboard', ['pet' => $retired->id]))->assertInertia(fn (Assert $page) => $page
+        ->where('pet.id', $retired->id));
 });

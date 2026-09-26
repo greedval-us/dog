@@ -81,6 +81,11 @@ test('repeated purchases and another compatible dog reuse one account unlock', f
     expect($second->fresh()->portrait_asset_id)->toBe($asset->id);
     expect($first->fresh()->portrait_asset_id)->toBe($asset->id);
     $this->assertDatabaseCount('asset_unlocks', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('currency_transactions', [
+        'user_id' => $user->id, 'currency' => 'coins', 'amount' => -100,
+        'operation_key' => 'appearance:'.$asset->id, 'reason' => 'appearance_purchase',
+    ]);
 });
 
 test('insufficient chosen balance or a stale price quote cannot spend the other currency', function (int $coins, int $gems, int $quote, string $currency) {
@@ -96,6 +101,7 @@ test('insufficient chosen balance or a stale price quote cannot spend the other 
     expect($user->fresh()->gems)->toBe($gems);
     expect($pet->fresh()->background_asset_id)->toBeNull();
     $this->assertDatabaseCount('asset_unlocks', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
 })->with([
     'insufficient coins' => [99, 15, 100, 'coins'],
     'insufficient gems' => [200, 9, 10, 'gems'],

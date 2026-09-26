@@ -13,7 +13,7 @@ class DogFactory extends Factory
     public function definition(): array
     {
         return [
-            'breed' => fake()->unique()->slug(),
+            'breed' => fake()->unique()->uuid(),
             'name' => ['ru' => 'Тестовая порода', 'en' => 'Test breed'],
             'description' => ['ru' => 'Описание породы', 'en' => 'Breed description'],
             'size' => DogSize::Medium,

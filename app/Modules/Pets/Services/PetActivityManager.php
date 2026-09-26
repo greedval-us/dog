@@ -48,6 +48,10 @@ final class PetActivityManager
      */
     public function complete(User $owner, int $petId, string $token): bool
     {
+        if (! Str::isUuid($token)) {
+            return false;
+        }
+
         $completedAt = CarbonImmutable::now()->startOfSecond();
 
         return Pet::query()->whereKey($petId)->whereBelongsTo($owner, 'user')

@@ -164,9 +164,16 @@ class Pet extends Model
 
     /** @param Builder<Pet> $query */
     #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->whereNull('retired_at');
+    }
+
+    /** @param Builder<Pet> $query */
+    #[Scope]
     protected function availableForActivity(Builder $query): void
     {
-        $query->whereNull('activity');
+        $query->active()->whereNull('activity');
     }
 
     /** @return array<string, float> */

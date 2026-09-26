@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::table('pets')->whereNotNull('image_path')->orWhere(function (Builder $query): void {
-            $query->whereNotNull('photos')->whereNotIn('photos', ['[]', 'null']);
+            $query->whereNotNull('photos')->whereRaw('CAST(photos AS TEXT) NOT IN (?, ?)', ['[]', 'null']);
         })->exists()) {
             throw new RuntimeException('Migrate existing pet image_path/photos into the asset catalogue before removing these columns.');
         }

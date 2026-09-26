@@ -156,6 +156,15 @@ test('starting an activity spends the exact cost including at the energy boundar
     'free activity with no energy' => [0.0, 0, 0.0],
 ]);
 
+test('retired pets cannot spend energy or start an activity', function () {
+    $pet = Pet::factory()->retired()->create(['energy' => 100]);
+
+    expect(fn () => app(PetActivityManager::class)->start($pet->user, $pet->id, PetActivity::Training, now()->addHour(), energyCost: 10))
+        ->toThrow(PetUnavailable::class);
+
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 100, 'activity' => null]);
+});
+
 test('negative activity costs cannot increase energy', function () {
     $this->freezeSecond();
     $pet = Pet::factory()->create(['energy' => 50]);

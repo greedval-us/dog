@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -40,6 +41,12 @@ class GameAsset extends Model
     public function dog(): BelongsTo
     {
         return $this->belongsTo(Dog::class);
+    }
+
+    /** @return HasMany<AssetUnlock, $this> */
+    public function unlocks(): HasMany
+    {
+        return $this->hasMany(AssetUnlock::class);
     }
 
     /** @param Builder<GameAsset> $query */

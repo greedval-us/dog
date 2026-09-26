@@ -10,7 +10,7 @@ final class GetPetSlots
     public function handle(User $user): array
     {
         $unlocked = (int) User::query()->whereKey($user->id)->value('pet_slots');
-        $pets = $user->pets()->oldest('id')->limit(9)->get(['id', 'name']);
+        $pets = $user->pets()->active()->oldest('id')->limit(9)->get(['id', 'name']);
         $slots = [];
 
         for ($number = 1; $number <= 9; $number++) {
