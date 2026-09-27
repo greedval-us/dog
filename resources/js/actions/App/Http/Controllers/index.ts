@@ -1,6 +1,7 @@
 import LocaleController from './LocaleController'
 import PlayerAvatarController from './PlayerAvatarController'
 import DashboardController from './DashboardController'
+import DailyWorkController from './DailyWorkController'
 import PetCareController from './PetCareController'
 import ShopController from './ShopController'
 import InventoryController from './InventoryController'
@@ -16,6 +17,7 @@ const Controllers = {
     LocaleController: Object.assign(LocaleController, LocaleController),
 PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarController),
 DashboardController: Object.assign(DashboardController, DashboardController),
+DailyWorkController: Object.assign(DailyWorkController, DailyWorkController),
 PetCareController: Object.assign(PetCareController, PetCareController),
 ShopController: Object.assign(ShopController, ShopController),
 InventoryController: Object.assign(InventoryController, InventoryController),

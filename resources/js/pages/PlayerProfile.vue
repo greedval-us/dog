@@ -5,6 +5,7 @@ import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import Heading from '@/components/Heading.vue';
 import PlayerCard from '@/components/PlayerCard.vue';
+import PlayerDailyWork from '@/components/PlayerDailyWork.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { edit } from '@/routes/profile';
@@ -12,13 +13,14 @@ import { dashboard } from '@/routes';
 import { image } from '@/routes/assets';
 import { index as kennel } from '@/routes/kennel';
 import { index as inventory } from '@/routes/inventory';
-import type { PlayerDog, PlayerProfile } from '@/types/player';
+import type { DailyWork, PlayerDog, PlayerProfile } from '@/types/player';
 
 defineProps<{
     player: PlayerProfile;
     isOwner: boolean;
     inventoryCount: number | null;
     dogs: PlayerDog[];
+    dailyWork: DailyWork | null;
 }>();
 const { t, number } = useI18n();
 </script>
@@ -46,6 +48,9 @@ const { t, number } = useI18n();
                         ><Pencil />{{ t('Edit profile') }}</Link
                     ></Button
                 >
+            </template>
+            <template v-if="isOwner && dailyWork" #daily-work>
+                <PlayerDailyWork :work="dailyWork" />
             </template>
         </PlayerCard>
         <SurfaceCard class="player-dogs">

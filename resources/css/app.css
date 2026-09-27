@@ -4367,3 +4367,189 @@ a.pet-slot-action {
         height: 30px;
     }
 }
+
+.player-work-heading,
+.player-work-title,
+.player-work-job-footer,
+.player-work-streak-heading,
+.player-work-reward,
+.player-work-complete {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.player-work-heading,
+.player-work-job-footer,
+.player-work-streak-heading {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.player-work-title {
+    min-width: 0;
+}
+.player-work-title h2 {
+    font-size: 21px;
+    font-weight: 700;
+}
+.player-work-title p,
+.player-work-job > p,
+.player-work-streak > p {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.player-work-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border-radius: 14px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+}
+.player-work-frequency {
+    padding: 6px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    background: var(--surface-soft);
+}
+.player-work-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    margin-top: 22px;
+}
+.player-work-jobs {
+    display: grid;
+    gap: 16px;
+    align-content: start;
+    min-width: 0;
+}
+.player-work-job h3,
+.player-work-complete h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+.player-work-job > p {
+    margin-top: 6px;
+}
+.player-work-job-footer {
+    margin-top: 18px;
+}
+.player-work-reward {
+    display: inline-flex;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 14px;
+}
+.player-work-reward svg,
+.player-work-complete > svg {
+    flex-shrink: 0;
+}
+.player-work-bonus {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.player-work-job > .player-work-bonus,
+.player-work-streak > .player-work-bonus {
+    color: var(--primary);
+}
+.player-work-streak {
+    padding: 18px;
+    border-radius: 14px;
+    background: var(--surface-soft);
+    min-width: 0;
+}
+.player-work-streak-heading {
+    gap: 8px;
+    font-size: 13px;
+}
+.player-work-streak-heading h3 {
+    font-weight: 600;
+}
+.player-work-streak-heading > span {
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+}
+.player-work-days {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin: 16px 0;
+    padding: 0;
+    list-style: none;
+}
+.player-work-days li {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    font-size: 11px;
+    text-align: center;
+    color: var(--muted-foreground);
+}
+.player-work-day-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-size: 14px;
+    font-weight: 600;
+}
+.player-work-days .is-complete .player-work-day-icon {
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    border-color: var(--sage-ink);
+}
+.player-work-days .is-next .player-work-day-icon {
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+.player-work-streak > .player-work-reset {
+    margin-top: 10px;
+    font-size: 11px;
+}
+.player-work-complete {
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: 14px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+}
+.player-work-complete p {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    font-size: 13px;
+}
+.player-work {
+    overflow-wrap: anywhere;
+}
+@container (max-width: 680px) {
+    .player-work-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+}
+@media (max-width: 380px) {
+    .player-work-streak {
+        padding: 12px;
+    }
+    .player-work-days {
+        gap: 4px;
+    }
+    .player-work-day-icon {
+        width: 30px;
+        height: 30px;
+    }
+    .player-work-job-footer > button {
+        width: 100%;
+    }
+}

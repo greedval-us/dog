@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'work_timezone' => 'Europe/Moscow',
     'kennel_price' => 500,
     'illustrated_breeds' => ['german_shepherd', 'pit_bull', 'dachshund'],
     'avatar' => [

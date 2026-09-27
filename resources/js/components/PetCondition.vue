@@ -14,7 +14,7 @@ import { useI18n } from '@/composables/useI18n';
 import { stateLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
 
-defineProps<{ states: PlayerPet['states']; energy: PlayerPet['energy'] }>();
+defineProps<{ states: PlayerPet['states'] }>();
 const { t } = useI18n();
 const metrics = [
     { key: 'health', icon: Heart, tone: 'sage' },
@@ -34,11 +34,7 @@ const metrics = [
                 v-for="metric in metrics"
                 :key="metric.key"
                 :label="t(stateLabels[metric.key])"
-                :value="
-                    metric.key === 'energy' ? energy.value : states[metric.key]
-                "
-                :maximum="metric.key === 'energy' ? energy.maximum : 100"
-                :show-maximum="metric.key === 'energy'"
+                :value="states[metric.key]"
                 :icon="metric.icon"
                 :tone="metric.tone"
             />

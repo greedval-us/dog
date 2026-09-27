@@ -56,7 +56,7 @@ return [
             'items' => [], 'effects' => ['energy' => 25, 'satiety' => -4, 'hydration' => -4],
         ],
         'sleep' => [
-            'duration' => 1200, 'cooldown' => 1800, 'energy' => 0,
+            'duration' => 1200, 'cooldown' => 3600, 'energy' => 0,
             'items' => [], 'effects' => ['energy' => 70, 'satiety' => -12, 'hydration' => -12],
         ],
     ],

@@ -20,6 +20,7 @@ final class StartPetCare
         private PetCareRules $rules,
         private PetActivityManager $activities,
         private InventoryConsumption $inventory,
+        private CompletePetCare $completeCare,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -51,6 +52,17 @@ final class StartPetCare
             }
 
             $option = $this->rules->options($pet->size)[$variant] ?? throw new InvalidArgumentException('Unknown care action.');
+
+            if ($pet->isBusy() && $pet->retired_at === null) {
+                $finished = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $petId)
+                    ->where('activity_token', $pet->activity_token)->whereNull('completed_at')
+                    ->where('ends_at', '<=', now())->first();
+
+                if ($finished !== null) {
+                    $this->completeCare->handle($owner, $petId, $finished->token);
+                    $pet->refresh();
+                }
+            }
 
             if ($pet->retired_at !== null || $pet->isBusy()) {
                 throw new PetUnavailable('Your dog is busy or retired.');

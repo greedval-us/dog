@@ -32,20 +32,27 @@ import type { DogState, PlayerPet } from '@/types/pet';
 import type { CareGroup, PetCare } from '@/types/pet-care';
 
 const props = defineProps<{ pet: PlayerPet; care: PetCare }>();
-const { t } = useI18n();
+const { t, number } = useI18n();
 const id = useId();
 const open = ref(false);
 const group = ref<CareGroup>('feed');
 const now = ref(Date.parse(props.care.serverNow));
+const mounted = ref(false);
+const completionFailed = ref(false);
+let lastCompletionAttempt: string | null = null;
 let clock: ReturnType<typeof setInterval> | undefined;
 let serverAnchor = now.value;
 let localAnchor = Date.now();
 onMounted(() => {
+    mounted.value = true;
     clock = setInterval(() => {
         now.value = serverAnchor + Date.now() - localAnchor;
     }, 1000);
 });
-onUnmounted(() => clearInterval(clock));
+onUnmounted(() => {
+    clearInterval(clock);
+    finish.cancel();
+});
 watch(
     () => props.care.serverNow,
     (value) => {
@@ -122,6 +129,17 @@ const missingItems = computed(
 );
 const error = computed(() => Object.values(form.errors).join(' '));
 const finishError = computed(() => Object.values(finish.errors).join(' '));
+const energyCostPercentage = computed(() =>
+    props.pet.energy.maximum > 0
+        ? ((selected.value?.energy ?? 0) / props.pet.energy.maximum) * 100
+        : 0,
+);
+const energyAfterCost = computed(() =>
+    Math.max(0, props.pet.states.energy - energyCostPercentage.value),
+);
+const energyGainCapped = computed(
+    () => (selected.value?.effects.energy ?? 0) > 100 - energyAfterCost.value,
+);
 const effects = computed(() => {
     const result = { ...selected.value?.effects };
     for (const category of selected.value?.requirements ?? []) {
@@ -138,12 +156,7 @@ const effects = computed(() => {
     return Object.entries(result).map(([state, amount]) => {
         const current =
             state === 'energy'
-                ? (Math.max(
-                      0,
-                      props.pet.energy.value - (selected.value?.energy ?? 0),
-                  ) /
-                      props.pet.energy.maximum) *
-                  100
+                ? energyAfterCost.value
                 : props.pet.states[state as DogState];
         return {
             label: stateLabels[state as DogState],
@@ -176,6 +189,28 @@ const unavailable = computed(
         cooldown.value > 0 ||
         !!selected.value?.reason ||
         missingItems.value,
+);
+const readyToFinish = computed(
+    () =>
+        props.care.active !== null &&
+        secondsLeft(props.care.active.endsAt) === 0,
+);
+const busyMessage = computed(() => {
+    if (completionFailed.value)
+        return 'Could not apply the result. Please retry.';
+    return readyToFinish.value
+        ? 'Applying the activity result...'
+        : 'Your dog is busy with another activity.';
+});
+
+watch(
+    () =>
+        mounted.value && !props.care.blocked && readyToFinish.value
+            ? props.care.active?.token
+            : null,
+    (token) => {
+        if (token && token !== lastCompletionAttempt) finishActivity();
+    },
 );
 
 function chooseVariant(variant: string) {
@@ -216,9 +251,23 @@ function start() {
 }
 
 function finishActivity() {
-    if (!props.care.active || finish.processing) return;
-    finish.token = props.care.active.token;
-    finish.post(complete.url(props.pet.id), { preserveScroll: true });
+    if (
+        !props.care.active ||
+        !readyToFinish.value ||
+        props.care.blocked ||
+        finish.processing
+    )
+        return;
+    const token = props.care.active.token;
+    lastCompletionAttempt = token;
+    completionFailed.value = false;
+    finish.token = token;
+    finish.post(complete.url(props.pet.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            completionFailed.value = props.care.active?.token === token;
+        },
+    });
 }
 </script>
 
@@ -250,7 +299,11 @@ function finishActivity() {
                 <span>{{
                     secondsLeft(care.active.endsAt)
                         ? countdown(secondsLeft(care.active.endsAt))
-                        : t('Ready')
+                        : t(
+                              completionFailed
+                                  ? 'Retry completion'
+                                  : 'Finishing...',
+                          )
                 }}</span>
             </div>
             <progress
@@ -259,16 +312,16 @@ function finishActivity() {
                 :aria-label="t('Activity progress')"
             />
             <p v-if="!secondsLeft(care.active.endsAt)" role="status">
-                {{ t('Your dog is ready. Finish to apply the result.') }}
+                {{ t(busyMessage) }}
             </p>
             <Button
-                v-if="!secondsLeft(care.active.endsAt)"
+                v-if="readyToFinish && completionFailed"
                 type="button"
-                :disabled="finish.processing"
+                :disabled="finish.processing || care.blocked"
                 @click="finishActivity"
             >
                 <Check :size="16" aria-hidden="true" />{{
-                    t(finish.processing ? 'Finishing...' : 'Finish activity')
+                    t(finish.processing ? 'Finishing...' : 'Retry completion')
                 }}
             </Button>
             <InputError :message="finishError" />
@@ -323,6 +376,13 @@ function finishActivity() {
                             />
                             <span>
                                 <strong>{{ t(option.label) }}</strong>
+                                <small v-if="option.group === 'sleep'">{{
+                                    t('Up to +{amount}% energy', {
+                                        amount: number(
+                                            option.effects.energy ?? 0,
+                                        ),
+                                    })
+                                }}</small>
                                 <small>{{
                                     option.requirements.length
                                         ? option.requirements
@@ -442,6 +502,13 @@ function finishActivity() {
                             <p v-else>
                                 {{ t('These needs are already full.') }}
                             </p>
+                            <p v-if="energyGainCapped">
+                                {{
+                                    t(
+                                        'Energy is capped at 100%. The result shows what your dog needs now.',
+                                    )
+                                }}
+                            </p>
                             <div
                                 v-if="costs.length || selected.energy"
                                 class="pet-care-costs"
@@ -449,7 +516,9 @@ function finishActivity() {
                                 <span v-if="selected.energy"
                                     ><Zap :size="14" aria-hidden="true" />{{
                                         t('Energy cost')
-                                    }}: −{{ selected.energy }}</span
+                                    }}: −{{
+                                        number(energyCostPercentage)
+                                    }}%</span
                                 >
                                 <span
                                     v-for="effect in costs"
@@ -497,9 +566,7 @@ function finishActivity() {
                             <p>
                                 {{
                                     care.busy
-                                        ? t(
-                                              'Finish the current activity first.',
-                                          )
+                                        ? t(busyMessage)
                                         : cooldown
                                           ? t('Available in {time}', {
                                                 time: countdown(cooldown),
@@ -508,9 +575,22 @@ function finishActivity() {
                                 }}
                             </p>
                         </div>
+                        <Button
+                            v-if="readyToFinish && completionFailed"
+                            type="button"
+                            :disabled="finish.processing || care.blocked"
+                            @click="finishActivity"
+                            >{{ t('Retry completion') }}</Button
+                        >
                         <InputError :message="error" />
                         <div class="pet-care-footer">
-                            <p>{{ t('Costs now. Result when you finish.') }}</p>
+                            <p>
+                                {{
+                                    t(
+                                        'Costs now. Results apply automatically when the timer ends.',
+                                    )
+                                }}
+                            </p>
                             <Button
                                 type="submit"
                                 :disabled="unavailable || form.processing"

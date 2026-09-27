@@ -388,3 +388,84 @@ test('configured minimum needs agree in the preview and action validation', func
     ])->assertSessionHasErrors('care');
     $this->assertDatabaseCount('pet_care_actions', 0);
 });
+
+test('starting another action applies expired care once and uses the restored energy', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 0, 'energy_max' => 100, 'satiety' => 50, 'satiety_max' => 100]);
+    $first = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+    $token = (string) Str::uuid();
+    $payload = ['variant' => 'attention', 'items' => [], 'token' => $token];
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
+    $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
+    $this->post(route('pets.care.complete', $pet), ['token' => $first->token])->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $first->id, 'completed_at' => now()->toDateTimeString()]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 19, 'satiety' => 46, 'activity' => 'play']);
+    $this->assertDatabaseHas('pet_care_actions', ['token' => $token, 'completed_at' => null]);
+    $this->assertDatabaseCount('pet_care_actions', 2);
+});
+
+test('automatic completion keeps the original cooldown and permits reuse exactly when it expires', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 5, 'energy_max' => 100]);
+    $first = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(2099)->seconds();
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'sleep', 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors(['care' => __('This action is cooling down. Wait before trying again.')]);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+
+    $this->travel(1)->seconds();
+    $this->post(route('pets.care.store', $pet), [
+        'variant' => 'sleep', 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 30, 'activity' => 'sleep']);
+    $this->assertDatabaseHas('pet_care_actions', [
+        'id' => $first->id, 'completed_at' => now()->toDateTimeString(),
+        'available_at' => $first->available_at->toDateTimeString(),
+    ]);
+    $this->assertDatabaseCount('pet_care_actions', 2);
+});
+
+test('automatic care completion does not release an unrelated expired activity', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 5, 'energy_max' => 100]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(301)->seconds();
+    $activityToken = (string) Str::uuid();
+    $pet->forceFill(['activity' => 'training', 'activity_token' => $activityToken])->save();
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'home', 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 5, 'activity' => 'training', 'activity_token' => $activityToken]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+});
+
+test('sleep variants restore different percentages and enforce their own shared cooldown', function (string $variant, int $duration, int $cooldown, int $restored) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 20, 'energy_max' => 200]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, $variant, [], (string) Str::uuid());
+    expect($care->ends_at->diffInSeconds($care->available_at))->toBe((float) $cooldown);
+    $this->travel($duration)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => $restored, 'activity' => null]);
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+        ->where('pet.states.energy', $restored / 2)
+        ->where('care.options.8.effects.energy', 25)->where('care.options.8.cooldown', 1800)
+        ->where('care.options.9.effects.energy', 70)->where('care.options.9.cooldown', 3600)
+    );
+    $this->travel($cooldown - 1)->seconds();
+    $payload = ['variant' => 'nap', 'items' => [], 'token' => (string) Str::uuid()];
+    $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasErrors('care');
+    $this->assertDatabaseCount('pet_care_actions', 1);
+    $this->travel(1)->seconds();
+    $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('pet_care_actions', 2);
+})->with([
+    'short sleep' => ['nap', 300, 1800, 70],
+    'long sleep' => ['sleep', 1200, 3600, 160],
+]);

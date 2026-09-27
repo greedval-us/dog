@@ -132,6 +132,7 @@ const statistics = computed(() => [
                 </div>
             </SurfaceCard>
         </div>
+        <slot name="daily-work" />
         <div v-if="$slots.actions" class="player-card-actions">
             <slot name="actions" />
         </div>

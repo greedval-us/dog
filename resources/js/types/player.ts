@@ -26,3 +26,21 @@ export type AvatarLimits = {
     max_dimension: number;
     stored_dimension: number;
 };
+
+export type DailyWork = {
+    completedToday: boolean;
+    canWork: boolean;
+    progress: number;
+    streakLength: number;
+    resetsAt: string;
+    timezone: string;
+    earnedCoins: number;
+    earnedGems: number;
+    jobs: {
+        id: number;
+        name: string;
+        description: string;
+        coins: number;
+        gems: number;
+    }[];
+};

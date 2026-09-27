@@ -78,7 +78,7 @@ const { t } = useI18n();
                     class="pet-sidebar"
                     :aria-label="t('Wellbeing and care')"
                 >
-                    <PetCondition :states="pet.states" :energy="pet.energy" />
+                    <PetCondition :states="pet.states" />
                     <PetQuickActions
                         v-if="care"
                         :key="pet.id"
