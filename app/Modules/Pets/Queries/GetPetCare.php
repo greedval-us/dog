@@ -48,11 +48,13 @@ final class GetPetCare
                 'category' => $item->item->category->code,
                 'name' => $item->name[$locale] ?? $item->name['en'] ?? $item->item->code,
                 'quality' => $item->quality,
+                'bonus' => $this->rules->qualityBonus($item->item->category->code, $item->quality),
                 'remainingUses' => $item->remaining_uses,
             ])->all(),
             'active' => $active === null ? null : [
                 'token' => $active->token,
                 'label' => $options[$active->variant]['label'],
+                'startedAt' => $active->created_at->toIso8601String(),
                 'endsAt' => $active->ends_at->toIso8601String(),
                 'effects' => $active->effects,
             ],

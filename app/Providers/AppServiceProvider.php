@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Modules\Pets\Calculators\PetCareRules;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -10,6 +12,7 @@ use Illuminate\Validation\Rules\Password;
 use Random\Engine\Secure;
 use Random\Randomizer;
 
+/** @phpstan-import-type CareBalance from PetCareRules */
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -18,6 +21,12 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(Randomizer::class, fn (): Randomizer => new Randomizer(new Secure));
+        $this->app->bind(PetCareRules::class, function (): PetCareRules {
+            /** @var CareBalance $balance */
+            $balance = Config::array('pet_care');
+
+            return new PetCareRules($balance);
+        });
     }
 
     /**

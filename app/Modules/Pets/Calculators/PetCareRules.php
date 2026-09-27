@@ -4,30 +4,49 @@ namespace App\Modules\Pets\Calculators;
 
 use App\Modules\Pets\Enums\DogSize;
 
-/** @phpstan-type CareOption array{group: string, label: string, description: string, duration: int, cooldown: int, energy: int, requirements: list<string>, effects: array<string, int>} */
+/**
+ * @phpstan-type VariantBalance array{duration: int, cooldown: int, energy: int, items: array<string, int>, effects: array<string, int>}
+ * @phpstan-type CareBalance array{feeding_by_size: array<string, int>, minimum_needs: array<string, array<string, int>>, quality_bonuses: array<string, array{state: string, per_level: int, base_quality: int, max_quality: int}>, options: array<string, VariantBalance>}
+ * @phpstan-type CareOption array{group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, uses: array<string, int>, effects: array<string, int>}
+ */
 final class PetCareRules
 {
+    /** @param CareBalance $balance */
+    public function __construct(private array $balance) {}
+
     /** @return array<string, CareOption> */
     public function options(DogSize $size): array
     {
-        $satiety = match ($size) {
-            DogSize::Small => 30,
-            DogSize::Medium => 22,
-            DogSize::Large => 15,
-        };
-
-        return [
-            'meal' => $this->option('feed', 'A portion of food', 'One portion from the selected food package.', 30, 300, 0, ['food'], ['satiety' => $satiety]),
-            'water' => $this->option('feed', 'Fresh water', 'Refill the bowl for free. Shares the feeding cooldown.', 15, 300, 0, [], ['hydration' => 35]),
-            'walk' => $this->option('walk', 'Walk outside', 'Requires a collar and leash. Each loses one use.', 300, 900, 12, ['collars', 'leashes'], ['mood' => 25, 'bond' => 4, 'satiety' => -8, 'hydration' => -10, 'cleanliness' => -12]),
-            'home' => $this->option('walk', 'Move around at home', 'A safe alternative without equipment, with a smaller benefit.', 120, 900, 4, [], ['mood' => 8, 'bond' => 1, 'satiety' => -3, 'hydration' => -3]),
-            'attention' => $this->option('play', 'Play together', 'Spend time together without a toy.', 120, 600, 6, [], ['mood' => 10, 'bond' => 2, 'satiety' => -3, 'hydration' => -3]),
-            'toy' => $this->option('play', 'Play with a toy', 'A better quality toy improves the mood bonus. Uses one charge.', 180, 600, 10, ['toys'], ['mood' => 18, 'bond' => 4, 'satiety' => -5, 'hydration' => -6]),
-            'wash' => $this->option('groom', 'Rinse paws', 'Basic care with water, without supplies.', 60, 1200, 0, [], ['cleanliness' => 10, 'bond' => 1]),
-            'care' => $this->option('groom', 'Use a care product', 'Quality improves cleaning. Uses one charge of the selected product.', 180, 1200, 0, ['care'], ['cleanliness' => 25, 'bond' => 3]),
-            'nap' => $this->option('sleep', 'Take a nap', 'A short rest restores some energy.', 300, 1800, 0, [], ['energy' => 25, 'satiety' => -4, 'hydration' => -4]),
-            'sleep' => $this->option('sleep', 'Long sleep', 'More energy, but a longer wait and more hunger.', 1200, 1800, 0, [], ['energy' => 70, 'satiety' => -12, 'hydration' => -12]),
+        $variants = [
+            'meal' => ['feed', 'A portion of food'],
+            'water' => ['feed', 'Fresh water'],
+            'walk' => ['walk', 'Walk outside'],
+            'home' => ['walk', 'Move around at home'],
+            'attention' => ['play', 'Play together'],
+            'toy' => ['play', 'Play with a toy'],
+            'wash' => ['groom', 'Rinse paws'],
+            'care' => ['groom', 'Use a care product'],
+            'nap' => ['sleep', 'Take a nap'],
+            'sleep' => ['sleep', 'Long sleep'],
         ];
+        $options = [];
+
+        foreach ($variants as $id => [$group, $label]) {
+            $settings = $this->balance['options'][$id];
+
+            if ($id === 'meal') {
+                $settings['effects']['satiety'] = $this->balance['feeding_by_size'][$size->value];
+            }
+
+            $options[$id] = [
+                'group' => $group, 'label' => $label,
+                'duration' => $settings['duration'], 'cooldown' => $settings['cooldown'],
+                'energy' => $settings['energy'], 'requirements' => array_keys($settings['items']),
+                'uses' => $settings['items'], 'effects' => $settings['effects'],
+            ];
+        }
+
+        return $options;
     }
 
     /** @param CareOption $option
@@ -39,8 +58,10 @@ final class PetCareRules
             return 'Not enough energy. Let your dog rest first.';
         }
 
-        if (in_array($option['group'], ['walk', 'play'], true) && ($states['satiety'] < 10 || $states['hydration'] < 10)) {
-            return 'Feed your dog and offer water before active play or a walk.';
+        foreach ($this->balance['minimum_needs'][$option['group']] ?? [] as $state => $minimum) {
+            if ($states[$state] < $minimum) {
+                return 'Feed your dog and offer water before active play or a walk.';
+            }
         }
 
         $primary = match ($option['group']) {
@@ -61,21 +82,22 @@ final class PetCareRules
     {
         $effects = $option['effects'];
 
-        foreach (['toys' => 'mood', 'care' => 'cleanliness'] as $category => $state) {
-            if (isset($qualities[$category])) {
-                $effects[$state] += max(0, min(10, $qualities[$category]) - 1);
+        foreach ($qualities as $category => $quality) {
+            foreach ($this->qualityBonus($category, $quality) as $state => $bonus) {
+                $effects[$state] = ($effects[$state] ?? 0) + $bonus;
             }
         }
 
         return $effects;
     }
 
-    /** @param list<string> $requirements
-     * @param  array<string, int>  $effects
-     * @return CareOption
-     */
-    private function option(string $group, string $label, string $description, int $duration, int $cooldown, int $energy, array $requirements, array $effects): array
+    /** @return array<string, int> */
+    public function qualityBonus(string $category, int $quality): array
     {
-        return compact('group', 'label', 'description', 'duration', 'cooldown', 'energy', 'requirements', 'effects');
+        $bonus = $this->balance['quality_bonuses'][$category] ?? null;
+
+        return $bonus === null ? [] : [
+            $bonus['state'] => max(0, min($bonus['max_quality'], $quality) - $bonus['base_quality']) * $bonus['per_level'],
+        ];
     }
 }

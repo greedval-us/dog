@@ -79,7 +79,7 @@ final class StartPetCare
             foreach ($itemIds as $category => $id) {
                 $instance = $instances->get($id);
 
-                if ($instance === null || $instance->remaining_uses < 1 || $instance->item->category->code !== $category) {
+                if ($instance === null || $instance->remaining_uses < $option['uses'][$category] || $instance->item->category->code !== $category) {
                     throw new PetUnavailable('A selected item is unavailable. Choose another item.');
                 }
 
@@ -88,8 +88,8 @@ final class StartPetCare
 
             $started = $this->activities->start($owner, $petId, PetActivity::from($option['group']), now()->addSeconds($option['duration']), $option['energy']);
 
-            foreach ($itemIds as $id) {
-                $usage = $this->inventory->handle($owner, $id, (string) Str::uuid());
+            foreach ($itemIds as $category => $id) {
+                $usage = $this->inventory->handle($owner, $id, (string) Str::uuid(), $option['uses'][$category]);
 
                 if (! $usage->wasRecentlyCreated) {
                     throw new PetUnavailable('A selected item is unavailable. Choose another item.');

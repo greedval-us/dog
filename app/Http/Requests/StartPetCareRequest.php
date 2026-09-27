@@ -16,10 +16,10 @@ class StartPetCareRequest extends FormRequest
     }
 
     /** @return array<string, array<mixed>> */
-    public function rules(): array
+    public function rules(PetCareRules $rules): array
     {
         return [
-            'variant' => ['required', Rule::in(array_keys((new PetCareRules)->options(DogSize::Medium)))],
+            'variant' => ['required', Rule::in(array_keys($rules->options(DogSize::Medium)))],
             'token' => ['required', 'uuid'],
             'items' => ['present', 'array:food,collars,leashes,toys,care'],
             'items.*' => ['required', 'integer', 'min:1', 'distinct'],

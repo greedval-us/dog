@@ -313,3 +313,78 @@ test('replaying an old completion does not interrupt a newer activity', function
     $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $first->token])->assertSessionHasNoErrors();
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 41, 'activity_token' => $second->activity_token]);
 });
+
+test('configured care balance controls the preview costs timing and saved result', function () {
+    $this->freezeSecond();
+    config([
+        'pet_care.options.toy.duration' => 45,
+        'pet_care.options.toy.cooldown' => 90,
+        'pet_care.options.toy.energy' => 7,
+        'pet_care.options.toy.items.toys' => 2,
+        'pet_care.options.toy.effects.mood' => 12,
+        'pet_care.quality_bonuses.toys.per_level' => 3,
+        'pet_care.quality_bonuses.toys.max_quality' => 4,
+    ]);
+    $pet = Pet::factory()->create(['energy' => 50, 'mood' => 0, 'mood_max' => 100]);
+    $toy = careItem($pet->user, 'toys', 3, 8);
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+        ->where('care.options.5.duration', 45)->where('care.options.5.cooldown', 90)
+        ->where('care.options.5.energy', 7)->where('care.options.5.uses.toys', 2)
+        ->where('care.options.5.effects.mood', 12)->where('care.items.0.bonus.mood', 9)
+    );
+    $token = (string) Str::uuid();
+    $payload = ['variant' => 'toy', 'items' => ['toys' => $toy->id], 'token' => $token];
+    $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
+    $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 43, 'mood' => 0]);
+    $this->assertDatabaseHas('inventory_items', ['id' => $toy->id, 'remaining_uses' => 1]);
+    $this->assertDatabaseHas('item_usages', ['inventory_item_id' => $toy->id, 'uses_spent' => 2]);
+    $this->assertDatabaseCount('item_usages', 1);
+    $this->assertDatabaseHas('pet_care_actions', [
+        'token' => $token, 'ends_at' => now()->addSeconds(45)->toDateTimeString(),
+        'available_at' => now()->addSeconds(135)->toDateTimeString(),
+    ]);
+
+    config(['pet_care.options.toy.effects.mood' => 90, 'pet_care.options.toy.duration' => 600]);
+    $this->travel(45)->seconds();
+    $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 21, 'activity' => null]);
+});
+
+test('configured item costs reject an insufficient stack without spending anything', function () {
+    config(['pet_care.options.walk.items.leashes' => 3]);
+    $pet = Pet::factory()->create(['energy' => 50]);
+    $collar = careItem($pet->user, 'collars');
+    $leash = careItem($pet->user, 'leashes', 2);
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'walk', 'items' => ['collars' => $collar->id, 'leashes' => $leash->id], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 50, 'activity' => null]);
+    $this->assertDatabaseHas('inventory_items', ['id' => $collar->id, 'remaining_uses' => 5]);
+    $this->assertDatabaseHas('inventory_items', ['id' => $leash->id, 'remaining_uses' => 2]);
+    $this->assertDatabaseCount('item_usages', 0);
+    $this->assertDatabaseCount('pet_care_actions', 0);
+});
+
+test('configured feeding percentages are used for each dog size', function (string $size) {
+    $this->freezeSecond();
+    config(['pet_care.feeding_by_size.'.$size => 17]);
+    $pet = Pet::factory()->create(['size' => $size, 'satiety' => 10, 'satiety_max' => 200]);
+    $food = careItem($pet->user, 'food');
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], (string) Str::uuid());
+    $this->travel(30)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'satiety' => 44]);
+})->with(['small', 'medium', 'large']);
+
+test('configured minimum needs agree in the preview and action validation', function () {
+    config(['pet_care.minimum_needs.walk.satiety' => 40]);
+    $pet = Pet::factory()->create(['satiety' => 30, 'satiety_max' => 100]);
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+        ->where('care.options.3.reason', 'Feed your dog and offer water before active play or a walk.')
+    );
+    $this->post(route('pets.care.store', $pet), [
+        'variant' => 'home', 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+    $this->assertDatabaseCount('pet_care_actions', 0);
+});

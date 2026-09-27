@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { Link, useForm } from '@inertiajs/vue3';
-import { Brush, CircleDot, Footprints, Moon, Soup } from '@lucide/vue';
+import {
+    Brush,
+    CircleDot,
+    Footprints,
+    Moon,
+    Soup,
+    Clock3,
+    RotateCcw,
+    Package,
+    Check,
+    ShoppingBag,
+    Zap,
+} from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import InputError from '@/components/InputError.vue';
@@ -74,13 +86,27 @@ const groupLabel = computed(
         actions.find((action) => action.group === group.value)?.label ??
         'Quick actions',
 );
-const itemsFor = (category: string) =>
-    props.care.items.filter((item) => item.category === category);
+const groupIcon = computed(
+    () => actions.find((action) => action.group === group.value)?.icon,
+);
+const groupTone = computed(
+    () => actions.find((action) => action.group === group.value)?.tone,
+);
+const itemsFor = (
+    category: string,
+    uses = selected.value?.uses[category] ?? 1,
+) =>
+    props.care.items.filter(
+        (item) => item.category === category && item.remainingUses >= uses,
+    );
 const secondsLeft = (date?: string) =>
     date ? Math.max(0, Math.ceil((Date.parse(date) - now.value) / 1000)) : 0;
 const duration = (seconds: number) => {
     if (seconds < 60) return t('{count} sec', { count: seconds });
-    return t('{count} min', { count: Math.ceil(seconds / 60) });
+    const minutes = Math.floor(seconds / 60);
+    return seconds % 60 === 0
+        ? t('{count} min', { count: minutes })
+        : `${t('{count} min', { count: minutes })} ${t('{count} sec', { count: seconds % 60 })}`;
 };
 const countdown = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
@@ -98,20 +124,27 @@ const error = computed(() => Object.values(form.errors).join(' '));
 const finishError = computed(() => Object.values(finish.errors).join(' '));
 const effects = computed(() => {
     const result = { ...selected.value?.effects };
-    for (const [category, state] of [
-        ['toys', 'mood'],
-        ['care', 'cleanliness'],
-    ] as const) {
+    for (const category of selected.value?.requirements ?? []) {
         const item = props.care.items.find(
             (entry) =>
                 entry.id === form.items[category] &&
                 entry.category === category,
         );
-        if (item && result[state] !== undefined)
-            result[state] += Math.max(0, Math.min(10, item.quality) - 1);
+        for (const [state, bonus] of Object.entries(item?.bonus ?? {})) {
+            const key = state as DogState;
+            result[key] = (result[key] ?? 0) + bonus;
+        }
     }
     return Object.entries(result).map(([state, amount]) => {
-        const current = props.pet.states[state as DogState];
+        const current =
+            state === 'energy'
+                ? (Math.max(
+                      0,
+                      props.pet.energy.value - (selected.value?.energy ?? 0),
+                  ) /
+                      props.pet.energy.maximum) *
+                  100
+                : props.pet.states[state as DogState];
         return {
             label: stateLabels[state as DogState],
             amount:
@@ -120,6 +153,21 @@ const effects = computed(() => {
                 ) / 10,
         };
     });
+});
+const benefits = computed(() =>
+    effects.value.filter((effect) => effect.amount > 0),
+);
+const costs = computed(() =>
+    effects.value.filter((effect) => effect.amount < 0),
+);
+const progress = computed(() => {
+    const active = props.care.active;
+    if (!active) return 0;
+    const elapsed = now.value - Date.parse(active.startedAt);
+    const total = Date.parse(active.endsAt) - Date.parse(active.startedAt);
+    return total <= 0
+        ? 100
+        : Math.max(0, Math.min(100, (elapsed / total) * 100));
 });
 const unavailable = computed(
     () =>
@@ -136,7 +184,7 @@ function chooseVariant(variant: string) {
     form.clearErrors();
     const option = props.care.options.find((entry) => entry.id === variant);
     for (const category of option?.requirements ?? []) {
-        const first = itemsFor(category)[0];
+        const first = itemsFor(category, option?.uses[category])[0];
         if (first) form.items[category] = first.id;
     }
 }
@@ -148,7 +196,8 @@ function choose(value: CareGroup) {
             (option) =>
                 !option.reason &&
                 option.requirements.every(
-                    (category) => itemsFor(category).length > 0,
+                    (category) =>
+                        itemsFor(category, option.uses[category]).length > 0,
                 ),
         ) ?? options.value[0];
     if (first) chooseVariant(first.id);
@@ -183,11 +232,11 @@ function finishActivity() {
                 variant="plain"
                 class="pet-care-action"
                 :class="'pet-tone-' + action.tone"
-                :disabled="care.blocked || care.busy"
+                :disabled="care.blocked"
                 @click="choose(action.group)"
             >
                 <span
-                    ><component :is="action.icon" :size="26" aria-hidden="true"
+                    ><component :is="action.icon" :size="24" aria-hidden="true"
                 /></span>
                 {{ t(action.label) }}
                 <small v-if="secondsLeft(care.cooldowns[action.group])">{{
@@ -196,25 +245,31 @@ function finishActivity() {
             </Button>
         </div>
         <div v-if="care.active" class="pet-care-progress">
-            <strong>{{ t(care.active.label) }}</strong>
-            <p v-if="secondsLeft(care.active.endsAt)">
-                {{
-                    t('Finishes in {time}', {
-                        time: countdown(secondsLeft(care.active.endsAt)),
-                    })
-                }}
-            </p>
-            <p v-else role="status">
+            <div class="pet-care-progress-heading">
+                <strong>{{ t(care.active.label) }}</strong>
+                <span>{{
+                    secondsLeft(care.active.endsAt)
+                        ? countdown(secondsLeft(care.active.endsAt))
+                        : t('Ready')
+                }}</span>
+            </div>
+            <progress
+                :value="progress"
+                max="100"
+                :aria-label="t('Activity progress')"
+            />
+            <p v-if="!secondsLeft(care.active.endsAt)" role="status">
                 {{ t('Your dog is ready. Finish to apply the result.') }}
             </p>
             <Button
+                v-if="!secondsLeft(care.active.endsAt)"
                 type="button"
-                :disabled="
-                    secondsLeft(care.active.endsAt) > 0 || finish.processing
-                "
+                :disabled="finish.processing"
                 @click="finishActivity"
             >
-                {{ t(finish.processing ? 'Finishing...' : 'Finish activity') }}
+                <Check :size="16" aria-hidden="true" />{{
+                    t(finish.processing ? 'Finishing...' : 'Finish activity')
+                }}
             </Button>
             <InputError :message="finishError" />
         </div>
@@ -230,15 +285,23 @@ function finishActivity() {
 
         <Dialog v-model:open="open">
             <DialogContent class="pet-care-dialog">
-                <DialogHeader>
-                    <DialogTitle
-                        >{{ t(groupLabel) }} · {{ pet.name }}</DialogTitle
-                    >
-                    <DialogDescription>{{
-                        t(
-                            'Choose how to care for your dog. Items and energy are spent at the start; results arrive when you finish.',
-                        )
-                    }}</DialogDescription>
+                <DialogHeader class="pet-care-heading">
+                    <span
+                        class="pet-care-heading-icon"
+                        :class="'pet-tone-' + groupTone"
+                        ><component
+                            :is="groupIcon"
+                            :size="24"
+                            aria-hidden="true"
+                    /></span>
+                    <div>
+                        <DialogTitle
+                            >{{ t(groupLabel) }} · {{ pet.name }}</DialogTitle
+                        >
+                        <DialogDescription>{{
+                            t('Choose what suits your dog today.')
+                        }}</DialogDescription>
+                    </div>
                 </DialogHeader>
                 <form class="pet-care-form" @submit.prevent="start">
                     <fieldset
@@ -258,132 +321,208 @@ function finishActivity() {
                                 :checked="form.variant === option.id"
                                 @change="chooseVariant(option.id)"
                             />
-                            <span
-                                ><strong>{{ t(option.label) }}</strong
-                                ><small>{{
-                                    t(option.description)
-                                }}</small></span
-                            >
+                            <span>
+                                <strong>{{ t(option.label) }}</strong>
+                                <small>{{
+                                    option.requirements.length
+                                        ? option.requirements
+                                              .map((category) =>
+                                                  t(categories[category]),
+                                              )
+                                              .join(' + ')
+                                        : t('No items needed')
+                                }}</small>
+                                <span class="pet-care-choice-time"
+                                    ><Clock3 :size="13" aria-hidden="true" />{{
+                                        duration(option.duration)
+                                    }}</span
+                                >
+                            </span>
                         </label>
                     </fieldset>
                     <template v-if="selected">
-                        <div
-                            v-for="category in selected.requirements"
-                            :key="category"
-                            class="pet-care-item-field"
-                        >
-                            <label :for="id + '-' + category">{{
-                                t(categories[category])
-                            }}</label>
-                            <select
-                                v-if="itemsFor(category).length"
-                                :id="id + '-' + category"
-                                v-model="form.items[category]"
-                                :disabled="form.processing"
-                            >
-                                <option
-                                    v-for="item in itemsFor(category)"
-                                    :key="item.id"
-                                    :value="item.id"
-                                >
-                                    {{ item.name }} ·
-                                    {{
-                                        t('{count} uses left', {
-                                            count: item.remainingUses,
-                                        })
-                                    }}
-                                    ·
-                                    {{
-                                        t('Quality {value}', {
-                                            value: item.quality,
-                                        })
-                                    }}
-                                </option>
-                            </select>
-                            <p v-else>
-                                {{ t('No suitable item in your inventory.') }}
-                            </p>
-                            <small v-if="form.items[category]">{{
-                                t(
-                                    'Consumes 1 use. The item disappears after its last use.',
-                                )
-                            }}</small>
-                        </div>
-                        <Button
+                        <section
                             v-if="selected.requirements.length"
-                            as-child
-                            variant="secondary"
-                            ><Link :href="shop()">{{
-                                t('Visit the shop')
-                            }}</Link></Button
+                            class="pet-care-supplies"
+                            :aria-label="t('Supplies')"
                         >
-                        <div class="pet-care-preview">
-                            <strong>{{ t('Result on completion') }}</strong>
-                            <dl>
-                                <div
-                                    v-for="effect in effects"
-                                    :key="effect.label"
+                            <div
+                                v-for="category in selected.requirements"
+                                :key="category"
+                                class="pet-care-item-field"
+                            >
+                                <div class="pet-care-item-heading">
+                                    <label
+                                        :for="
+                                            itemsFor(category).length
+                                                ? id + '-' + category
+                                                : undefined
+                                        "
+                                        ><Package
+                                            :size="15"
+                                            aria-hidden="true"
+                                        />{{ t(categories[category]) }}</label
+                                    >
+                                    <span>{{
+                                        t('Uses per action: {count}', {
+                                            count: selected.uses[category],
+                                        })
+                                    }}</span>
+                                </div>
+                                <select
+                                    v-if="itemsFor(category).length"
+                                    :id="id + '-' + category"
+                                    v-model="form.items[category]"
+                                    :disabled="form.processing"
                                 >
-                                    <dt>{{ t(effect.label) }}</dt>
-                                    <dd>
-                                        {{ effect.amount > 0 ? '+' : ''
-                                        }}{{ effect.amount }}%
-                                    </dd>
+                                    <option
+                                        v-for="item in itemsFor(category)"
+                                        :key="item.id"
+                                        :value="item.id"
+                                    >
+                                        {{ item.name }} ·
+                                        {{
+                                            t('{count} uses left', {
+                                                count: item.remainingUses,
+                                            })
+                                        }}
+                                        ·
+                                        {{
+                                            t('Quality {value}', {
+                                                value: item.quality,
+                                            })
+                                        }}
+                                    </option>
+                                </select>
+                                <p v-else class="pet-care-missing">
+                                    {{
+                                        t('No suitable item in your inventory.')
+                                    }}
+                                </p>
+                            </div>
+                            <div
+                                v-if="missingItems"
+                                class="pet-care-supply-help"
+                            >
+                                <p>
+                                    {{
+                                        t(
+                                            'Choose another option or get supplies.',
+                                        )
+                                    }}
+                                </p>
+                                <Button as-child variant="outline" size="sm"
+                                    ><Link :href="shop()"
+                                        ><ShoppingBag
+                                            :size="15"
+                                            aria-hidden="true"
+                                        />{{ t('Go to shop') }}</Link
+                                    ></Button
+                                >
+                            </div>
+                        </section>
+                        <section
+                            class="pet-care-preview"
+                            :aria-label="t('Result')"
+                        >
+                            <h3>{{ t('Your dog will get') }}</h3>
+                            <div
+                                v-if="benefits.length"
+                                class="pet-care-benefits"
+                            >
+                                <div
+                                    v-for="effect in benefits"
+                                    :key="effect.label"
+                                    class="pet-care-benefit"
+                                >
+                                    <strong>+{{ effect.amount }}%</strong
+                                    ><span>{{ t(effect.label) }}</span>
                                 </div>
-                                <div v-if="selected.energy">
-                                    <dt>{{ t('Energy spent at start') }}</dt>
-                                    <dd>−{{ selected.energy }}</dd>
-                                </div>
-                                <div>
-                                    <dt>{{ t('Duration') }}</dt>
-                                    <dd>{{ duration(selected.duration) }}</dd>
-                                </div>
-                                <div>
-                                    <dt>{{ t('Cooldown after activity') }}</dt>
-                                    <dd>{{ duration(selected.cooldown) }}</dd>
-                                </div>
-                            </dl>
+                            </div>
+                            <p v-else>
+                                {{ t('These needs are already full.') }}
+                            </p>
+                            <div
+                                v-if="costs.length || selected.energy"
+                                class="pet-care-costs"
+                            >
+                                <span v-if="selected.energy"
+                                    ><Zap :size="14" aria-hidden="true" />{{
+                                        t('Energy cost')
+                                    }}: −{{ selected.energy }}</span
+                                >
+                                <span
+                                    v-for="effect in costs"
+                                    :key="effect.label"
+                                    >{{ t(effect.label) }}
+                                    {{ effect.amount }}%</span
+                                >
+                            </div>
+                        </section>
+                        <div class="pet-care-timing">
+                            <div>
+                                <Clock3 :size="16" aria-hidden="true" /><span
+                                    >{{ t('Duration')
+                                    }}<strong>{{
+                                        duration(selected.duration)
+                                    }}</strong></span
+                                >
+                            </div>
+                            <div>
+                                <RotateCcw :size="16" aria-hidden="true" /><span
+                                    >{{ t('Rest after action')
+                                    }}<strong>{{
+                                        duration(selected.cooldown)
+                                    }}</strong></span
+                                >
+                            </div>
+                        </div>
+                        <p class="pet-care-hint">
+                            {{
+                                t(
+                                    'The rest period applies to both options in this group.',
+                                )
+                            }}
+                        </p>
+                        <div
+                            v-if="care.busy || cooldown || selected.reason"
+                            class="pet-care-warning"
+                            role="status"
+                        >
+                            <Clock3
+                                v-if="cooldown"
+                                :size="16"
+                                aria-hidden="true"
+                            />
                             <p>
                                 {{
-                                    t(
-                                        'Variants share a cooldown. Other actions remain available after this activity.',
-                                    )
+                                    care.busy
+                                        ? t(
+                                              'Finish the current activity first.',
+                                          )
+                                        : cooldown
+                                          ? t('Available in {time}', {
+                                                time: countdown(cooldown),
+                                            })
+                                          : t(selected.reason ?? '')
                                 }}
                             </p>
                         </div>
-                        <p
-                            v-if="cooldown"
-                            class="pet-care-notice"
-                            role="status"
-                        >
-                            {{
-                                t('Available in {time}', {
-                                    time: countdown(cooldown),
-                                })
-                            }}
-                        </p>
-                        <p v-if="selected.reason" class="pet-care-notice">
-                            {{ t(selected.reason) }}
-                        </p>
-                        <p v-if="missingItems" class="pet-care-notice">
-                            {{
-                                t(
-                                    'Buy the missing items or choose an option without supplies.',
-                                )
-                            }}
-                        </p>
                         <InputError :message="error" />
-                        <Button
-                            type="submit"
-                            :disabled="unavailable || form.processing"
-                            >{{
-                                t(
+                        <div class="pet-care-footer">
+                            <p>{{ t('Costs now. Result when you finish.') }}</p>
+                            <Button
+                                type="submit"
+                                :disabled="unavailable || form.processing"
+                                >{{
                                     form.processing
-                                        ? 'Starting...'
-                                        : 'Start activity',
-                                )
-                            }}</Button
-                        >
+                                        ? t('Starting...')
+                                        : t('Start · {time}', {
+                                              time: duration(selected.duration),
+                                          })
+                                }}</Button
+                            >
+                        </div>
                     </template>
                 </form>
             </DialogContent>

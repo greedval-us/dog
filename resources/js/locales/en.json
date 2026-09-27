@@ -435,5 +435,22 @@
     "Buy the missing items or choose an option without supplies.": "Buy the missing items or choose an option without supplies.",
     "Starting...": "Starting...",
     "Start activity": "Start activity",
-    "Care items can be used in Quick actions on your dog’s page.": "Care items can be used in Quick actions on your dog’s page."
+    "Care items can be used in Quick actions on your dog’s page.": "Care items can be used in Quick actions on your dog’s page.",
+    "Ready": "Ready",
+    "Activity progress": "Activity progress",
+    "Choose what suits your dog today.": "Choose what suits your dog today.",
+    "No items needed": "No items needed",
+    "Supplies": "Supplies",
+    "Uses per action: {count}": "Uses per action: {count}",
+    "Choose another option or get supplies.": "Choose another option or get supplies.",
+    "Your dog will get": "Your dog will get",
+    "These needs are already full.": "These needs are already full.",
+    "Rest after action": "Rest after action",
+    "The rest period applies to both options in this group.": "The rest period applies to both options in this group.",
+    "Costs now. Result when you finish.": "Costs now. Result when you finish.",
+    "Start · {time}": "Start · {time}",
+    "Finish the current activity first.": "Finish the current activity first.",
+    "Result": "Result",
+    "Energy cost": "Energy cost",
+    "Go to shop": "Go to shop"
 }
