@@ -1,0 +1,315 @@
+<?php
+
+use App\Models\InventoryItem;
+use App\Models\Item;
+use App\Models\ItemCategory;
+use App\Models\Pet;
+use App\Models\User;
+use App\Modules\Pets\Actions\CompletePetCare;
+use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Players\Enums\PlayerStatus;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->withoutVite();
+});
+
+function careItem(User $owner, string $category, int $uses = 5, int $quality = 3): InventoryItem
+{
+    return InventoryItem::factory()->for($owner)->for(
+        Item::factory()->for(ItemCategory::factory()->state(['code' => $category]), 'category')
+    )->create(['remaining_uses' => $uses, 'quality' => $quality]);
+}
+
+test('feeding consumes a portion once and restores satiety according to size and individual capacity', function (string $size, int $maximum, float $initial, float $expected) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['size' => $size, 'satiety_max' => $maximum, 'satiety' => $initial]);
+    $food = careItem($pet->user, 'food', 1);
+    $token = (string) Str::uuid();
+    $payload = ['variant' => 'meal', 'items' => ['food' => $food->id], 'token' => $token];
+    $url = route('pets.care.store', $pet);
+
+    $this->actingAs($pet->user)->post($url, $payload)->assertRedirect(route('dashboard', ['pet' => $pet->id]));
+    $this->post($url, [...$payload, 'token' => strtoupper($token)])->assertSessionHasNoErrors();
+    $this->assertModelMissing($food);
+    $this->assertDatabaseCount('item_usages', 1);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+    expect($pet->fresh()->satiety)->toBe($initial);
+
+    $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasErrors('care');
+    $this->travel(30)->seconds();
+    $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
+    $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
+
+    expect($pet->fresh())->satiety->toBe($expected)->activity->toBeNull();
+    $this->assertDatabaseHas('pet_care_actions', ['token' => $token, 'completed_at' => now()->toDateTimeString()]);
+})->with([
+    'small' => ['small', 200, 50.0, 110.0],
+    'medium' => ['medium', 200, 50.0, 94.0],
+    'large' => ['large', 200, 50.0, 80.0],
+    'cap at maximum' => ['small', 200, 190.0, 200.0],
+]);
+
+test('care variants apply their costs and effects after the saved duration', function (string $variant, array $categories, int $seconds, int $cost, array $expected) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create([
+        'energy' => 50, 'energy_max' => 100, 'satiety' => 50, 'satiety_max' => 100,
+        'hydration' => 50, 'hydration_max' => 100, 'mood' => 50, 'mood_max' => 100,
+        'cleanliness' => 50, 'cleanliness_max' => 100, 'bond' => 50, 'bond_max' => 100,
+    ]);
+    $items = [];
+
+    foreach ($categories as $category) {
+        $items[$category] = careItem($pet->user, $category)->id;
+    }
+
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, $variant, $items, (string) Str::uuid());
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 50 - $cost]);
+    $this->assertDatabaseCount('item_usages', count($categories));
+    $this->travel($seconds)->seconds();
+
+    $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $care->token])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity' => null, ...$expected]);
+
+    foreach ($items as $id) {
+        $this->assertDatabaseHas('inventory_items', ['id' => $id, 'remaining_uses' => 4]);
+    }
+})->with([
+    'water' => ['water', [], 15, 0, ['hydration' => 85]],
+    'walk' => ['walk', ['collars', 'leashes'], 300, 12, ['energy' => 38, 'mood' => 75, 'bond' => 54, 'satiety' => 42, 'hydration' => 40, 'cleanliness' => 38]],
+    'home alternative' => ['home', [], 120, 4, ['energy' => 46, 'mood' => 58, 'bond' => 51]],
+    'play without toy' => ['attention', [], 120, 6, ['energy' => 44, 'mood' => 60, 'bond' => 52]],
+    'toy' => ['toy', ['toys'], 180, 10, ['energy' => 40, 'mood' => 70, 'bond' => 54]],
+    'basic wash' => ['wash', [], 60, 0, ['cleanliness' => 60, 'bond' => 51]],
+    'care product' => ['care', ['care'], 180, 0, ['cleanliness' => 77, 'bond' => 53]],
+    'nap' => ['nap', [], 300, 0, ['energy' => 75, 'satiety' => 46, 'hydration' => 46]],
+    'long sleep capped' => ['sleep', [], 1200, 0, ['energy' => 100, 'satiety' => 38, 'hydration' => 38]],
+]);
+
+test('cooldowns survive completion and cannot be bypassed by changing variant or token', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 40, 'mood' => 0]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
+    $this->travel(120)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $toy = careItem($pet->user, 'toys');
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'toy', 'items' => ['toys' => $toy->id], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+    expect($toy->fresh()->remaining_uses)->toBe(5);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+
+    $this->travel(599)->seconds();
+    expect(fn () => app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid()))->toThrow(PetUnavailable::class);
+    $this->travel(1)->seconds();
+    app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
+    $this->assertDatabaseCount('pet_care_actions', 2);
+});
+
+test('a different action and a different owned dog have independent cooldowns', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 40]);
+    $other = Pet::factory()->for($pet->user)->create(['energy' => 40]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    app(StartPetCare::class)->handle($pet->user, $other->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+
+    app(StartPetCare::class)->handle($pet->user, $pet->id, 'home', [], (string) Str::uuid());
+    $this->assertDatabaseCount('pet_care_actions', 3);
+});
+
+test('unavailable items never consume other equipment or start a walk', function (string $invalid) {
+    $pet = Pet::factory()->create(['energy' => 50]);
+    $collar = careItem($pet->user, 'collars', 1);
+    $leash = careItem($invalid === 'foreign' ? User::factory()->create() : $pet->user, $invalid === 'wrong category' ? 'food' : 'leashes');
+    $items = ['collars' => $collar->id, 'leashes' => $leash->id];
+
+    if ($invalid === 'missing') {
+        unset($items['leashes']);
+    }
+    if ($invalid === 'deleted') {
+        $leash->delete();
+    }
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'walk', 'items' => $items, 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+
+    $this->assertDatabaseHas('inventory_items', ['id' => $collar->id, 'remaining_uses' => 1]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 50, 'activity' => null]);
+    $this->assertDatabaseCount('item_usages', 0);
+    $this->assertDatabaseCount('pet_care_actions', 0);
+})->with(['missing', 'foreign', 'wrong category', 'deleted']);
+
+test('both pieces of walking equipment disappear on their last use', function () {
+    $pet = Pet::factory()->create();
+    $collar = careItem($pet->user, 'collars', 1);
+    $leash = careItem($pet->user, 'leashes', 1);
+    app(StartPetCare::class)->handle($pet->user, $pet->id, 'walk', ['collars' => $collar->id, 'leashes' => $leash->id], (string) Str::uuid());
+
+    $this->assertModelMissing($collar);
+    $this->assertModelMissing($leash);
+    $this->assertDatabaseCount('item_usages', 2);
+});
+
+test('inventory and activity changes roll back when saving the care receipt fails', function () {
+    $pet = Pet::factory()->create(['energy' => 50]);
+    $toy = careItem($pet->user, 'toys', 1);
+    DB::statement("CREATE TRIGGER reject_care BEFORE INSERT ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated care failure'); END");
+
+    expect(fn () => app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid()))
+        ->toThrow(QueryException::class);
+
+    $this->assertDatabaseHas('inventory_items', ['id' => $toy->id, 'remaining_uses' => 1]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 50, 'activity' => null]);
+    $this->assertDatabaseCount('item_usages', 0);
+});
+
+test('pet state and account restrictions reject care without writes', function (array $attributes, string $variant, bool $blocked) {
+    $pet = Pet::factory()->create($attributes);
+
+    if ($blocked) {
+        $pet->user->forceFill(['status' => PlayerStatus::Blocked])->save();
+    }
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => $variant, 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors('care');
+    $this->assertDatabaseCount('pet_care_actions', 0);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, ...$attributes]);
+})->with([
+    'no energy' => [['energy' => 3], 'home', false],
+    'hungry' => [['satiety' => 0], 'home', false],
+    'thirsty' => [['hydration' => 0], 'attention', false],
+    'full energy' => [['energy' => 100, 'energy_max' => 100], 'nap', false],
+    'clean dog' => [['cleanliness' => 100, 'cleanliness_max' => 100], 'wash', false],
+    'full water' => [['hydration' => 100, 'hydration_max' => 100], 'water', false],
+    'busy' => [['activity' => 'training'], 'home', false],
+    'retired' => [['retired_at' => '2026-09-01 00:00:00'], 'home', false],
+    'blocked account' => [[], 'home', true],
+]);
+
+test('guests cannot start or finish care', function (string $route) {
+    $pet = Pet::factory()->create();
+    $this->post(route($route, $pet))->assertRedirect(route('login'));
+    $this->assertDatabaseCount('pet_care_actions', 0);
+})->with(['pets.care.store', 'pets.care.complete']);
+
+test('players cannot start or finish another players activity', function () {
+    $pet = Pet::factory()->create(['energy' => 40]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->actingAs(User::factory()->create())->post(route('pets.care.store', $pet), [
+        'variant' => 'home', 'items' => [], 'token' => (string) Str::uuid(),
+    ])->assertNotFound();
+    $this->post(route('pets.care.complete', $pet), ['token' => $care->token])->assertNotFound();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity' => 'sleep']);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
+});
+
+test('tokens are bound to the original pet variant and items', function (string $change) {
+    $pet = Pet::factory()->create(['energy' => 40]);
+    $other = Pet::factory()->for($pet->user)->create(['energy' => 40]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+
+    $this->actingAs($pet->user)->post(route('pets.care.store', $change === 'pet' ? $other : $pet), [
+        'variant' => $change === 'variant' ? 'sleep' : 'nap',
+        'items' => $change === 'items' ? ['food' => 1] : [], 'token' => $care->token,
+    ])->assertSessionHasErrors('care');
+    $this->assertDatabaseCount('pet_care_actions', 1);
+})->with(['pet', 'variant', 'items']);
+
+test('invalid care input is rejected before starting', function (array $payload, array $errors) {
+    $pet = Pet::factory()->create();
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), $payload)->assertSessionHasErrors($errors);
+    $this->assertDatabaseCount('pet_care_actions', 0);
+})->with([
+    'required' => [[], ['variant', 'token', 'items']],
+    'unknown variant' => [['variant' => 'fly', 'items' => [], 'token' => '07bed92b-cc81-4c34-a7ba-b5aeab2840fd'], ['variant']],
+    'invalid token and item' => [['variant' => 'meal', 'items' => ['food' => -1], 'token' => 'bad'], ['token', 'items.food']],
+    'unknown item key' => [['variant' => 'meal', 'items' => ['hacked' => 1], 'token' => '07bed92b-cc81-4c34-a7ba-b5aeab2840fd'], ['items']],
+]);
+
+test('care uses the inventory quality snapshot and saves effects before catalogue changes', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['mood' => 0, 'mood_max' => 100]);
+    $toy = careItem($pet->user, 'toys', 2, 8);
+    $toy->item->update(['quality' => 1, 'is_active' => false]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid());
+    $toy->update(['quality' => 1]);
+    $this->travel(180)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 25]);
+});
+
+test('dashboard displays owned supplies active action and persistent cooldown without mutating state', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 40]);
+    $toy = careItem($pet->user, 'toys');
+    InventoryItem::factory()->create();
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(301)->seconds();
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+        ->has('care.options', 10)->has('care.items', 1)
+        ->where('care.items.0.id', $toy->id)
+        ->where('care.active.token', $care->token)
+        ->where('care.cooldowns.sleep', $care->available_at->toIso8601String())
+        ->where('care.busy', true)
+    );
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity' => PetActivity::Sleep->value]);
+});
+
+test('sleep floors hunger and thirst and cannot be finished by a newly blocked owner', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 10, 'satiety' => 1, 'hydration' => 1]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'sleep', [], (string) Str::uuid());
+    $this->travel(1200)->seconds();
+    $pet->user->forceFill(['status' => PlayerStatus::Blocked])->save();
+    $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $care->token])->assertSessionHasErrors('care');
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 10]);
+    $pet->user->forceFill(['status' => PlayerStatus::Active])->save();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'satiety' => 0, 'hydration' => 0]);
+});
+
+test('a full dog does not spend food', function () {
+    $pet = Pet::factory()->create(['satiety' => 100, 'satiety_max' => 100]);
+    $food = careItem($pet->user, 'food', 1);
+    $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
+        'variant' => 'meal', 'items' => ['food' => $food->id], 'token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors(['care' => __('This need is already full. Choose another action.')]);
+    $this->assertModelExists($food);
+    $this->assertDatabaseCount('item_usages', 0);
+    $this->assertDatabaseCount('pet_care_actions', 0);
+});
+
+test('failure while saving completion rolls back the effect and keeps the activity finishable', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 40]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+    DB::statement("CREATE TRIGGER reject_care_completion BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated completion failure'); END");
+    expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity_token' => $care->activity_token]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
+    DB::statement('DROP TRIGGER reject_care_completion');
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 65, 'activity' => null]);
+});
+
+test('replaying an old completion does not interrupt a newer activity', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 20]);
+    $first = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+    app(CompletePetCare::class)->handle($pet->user, $pet->id, $first->token);
+    $second = app(StartPetCare::class)->handle($pet->user, $pet->id, 'home', [], (string) Str::uuid());
+    $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $first->token])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 41, 'activity_token' => $second->activity_token]);
+});

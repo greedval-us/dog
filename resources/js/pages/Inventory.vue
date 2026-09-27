@@ -222,7 +222,7 @@ const pageLink = (cursor: string) =>
             <p v-if="inventoryCount" class="inventory-note">
                 <Package :size="17" aria-hidden="true" />{{
                     t(
-                        'Each item keeps its own uses. Using and equipping items will be available later.',
+                        'Care items can be used in Quick actions on your dog’s page.',
                     )
                 }}
             </p>

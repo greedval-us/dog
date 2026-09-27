@@ -15,12 +15,14 @@ import { image } from '@/routes/assets';
 import type { PetAppearance } from '@/types/appearance';
 import { index as kennel } from '@/routes/kennel';
 import type { PlayerPet } from '@/types/pet';
+import type { PetCare } from '@/types/pet-care';
 
 defineProps<{
     pet: PlayerPet | null;
     canClaimStarterPet: boolean;
     appearance: PetAppearance | null;
     slots: PetSlot[];
+    care: PetCare | null;
 }>();
 const { t } = useI18n();
 </script>
@@ -77,10 +79,15 @@ const { t } = useI18n();
                     :aria-label="t('Wellbeing and care')"
                 >
                     <PetCondition :states="pet.states" :energy="pet.energy" />
-                    <PetQuickActions />
+                    <PetQuickActions
+                        v-if="care"
+                        :key="pet.id"
+                        :pet="pet"
+                        :care="care"
+                    />
                 </aside>
             </div>
-            <PetDetails :key="pet.id" :pet="pet" />
+            <PetDetails :key="pet.id" :pet="pet" :care="care" />
         </div>
     </div>
 </template>

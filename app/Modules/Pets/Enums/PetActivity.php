@@ -8,4 +8,8 @@ enum PetActivity: string
     case Walk = 'walk';
     case Competition = 'competition';
     case Exhibition = 'exhibition';
+    case Feed = 'feed';
+    case Play = 'play';
+    case Groom = 'groom';
+    case Sleep = 'sleep';
 }

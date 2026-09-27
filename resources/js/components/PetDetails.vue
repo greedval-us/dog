@@ -15,8 +15,9 @@ import PetOverview from '@/components/PetOverview.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
+import type { PetCare } from '@/types/pet-care';
 
-defineProps<{ pet: PlayerPet }>();
+defineProps<{ pet: PlayerPet; care: PetCare | null }>();
 const { t } = useI18n();
 const tabs = [
     { value: 'overview', label: 'Overview', icon: PawPrint },
@@ -76,7 +77,7 @@ const tabs = [
             </TabsTrigger>
         </TabsList>
         <TabsContent value="overview" class="pet-tab-panel"
-            ><PetOverview :pet="pet"
+            ><PetOverview :pet="pet" :care="care"
         /></TabsContent>
         <TabsContent value="attributes" class="pet-tab-panel">
             <SurfaceCard

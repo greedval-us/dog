@@ -15,8 +15,9 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { sizeLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
+import type { PetCare } from '@/types/pet-care';
 
-defineProps<{ pet: PlayerPet }>();
+defineProps<{ pet: PlayerPet; care: PetCare | null }>();
 const { t, number } = useI18n();
 const traits: Record<string, string> = {
     friendly: 'Friendly',
@@ -103,20 +104,27 @@ const events = [
             <template #header
                 ><div class="pet-section-heading">
                     <h2>{{ t('Current activity') }}</h2>
-                    <span class="coming-soon-badge">{{ t('Soon') }}</span>
                 </div></template
             >
             <div class="pet-activity-placeholder">
                 <span><Footprints :size="30" /></span>
                 <div>
-                    <strong>{{ t('A little adventure ahead') }}</strong>
+                    <strong>{{
+                        t(
+                            care?.active?.label ??
+                                (care?.busy
+                                    ? 'Your dog is busy with another activity.'
+                                    : 'A little adventure ahead'),
+                        )
+                    }}</strong>
                     <p>
-                        {{
-                            t(
-                                'Walks, training and their progress will appear here.',
-                            )
-                        }}
+                        {{ t('Choose an action to compare its options.') }}
                     </p>
+                    <Button as-child variant="link"
+                        ><a href="#pet-care">{{
+                            t('Quick actions')
+                        }}</a></Button
+                    >
                 </div>
             </div>
             <div class="pet-section-heading pet-events-heading">

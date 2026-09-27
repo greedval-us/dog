@@ -108,7 +108,7 @@ watch(
             <p class="shop-purchase-note">
                 {{
                     t(
-                        'Each purchase adds one item to your inventory. Using and equipping items will be available later.',
+                        'Care items can be used in Quick actions on your dog’s page.',
                     )
                 }}
             </p>
