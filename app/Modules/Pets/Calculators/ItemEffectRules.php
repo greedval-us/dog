@@ -21,7 +21,7 @@ final class ItemEffectRules
         foreach ($rules as $rule) {
             $effect = $rule['effect'];
             $effect['duration_seconds'] = $rule['duration_by_quality'][$quality] ?? $rule['duration_seconds'] ?? $effect['duration_seconds'];
-            if (! in_array($effect['kind'], ['buff', 'debuff'], true) || $effect['condition_state'] !== null || $effect['duration_seconds'] <= 0) {
+            if (! in_array($effect['kind'], ['buff', 'debuff'], true) || $effect['condition_state'] !== null || ($effect['conditions'] ?? []) !== [] || $effect['duration_seconds'] <= 0) {
                 continue;
             }
             $percent = $rule['chance_by_quality'][$quality] ?? $rule['chance_percent'];

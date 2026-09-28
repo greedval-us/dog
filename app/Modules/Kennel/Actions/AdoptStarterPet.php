@@ -10,6 +10,7 @@ use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
+use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 
 final class AdoptStarterPet
@@ -20,6 +21,10 @@ final class AdoptStarterPet
     {
         return DB::transaction(function () use ($user, $data): Pet {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($owner->status !== PlayerStatus::Active) {
+                throw new AdoptionUnavailable('Your account is blocked.');
+            }
 
             if ($owner->pets()->active()->count() >= $owner->pet_slots) {
                 throw new AdoptionUnavailable('You need a free dog slot. Unlock a place on the My dog page.');

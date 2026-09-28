@@ -1,4 +1,7 @@
 {
+    "Effects": "Effects",
+    "Recovery: {effect} lasts {count} min less after completion.": "Recovery: {effect} lasts {count} min less after completion.",
+    "Identical effects refresh without stacking. Only one condition tier applies. Total modifiers are limited to ±50%.": "Identical effects refresh without stacking. Only one condition tier applies. Total modifiers are limited to ±50%.",
     "Loading": "Loading",
     "Color theme": "Color theme",
     "Light": "Light",
@@ -498,5 +501,16 @@
     "After using {item} (quality {quality}/10).": "After using {item} (quality {quality}/10).",
     "Chance per action: {effect} — {chance}%": "Chance per action: {effect} — {chance}%",
     "Chance is shown for this item’s quality. Matching effects use the highest chance; equal chances use the longest duration.": "Chance is shown for this item’s quality. Matching effects use the highest chance; equal chances use the longest duration.",
-    "While the condition is met": "While the condition is met"
+    "While the condition is met": "While the condition is met",
+    "Pet effects": "Pet effects",
+    "Buffs": "Buffs",
+    "Debuffs": "Debuffs",
+    "All effects": "All",
+    "Filter effects": "Filter effects",
+    "See what is helping your dog and what needs attention.": "See what is helping your dog and what needs attention.",
+    "No active buffs": "No active buffs",
+    "No active debuffs": "No active debuffs",
+    "No active effects": "No active effects",
+    "Effects appear here as you care for your dog.": "Effects from care and your dog's condition will appear here.",
+    "Timed effects disappear automatically when they expire.": "Timed effects disappear automatically when they expire."
 }

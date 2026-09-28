@@ -25,6 +25,13 @@ arch('queries do not invoke write actions or gameplay services')
     ->expect($layers['Queries'])
     ->not->toUse(['App\Actions', ...$layers['Actions'], ...$layers['Services']]);
 
+arch('models do not orchestrate application operations or depend on HTTP')
+    ->expect('App\Models')
+    ->not->toUse([
+        'App\Http', 'App\Actions', 'Inertia',
+        ...$layers['Actions'], ...$layers['Queries'], ...$layers['Services'],
+    ]);
+
 arch('Fortify actions remain independent of HTTP requests and Inertia')
     ->expect('App\Actions')
     ->not->toUse(['App\Http', 'Illuminate\Http', 'Inertia', 'request', 'response', 'session']);

@@ -7,7 +7,9 @@ use App\Modules\Kennel\Actions\AdoptStarterPet;
 use App\Modules\Kennel\Actions\PurchaseKennelPet;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Pets\Enums\PetSex;
+use App\Modules\Players\Enums\PlayerStatus;
 use Database\Seeders\DogSeeder;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
@@ -340,3 +342,48 @@ test('guests cannot purchase dogs', function () {
     $this->assertDatabaseCount('pets', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
 });
+
+test('blocked players cannot receive dogs from the kennel', function (string $route) {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['status' => PlayerStatus::Blocked, 'coins' => 1000, 'locale' => 'en']);
+
+    $this->actingAs($user)->post(route($route), [
+        'dog_id' => $dog->id, 'name' => 'Luna', 'expected_price' => 500,
+        'adoption_token' => (string) Str::uuid(),
+    ])->assertSessionHasErrors(['adoption' => 'Your account is blocked.']);
+
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 1000, 'starter_pet_claimed_at' => null]);
+})->with(['kennel.store', 'kennel.purchase']);
+
+test('starter adoption checks the persisted account status even with a stale user instance', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create();
+    User::query()->whereKey($user->id)->update(['status' => PlayerStatus::Blocked]);
+
+    expect(fn () => app(AdoptStarterPet::class)->handle($user, new AdoptStarterPetData($dog->id, 'Luna')))
+        ->toThrow(AdoptionUnavailable::class, 'Your account is blocked.');
+
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'starter_pet_claimed_at' => null]);
+});
+
+test('paid adoption checks the persisted status before a new purchase or replay', function (bool $replay) {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['pet_slots' => 3, 'coins' => 1000, 'starter_pet_claimed_at' => now()]);
+    $data = new PurchaseKennelPetData($dog->id, 'Luna', 500, (string) Str::uuid());
+
+    if ($replay) {
+        app(PurchaseKennelPet::class)->handle($user, $data);
+    }
+
+    User::query()->whereKey($user->id)->update(['status' => PlayerStatus::Blocked]);
+
+    expect(fn () => app(PurchaseKennelPet::class)->handle($user, $data))
+        ->toThrow(AdoptionUnavailable::class, 'Your account is blocked.');
+
+    $this->assertDatabaseCount('pets', $replay ? 1 : 0);
+    $this->assertDatabaseCount('currency_transactions', $replay ? 1 : 0);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => $replay ? 500 : 1000]);
+})->with(['new purchase' => false, 'repeated purchase' => true]);

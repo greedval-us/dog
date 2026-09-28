@@ -4,10 +4,10 @@ namespace App\Modules\Pets\Calculators;
 
 final class StatePercentageCalculator
 {
-    public function calculate(float $value, int $maximum): float
+    public function calculate(float $value, int $maximum, ?int $precision = 1): float
     {
-        return $maximum > 0
-            ? round(max(0, min(100, $value / $maximum * 100)), 1)
-            : 0.0;
+        $percentage = $maximum > 0 ? max(0, min(100, $value / $maximum * 100)) : 0.0;
+
+        return $precision === null ? $percentage : round($percentage, $precision);
     }
 }

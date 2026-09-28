@@ -11,6 +11,7 @@ use App\Modules\Inventory\Actions\PurchaseItem;
 use App\Modules\Inventory\DTO\PurchaseItemData;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Queries\GetPetStatuses;
 use Database\Seeders\ShopItemSeeder;
 use Database\Seeders\StatusEffectSeeder;
 use Illuminate\Database\QueryException;
@@ -210,4 +211,30 @@ test('the need threshold is inclusive for recovery and dashboard reads do not sa
         'cleanliness' => 20, 'cleanliness_max' => 100]);
     $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->has('care.debuffs', 0));
     expect($pet->fresh()->debuffs)->toBeNull();
+});
+
+test('status projection uses the supplied time and current catalogue without mutating the pet', function () {
+    $timed = StatusEffect::factory()->create(['code' => 'comfort']);
+    $conditional = StatusEffect::factory()->create([
+        'code' => 'hungry', 'kind' => 'debuff', 'condition_state' => 'satiety',
+        'condition_threshold' => 20, 'condition_operator' => 'lt', 'duration_seconds' => null,
+        'modifiers' => ['energy_cost_percent' => 25],
+    ]);
+    $pet = Pet::factory()->create([
+        'satiety' => 10, 'satiety_max' => 100,
+        'buffs' => [[...$timed->snapshot(), 'expires_at' => now()->addMinute()->timestamp]],
+    ]);
+    $attributes = $pet->refresh()->getAttributes();
+    $query = app(GetPetStatuses::class);
+
+    $status = $query->handle($pet, now()->addMinute());
+
+    expect($status->buffs)->toBe([]);
+    expect(array_column($status->debuffs, 'code'))->toBe(['hungry']);
+    expect($status->modifiers['energy_cost_percent'])->toBe(25);
+    expect($pet->getAttributes())->toBe($attributes);
+    expect($pet->fresh()->getAttributes())->toBe($attributes);
+
+    $conditional->update(['is_active' => false]);
+    expect($query->handle($pet, now()->addMinute())->debuffs)->toBe([]);
 });

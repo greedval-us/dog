@@ -10,6 +10,7 @@ use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
+use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,11 @@ final class PurchaseKennelPet
     {
         return DB::transaction(function () use ($user, $data): ?Pet {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($owner->status !== PlayerStatus::Active) {
+                throw new AdoptionUnavailable('Your account is blocked.');
+            }
+
             $operationKey = 'kennel:'.$data->token;
 
             if (CurrencyTransaction::query()->whereBelongsTo($owner)->where('operation_key', $operationKey)->exists()) {

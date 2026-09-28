@@ -55,7 +55,7 @@ final class PetCareRules
     /** @param CareOption $option
      * @param  array<string, float>  $states
      */
-    public function unavailableReason(array $option, array $states, float $energy): ?string
+    public function unavailableReason(array $option, array $states, float $energy, bool $hasStatusRecovery = false): ?string
     {
         if ($energy < $option['energy']) {
             return 'Not enough energy. Let your dog rest first.';
@@ -74,7 +74,11 @@ final class PetCareRules
             default => null,
         };
 
-        return $primary !== null && $states[$primary] >= 100 ? 'This need is already full. Choose another action.' : null;
+        if ($option['group'] === 'sleep' && $states['health'] < 100) {
+            return null;
+        }
+
+        return $primary !== null && $states[$primary] >= 100 && ! $hasStatusRecovery ? 'This need is already full. Choose another action.' : null;
     }
 
     /** @param CareOption $option

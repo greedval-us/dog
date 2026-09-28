@@ -4,11 +4,13 @@ use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\Pet;
+use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -263,6 +265,29 @@ test('dashboard displays owned supplies active action and persistent cooldown wi
         ->where('care.busy', true)
     );
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity' => PetActivity::Sleep->value]);
+});
+
+test('care cooldowns use the latest future expiry per group for only the selected pet', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create();
+    PetCareAction::factory()->count(4)->sequence(
+        ['group' => 'play', 'available_at' => now()->addMinutes(15)],
+        ['group' => 'play', 'available_at' => now()->addMinutes(5)],
+        ['group' => 'sleep', 'available_at' => now()->addMinutes(30)],
+        ['group' => 'feed', 'available_at' => now()],
+    )->create(['pet_id' => $pet->id, 'user_id' => $pet->user_id, 'completed_at' => now()]);
+    $other = Pet::factory()->for($pet->user)->create();
+    PetCareAction::factory()->create([
+        'pet_id' => $other->id, 'user_id' => $pet->user_id, 'group' => 'play',
+        'available_at' => now()->addHour(),
+    ]);
+
+    $care = app(GetPetCare::class)->handle($pet->user, $pet->id, 'en');
+
+    expect($care['cooldowns']->all())->toEqual([
+        'play' => now()->addMinutes(15)->toIso8601String(),
+        'sleep' => now()->addMinutes(30)->toIso8601String(),
+    ]);
 });
 
 test('sleep floors hunger and thirst and cannot be finished by a newly blocked owner', function () {

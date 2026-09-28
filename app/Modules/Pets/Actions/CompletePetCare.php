@@ -3,19 +3,24 @@
 namespace App\Modules\Pets\Actions;
 
 use App\Models\PetCareAction;
-use App\Models\StatusEffect;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Queries\GetPetStatuses;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 
 final class CompletePetCare
 {
-    public function __construct(private PetActivityManager $activities, private PetStatusRules $statuses, private PetStateCalculator $states) {}
+    public function __construct(
+        private PetActivityManager $activities,
+        private PetStatusRules $statuses,
+        private PetStateCalculator $states,
+        private GetPetStatuses $getStatuses,
+    ) {}
 
     public function handle(User $user, int $petId, string $token): bool
     {
@@ -37,7 +42,8 @@ final class CompletePetCare
                 throw new PetUnavailable('This activity is not ready to finish.');
             }
 
-            $pet->advanceStatesTo(now(), $this->states);
+            $at = now();
+            $pet->advanceStatesTo($at, $this->states);
 
             foreach ($care->effects as $name => $percentage) {
                 $state = PetState::from($name);
@@ -46,15 +52,17 @@ final class CompletePetCare
                 $pet->setAttribute($name, round(max(0, min($maximum, $value)), 4));
             }
 
-            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
+            $pet->debuffs = $this->statuses->recover($pet->debuffs ?? [], $care->status_recovery ?? [], $at->getTimestamp());
             $awards = [...($care->granted_effects ?? []), ...array_column($care->incidents ?? [], 'effect')];
             foreach (['buff' => 'buffs', 'debuff' => 'debuffs'] as $kind => $column) {
                 $grants = array_values(array_filter($awards, fn (array $effect): bool => $effect['kind'] === $kind));
-                $timed = $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $care->ends_at->getTimestamp(), now()->getTimestamp());
-                $pet->setAttribute($column, $this->statuses->current($catalogue, $pet->statePercentages(), $timed, now()->getTimestamp(), $kind));
+                $pet->setAttribute($column, $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $care->ends_at->getTimestamp(), $at->getTimestamp()));
             }
+            $status = $this->getStatuses->handle($pet, $at);
+            $pet->buffs = $status->buffs;
+            $pet->debuffs = $status->debuffs;
             $pet->save();
-            $care->completed_at = now();
+            $care->completed_at = $at;
             $care->save();
 
             return true;

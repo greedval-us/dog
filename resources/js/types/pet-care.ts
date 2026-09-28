@@ -11,6 +11,7 @@ export type StatusEffect = {
     condition_threshold?: number | null;
     condition_operator?: 'lt' | 'lte' | 'gt' | 'gte';
     expires_at?: number | null;
+    recovery_actions?: Record<string, number>;
 };
 
 export type ItemRisk = {
@@ -40,6 +41,8 @@ export type CareOption = {
     cooldown: number;
     energy: number;
     baseEnergy: number;
+    grantedEffects: StatusEffect[];
+    statusRecovery: Record<string, number>;
     optional: string[];
     requirements: string[];
     uses: Record<string, number>;

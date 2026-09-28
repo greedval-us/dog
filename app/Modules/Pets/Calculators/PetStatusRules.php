@@ -4,7 +4,10 @@ namespace App\Modules\Pets\Calculators;
 
 use App\Modules\Pets\Enums\PetState;
 
-/** @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null} */
+/**
+ * @phpstan-type Condition array{state: string, operator: string, threshold: int}
+ * @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null, conditions?: list<Condition>, condition_group?: string|null, condition_priority?: int, care_variants?: list<string>, recovery_actions?: array<string, int>}
+ */
 final class PetStatusRules
 {
     /** @param list<Effect> $effects
@@ -21,30 +24,91 @@ final class PetStatusRules
      */
     public function conditional(array $catalogue, array $states, string $kind): array
     {
-        return array_values(array_map(fn (array $effect): array => [...$effect, 'expires_at' => null, 'duration_seconds' => null], array_filter(
-            $catalogue,
-            fn (array $effect): bool => $effect['kind'] === $kind
-                && $effect['condition_state'] !== null
-                && isset($states[$effect['condition_state']])
-                && $this->conditionMatches($effect, $states[$effect['condition_state']]),
-        )));
+        $matched = [];
+        foreach ($catalogue as $effect) {
+            if ($effect['kind'] !== $kind || ! $this->conditionsMatch($effect, $states)) {
+                continue;
+            }
+
+            $key = ($effect['condition_group'] ?? null) === null
+                ? 'code:'.$effect['code'] : 'group:'.$effect['condition_group'];
+            if (! isset($matched[$key]) || ($effect['condition_priority'] ?? 0) > ($matched[$key]['condition_priority'] ?? 0)) {
+                $matched[$key] = [...$effect, 'expires_at' => null, 'duration_seconds' => null];
+            }
+        }
+
+        return array_values($matched);
     }
 
-    /** @param Effect $effect */
-    private function conditionMatches(array $effect, float $value): bool
+    /** @param Effect $effect
+     * @param  array<string, float>  $states
+     */
+    private function conditionsMatch(array $effect, array $states): bool
     {
-        $threshold = $effect['condition_threshold'] ?? null;
-        if ($threshold === null || $threshold < 0 || $threshold > 100) {
+        $conditions = $effect['conditions'] ?? [];
+        if ($effect['condition_state'] !== null) {
+            $threshold = $effect['condition_threshold'] ?? null;
+            if ($threshold === null) {
+                return false;
+            }
+            $conditions[] = ['state' => $effect['condition_state'], 'operator' => $effect['condition_operator'] ?? 'lt', 'threshold' => $threshold];
+        }
+        if ($conditions === []) {
+            return false;
+        }
+        foreach ($conditions as $condition) {
+            if (! isset($states[$condition['state']]) || ! $this->compare($states[$condition['state']], $condition['operator'], $condition['threshold'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function compare(float $value, string $operator, int $threshold): bool
+    {
+        if ($threshold < 0 || $threshold > 100) {
             return false;
         }
 
-        return match ($effect['condition_operator'] ?? 'lt') {
+        return match ($operator) {
             'lt' => $value < $threshold,
             'lte' => $value <= $threshold,
             'gt' => $value > $threshold,
             'gte' => $value >= $threshold,
             default => false,
         };
+    }
+
+    /** @param list<Effect> $effects
+     * @return array<string, int>
+     */
+    public function recovery(array $effects, string $variant): array
+    {
+        $recovery = [];
+        foreach ($effects as $effect) {
+            $seconds = $effect['recovery_actions'][$variant] ?? 0;
+            if ($effect['kind'] === 'debuff' && ($effect['expires_at'] ?? 0) > 0 && $seconds > 0) {
+                $recovery[$effect['code']] = min(86400, $seconds);
+            }
+        }
+
+        return $recovery;
+    }
+
+    /** @param list<Effect> $effects
+     * @param  array<string, int>  $recovery
+     * @return list<Effect>
+     */
+    public function recover(array $effects, array $recovery, int $timestamp): array
+    {
+        foreach ($effects as &$effect) {
+            if ($effect['kind'] === 'debuff' && isset($effect['expires_at'])) {
+                $effect['expires_at'] -= max(0, min(86400, $recovery[$effect['code']] ?? 0));
+            }
+        }
+
+        return $this->active($effects, $timestamp);
     }
 
     /** @param list<Effect> $catalogue
@@ -54,7 +118,14 @@ final class PetStatusRules
      */
     public function current(array $catalogue, array $states, array $existing, int $timestamp, string $kind): array
     {
-        return array_values(array_column([...$this->active($existing, $timestamp), ...$this->conditional($catalogue, $states, $kind)], null, 'code'));
+        $definitions = array_column($catalogue, null, 'code');
+        $timed = $this->active($existing, $timestamp);
+        foreach ($timed as &$effect) {
+            // Older purchased snapshots keep their strength and lifetime, but can use newly introduced remedies.
+            $effect['recovery_actions'] ??= $definitions[$effect['code']]['recovery_actions'] ?? [];
+        }
+
+        return array_values(array_column([...$timed, ...$this->conditional($catalogue, $states, $kind)], null, 'code'));
     }
 
     /** @param list<Effect> $existing

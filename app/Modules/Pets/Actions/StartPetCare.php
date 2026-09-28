@@ -3,7 +3,6 @@
 namespace App\Modules\Pets\Actions;
 
 use App\Models\PetCareAction;
-use App\Models\StatusEffect;
 use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\ItemEffectRules;
@@ -12,6 +11,8 @@ use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Queries\GetCareStatusEffects;
+use App\Modules\Pets\Queries\GetPetStatuses;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,8 @@ final class StartPetCare
         private ItemEffectRules $riskRules,
         private Randomizer $random,
         private PetStateCalculator $states,
+        private GetPetStatuses $getStatuses,
+        private GetCareStatusEffects $careStatuses,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -82,13 +85,15 @@ final class StartPetCare
                 throw new PetUnavailable('This action is cooling down. Wait before trying again.');
             }
 
-            $pet->advanceStatesTo(now(), $this->states);
-            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
-            $pet->buffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->buffs ?? [], now()->getTimestamp(), 'buff');
-            $pet->debuffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->debuffs ?? [], now()->getTimestamp(), 'debuff');
-            $modifiers = $this->statuses->modifiers([...$pet->buffs, ...$pet->debuffs]);
+            $at = now();
+            $pet->advanceStatesTo($at, $this->states);
+            $status = $this->getStatuses->handle($pet, $at);
+            $pet->buffs = $status->buffs;
+            $pet->debuffs = $status->debuffs;
+            $modifiers = $status->modifiers;
             $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
-            $reason = $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy);
+            $recovery = $this->statuses->recovery($status->debuffs, $variant);
+            $reason = $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy, $recovery !== []);
 
             if ($reason !== null) {
                 throw new PetUnavailable($reason);
@@ -131,6 +136,9 @@ final class StartPetCare
                 }
             }
 
+            foreach ($this->careStatuses->handle()[$variant] ?? [] as $effect) {
+                $risks[] = ['effect' => $effect, 'chance' => 10000, 'item_name' => [], 'quality' => 10];
+            }
             $incidents = [];
             $grantedEffects = [];
             foreach ($this->riskRules->combine($risks) as $risk) {
@@ -157,6 +165,7 @@ final class StartPetCare
                 'effects' => $this->statuses->apply($this->rules->effects($option, $qualities, $bonuses), $modifiers),
                 'granted_effects' => $grantedEffects,
                 'incidents' => $incidents === [] ? null : $incidents,
+                'status_recovery' => $recovery,
                 'ends_at' => $started->endsAt,
                 'available_at' => $started->endsAt->addSeconds($option['cooldown']),
             ]);

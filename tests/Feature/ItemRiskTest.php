@@ -144,7 +144,8 @@ test('timed debuffs affect later care persist through recovery and disappear at 
     expect($pet->fresh()->debuffs[0]['expires_at'])->toBe($expiresAt);
     $this->travel(1680)->seconds();
     $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->has('care.debuffs', 0)->has('care.recentIncidents', 1)->where('care.options.4.energy', 6));
+        ->has('care.debuffs', 1)->where('care.debuffs.0.code', 'low_spirits')
+        ->has('care.recentIncidents', 1)->where('care.options.4.energy', 6));
 });
 
 test('late automatic completion retains the event history without reviving an expired debuff', function () {
@@ -173,13 +174,13 @@ test('a failed completion rolls back the incident effect and can be retried with
     expect($engine->calls)->toBe(1);
 });
 
-test('inactive risks and unrelated categories do not draw a random outcome', function (bool $inactive) {
+test('inactive risks and high quality care products do not draw a random outcome', function (bool $inactive) {
     $pet = Pet::factory()->create(['satiety' => 30, 'satiety_max' => 100, 'cleanliness' => 30, 'cleanliness_max' => 100]);
     if ($inactive) {
         StatusEffect::query()->where('code', 'poisoning')->update(['is_active' => false]);
     }
     $category = $inactive ? 'food' : 'care';
-    $item = riskItem($pet, $category, 1);
+    $item = riskItem($pet, $category, $inactive ? 1 : 6);
     $engine = useRiskDraw(0);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, $inactive ? 'meal' : 'care', [$category => $item->id], (string) Str::uuid());
     expect($care->incidents)->toBeNull();

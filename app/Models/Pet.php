@@ -203,7 +203,7 @@ class Pet extends Model
     }
 
     /** @return array<string, float> */
-    public function statePercentages(): array
+    public function statePercentages(?int $precision = 1): array
     {
         $percentages = [];
         $calculator = new StatePercentageCalculator;
@@ -212,6 +212,7 @@ class Pet extends Model
             $percentages[$state->value] = $calculator->calculate(
                 $this->getAttribute($state->value),
                 $this->getAttribute($state->maximumColumn()),
+                $precision,
             );
         }
 

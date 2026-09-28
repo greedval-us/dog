@@ -35,11 +35,20 @@ const date = (value: string) =>
 
 <template>
     <section class="pet-hero" :aria-label="t('Pet profile')">
-        <header class="pet-hero-identity">
+        <div class="pet-hero-topline">
             <p class="pet-breadcrumb">
                 {{ t('My dog') }} <ChevronRight :size="14" />
                 <span>{{ pet.name }}</span>
             </p>
+            <StatusEffects
+                v-if="care"
+                :key="pet.id"
+                compact
+                :effects="[...care.buffs, ...care.debuffs]"
+                :server-now="care.serverNow"
+            />
+        </div>
+        <header class="pet-hero-identity">
             <div class="pet-name-row">
                 <h1 :class="{ 'pet-name-long': pet.name.length > 24 }">
                     {{ pet.name }}
@@ -101,11 +110,6 @@ const date = (value: string) =>
                 {{ t('Good dogs make the world a kinder place.') }}
                 <Heart :size="20" />
             </p>
-            <StatusEffects
-                v-if="care"
-                :effects="[...care.buffs, ...care.debuffs]"
-                :server-now="care.serverNow"
-            />
         </header>
         <figure class="pet-hero-portrait">
             <GameAssetArtwork

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property list<Effect>|null $granted_effects
  * @property list<Risk>|null $incidents
+ * @property array<string, int>|null $status_recovery
  * @property int $id
  * @property int $user_id
  * @property int $pet_id
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable $available_at
  * @property CarbonImmutable|null $completed_at
  */
-#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'incidents', 'ends_at', 'available_at', 'completed_at'])]
+#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'incidents', 'status_recovery', 'ends_at', 'available_at', 'completed_at'])]
 class PetCareAction extends Model
 {
     /** @use HasFactory<PetCareActionFactory> */
@@ -43,6 +44,7 @@ class PetCareAction extends Model
             'effects' => 'array',
             'granted_effects' => 'array',
             'incidents' => 'array',
+            'status_recovery' => 'array',
             'ends_at' => 'immutable_datetime',
             'available_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',

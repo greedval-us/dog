@@ -166,7 +166,12 @@ const selectedItems = computed(() =>
     ),
 );
 const grantedEffects = computed(() => {
-    const combined = new Map<string, StatusEffect>();
+    const combined = new Map<string, StatusEffect>(
+        (selected.value?.grantedEffects ?? []).map((effect) => [
+            effect.code,
+            effect,
+        ]),
+    );
     for (const item of selectedItems.value) {
         for (const effect of item.grantedEffects) {
             if (
@@ -178,6 +183,13 @@ const grantedEffects = computed(() => {
     }
     return [...combined.values()];
 });
+const recoveryEffects = computed(() =>
+    props.care.debuffs.filter(
+        (effect) =>
+            (effect.expires_at ?? 0) * 1000 > now.value &&
+            (selected.value?.statusRecovery[effect.code] ?? 0) > 0,
+    ),
+);
 const risks = computed(() => {
     const combined = new Map<string, ItemRisk>();
     for (const item of selectedItems.value) {
@@ -688,6 +700,27 @@ function finishActivity() {
                             </div>
                         </section>
                         <StatusEffects :effects="grantedEffects" preview />
+                        <p
+                            v-for="effect in recoveryEffects"
+                            :key="effect.code"
+                            class="pet-care-hint"
+                        >
+                            {{
+                                t(
+                                    'Recovery: {effect} lasts {count} min less after completion.',
+                                    {
+                                        effect: localized(effect.name),
+                                        count: number(
+                                            Math.ceil(
+                                                (selected.statusRecovery[
+                                                    effect.code
+                                                ] ?? 0) / 60,
+                                            ),
+                                        ),
+                                    },
+                                )
+                            }}
+                        </p>
                         <ItemRisks :risks="risks" />
                         <div class="pet-care-timing">
                             <div>
