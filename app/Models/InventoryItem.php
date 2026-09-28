@@ -14,12 +14,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $item_id
  * @property int|null $item_purchase_id
  * @property array<string, string> $name
+ * @property array<string, int>|null $bonuses
+ * @property list<string>|null $granted_effects
  * @property int $quality
  * @property int $usage_limit
  * @property int $remaining_uses
  * @property array<string, int|float|string|bool> $characteristics
  */
-#[Fillable(['user_id', 'item_id', 'item_purchase_id', 'name', 'quality', 'usage_limit', 'remaining_uses', 'characteristics'])]
+#[Fillable(['user_id', 'item_id', 'item_purchase_id', 'name', 'quality', 'usage_limit', 'remaining_uses', 'characteristics', 'bonuses', 'granted_effects'])]
 class InventoryItem extends Model
 {
     /** @use HasFactory<InventoryItemFactory> */
@@ -55,6 +57,8 @@ class InventoryItem extends Model
             'usage_limit' => 'integer',
             'remaining_uses' => 'integer',
             'characteristics' => 'array',
+            'bonuses' => 'array',
+            'granted_effects' => 'array',
         ];
     }
 }

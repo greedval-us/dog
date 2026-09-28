@@ -14,6 +14,8 @@ import {
     Zap,
 } from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
+import ItemBonuses from '@/components/ItemBonuses.vue';
+import StatusEffects from '@/components/StatusEffects.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -70,6 +72,8 @@ const actions = [
     { group: 'sleep', label: 'Sleep', icon: Moon, tone: 'violet' },
 ] as const;
 const categories: Record<string, string> = {
+    clothing: 'Clothing',
+    sports: 'Sports equipment',
     food: 'Food',
     collars: 'Collar',
     leashes: 'Leash',
@@ -129,9 +133,60 @@ const missingItems = computed(
 );
 const error = computed(() => Object.values(form.errors).join(' '));
 const finishError = computed(() => Object.values(finish.errors).join(' '));
+const liveModifiers = computed(() => {
+    const result = { energy_cost_percent: 0, mood_gain_percent: 0 };
+    for (const effect of [...props.care.buffs, ...props.care.debuffs]) {
+        if (effect.expires_at && effect.expires_at * 1000 <= now.value)
+            continue;
+        result.energy_cost_percent += effect.modifiers.energy_cost_percent ?? 0;
+        result.mood_gain_percent += effect.modifiers.mood_gain_percent ?? 0;
+    }
+    return {
+        energy_cost_percent: Math.max(
+            -50,
+            Math.min(50, result.energy_cost_percent),
+        ),
+        mood_gain_percent: Math.max(
+            -50,
+            Math.min(50, result.mood_gain_percent),
+        ),
+    };
+});
+const selectedItems = computed(() =>
+    props.care.items.filter((item) =>
+        Object.values(form.items).includes(item.id),
+    ),
+);
+const grantedEffects = computed(() => [
+    ...new Map(
+        selectedItems.value
+            .flatMap((item) => item.grantedEffects)
+            .map((effect) => [effect.code, effect]),
+    ).values(),
+]);
+const energyCost = computed(() => {
+    const base = selected.value?.baseEnergy ?? 0;
+    return base === 0
+        ? 0
+        : Math.max(
+              1,
+              Math.ceil(
+                  (base * (100 + liveModifiers.value.energy_cost_percent)) /
+                      100,
+              ),
+          );
+});
+const selectedReason = computed(() => {
+    const reason = selected.value?.reason;
+    if (reason && reason !== 'Not enough energy. Let your dog rest first.')
+        return reason;
+    return props.pet.energy.value < energyCost.value
+        ? 'Not enough energy. Let your dog rest first.'
+        : null;
+});
 const energyCostPercentage = computed(() =>
     props.pet.energy.maximum > 0
-        ? ((selected.value?.energy ?? 0) / props.pet.energy.maximum) * 100
+        ? (energyCost.value / props.pet.energy.maximum) * 100
         : 0,
 );
 const energyAfterCost = computed(() =>
@@ -142,17 +197,31 @@ const energyGainCapped = computed(
 );
 const effects = computed(() => {
     const result = { ...selected.value?.effects };
-    for (const category of selected.value?.requirements ?? []) {
-        const item = props.care.items.find(
-            (entry) =>
-                entry.id === form.items[category] &&
-                entry.category === category,
-        );
+    for (const item of selectedItems.value) {
         for (const [state, bonus] of Object.entries(item?.bonus ?? {})) {
             const key = state as DogState;
             result[key] = (result[key] ?? 0) + bonus;
         }
     }
+    const itemBonuses: Partial<Record<DogState, number>> = {};
+    for (const item of selectedItems.value) {
+        for (const [state, bonus] of Object.entries(item.bonuses)) {
+            const key = state as DogState;
+            itemBonuses[key] = (itemBonuses[key] ?? 0) + bonus;
+        }
+    }
+    for (const [state, bonus] of Object.entries(itemBonuses)) {
+        const key = state as DogState;
+        result[key] = (result[key] ?? 0) + Math.max(0, Math.min(30, bonus));
+    }
+    if ((result.mood ?? 0) > 0)
+        result.mood =
+            Math.round(
+                ((result.mood! *
+                    (100 + liveModifiers.value.mood_gain_percent)) /
+                    100) *
+                    10000,
+            ) / 10000;
     return Object.entries(result).map(([state, amount]) => {
         const current =
             state === 'energy'
@@ -187,7 +256,7 @@ const unavailable = computed(
         props.care.blocked ||
         props.care.busy ||
         cooldown.value > 0 ||
-        !!selected.value?.reason ||
+        !!selectedReason.value ||
         missingItems.value,
 );
 const readyToFinish = computed(
@@ -242,7 +311,12 @@ function choose(value: CareGroup) {
 
 function start() {
     if (unavailable.value || form.processing) return;
-    form.post(store.url(props.pet.id), {
+    form.transform((data) => ({
+        ...data,
+        items: Object.fromEntries(
+            Object.entries(data.items).filter(([, value]) => value != null),
+        ),
+    })).post(store.url(props.pet.id), {
         preserveScroll: true,
         onSuccess: () => {
             open.value = false;
@@ -402,12 +476,18 @@ function finishActivity() {
                     </fieldset>
                     <template v-if="selected">
                         <section
-                            v-if="selected.requirements.length"
+                            v-if="
+                                selected.requirements.length ||
+                                selected.optional.length
+                            "
                             class="pet-care-supplies"
                             :aria-label="t('Supplies')"
                         >
                             <div
-                                v-for="category in selected.requirements"
+                                v-for="category in [
+                                    ...selected.requirements,
+                                    ...selected.optional,
+                                ]"
                                 :key="category"
                                 class="pet-care-item-field"
                             >
@@ -425,7 +505,7 @@ function finishActivity() {
                                     >
                                     <span>{{
                                         t('Uses per action: {count}', {
-                                            count: selected.uses[category],
+                                            count: selected.uses[category] ?? 1,
                                         })
                                     }}</span>
                                 </div>
@@ -435,6 +515,14 @@ function finishActivity() {
                                     v-model="form.items[category]"
                                     :disabled="form.processing"
                                 >
+                                    <option
+                                        v-if="
+                                            selected.optional.includes(category)
+                                        "
+                                        :value="undefined"
+                                    >
+                                        {{ t('Do not use (optional)') }}
+                                    </option>
                                     <option
                                         v-for="item in itemsFor(category)"
                                         :key="item.id"
@@ -460,6 +548,12 @@ function finishActivity() {
                                     }}
                                 </p>
                             </div>
+                            <ItemBonuses
+                                v-for="item in selectedItems"
+                                :key="item.id"
+                                :bonuses="item.bonuses"
+                                :effects="[]"
+                            />
                             <div
                                 v-if="missingItems"
                                 class="pet-care-supply-help"
@@ -528,6 +622,7 @@ function finishActivity() {
                                 >
                             </div>
                         </section>
+                        <StatusEffects :effects="grantedEffects" preview />
                         <div class="pet-care-timing">
                             <div>
                                 <Clock3 :size="16" aria-hidden="true" /><span
@@ -554,7 +649,7 @@ function finishActivity() {
                             }}
                         </p>
                         <div
-                            v-if="care.busy || cooldown || selected.reason"
+                            v-if="care.busy || cooldown || selectedReason"
                             class="pet-care-warning"
                             role="status"
                         >
@@ -571,7 +666,7 @@ function finishActivity() {
                                           ? t('Available in {time}', {
                                                 time: countdown(cooldown),
                                             })
-                                          : t(selected.reason ?? '')
+                                          : t(selectedReason ?? '')
                                 }}
                             </p>
                         </div>

@@ -21,7 +21,7 @@ class StartPetCareRequest extends FormRequest
         return [
             'variant' => ['required', Rule::in(array_keys($rules->options(DogSize::Medium)))],
             'token' => ['required', 'uuid'],
-            'items' => ['present', 'array:food,collars,leashes,toys,care'],
+            'items' => ['present', 'array:food,collars,leashes,toys,care,clothing,sports'],
             'items.*' => ['required', 'integer', 'min:1', 'distinct'],
         ];
     }

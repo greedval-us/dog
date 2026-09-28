@@ -15,12 +15,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $code
  * @property array<string, string> $name
  * @property array<string, string>|null $description
+ * @property array<string, int>|null $bonuses
+ * @property list<string>|null $granted_effects
  * @property int $quality
  * @property int $usage_limit
  * @property array<string, int|float|string|bool> $characteristics
  * @property bool $is_active
  */
-#[Fillable(['item_category_id', 'code', 'name', 'description', 'quality', 'usage_limit', 'characteristics', 'is_active'])]
+#[Fillable(['item_category_id', 'code', 'name', 'description', 'quality', 'usage_limit', 'characteristics', 'bonuses', 'granted_effects', 'is_active'])]
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
@@ -44,7 +46,7 @@ class Item extends Model
         return $this->hasMany(InventoryItem::class);
     }
 
-    /** @return array{name: array<string, string>, quality: int, usage_limit: int, characteristics: array<string, int|float|string|bool>} */
+    /** @return array{name: array<string, string>, quality: int, usage_limit: int, bonuses: array<string, int>, granted_effects: list<string>, characteristics: array<string, int|float|string|bool>} */
     public function inventorySnapshot(): array
     {
         return [
@@ -52,6 +54,8 @@ class Item extends Model
             'quality' => $this->quality,
             'usage_limit' => $this->usage_limit,
             'characteristics' => $this->characteristics,
+            'bonuses' => $this->bonuses ?? [],
+            'granted_effects' => $this->granted_effects ?? [],
         ];
     }
 
@@ -65,6 +69,8 @@ class Item extends Model
             'quality' => 'integer',
             'usage_limit' => 'integer',
             'characteristics' => 'array',
+            'bonuses' => 'array',
+            'granted_effects' => 'array',
             'is_active' => 'boolean',
         ];
     }

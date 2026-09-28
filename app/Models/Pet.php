@@ -20,6 +20,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ *
+ * @property list<Effect>|null $buffs
+ * @property list<Effect>|null $debuffs
  * @property int $id
  * @property int|null $user_id
  * @property int $dog_id
@@ -79,7 +83,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $bond
  * @property int $bond_max
  */
-#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day'])]
+#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
 class Pet extends Model
 {
     /** @use HasFactory<PetFactory> */
@@ -196,6 +200,8 @@ class Pet extends Model
     protected function casts(): array
     {
         return [
+            'buffs' => 'array',
+            'debuffs' => 'array',
             'sex' => PetSex::class,
             'size' => DogSize::class,
             'born_at' => 'datetime',

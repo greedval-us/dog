@@ -1,11 +1,25 @@
 import type { DogState } from '@/types/pet';
 
+export type StatusEffect = {
+    code: string;
+    kind: 'buff' | 'debuff';
+    name: Record<string, string>;
+    description: Record<string, string>;
+    modifiers: Record<string, number>;
+    duration_seconds: number | null;
+    condition_state: DogState | null;
+    condition_below: number | null;
+    expires_at?: number | null;
+};
+
 export type CareGroup = 'feed' | 'walk' | 'play' | 'groom' | 'sleep';
 export type CareItem = {
     id: number;
     category: string;
     name: string;
     quality: number;
+    bonuses: Partial<Record<DogState, number>>;
+    grantedEffects: StatusEffect[];
     bonus: Partial<Record<DogState, number>>;
     remainingUses: number;
 };
@@ -16,6 +30,8 @@ export type CareOption = {
     duration: number;
     cooldown: number;
     energy: number;
+    baseEnergy: number;
+    optional: string[];
     requirements: string[];
     uses: Record<string, number>;
     effects: Partial<Record<DogState, number>>;
@@ -23,6 +39,8 @@ export type CareOption = {
 };
 export type PetCare = {
     token: string;
+    buffs: StatusEffect[];
+    debuffs: StatusEffect[];
     serverNow: string;
     blocked: boolean;
     busy: boolean;

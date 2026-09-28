@@ -1613,6 +1613,46 @@
     background: var(--sage-surface);
     font-size: 13px;
 }
+
+.pet-status-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 0;
+    list-style: none;
+    min-width: 0;
+}
+.pet-status {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--sage-surface);
+    color: var(--foreground);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.pet-status-negative {
+    background: var(--danger-surface);
+}
+.pet-status-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: center;
+}
+.pet-status-title > span,
+.pet-status small {
+    color: var(--muted-foreground);
+}
+.pet-status p {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+.item-bonuses {
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+}
 .pet-care-preview h3 {
     font-size: 12px;
     font-weight: 600;

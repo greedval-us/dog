@@ -479,5 +479,17 @@
     "You have already worked today. Come back tomorrow.": "You have already worked today. Come back tomorrow.",
     "This work is currently unavailable.": "This work is currently unavailable.",
     "Shift complete! You earned :coins coins and :gems gems.": "Shift complete! You earned :coins coins and :gems gems.",
-    "Shift complete! You earned :coins coins.": "Shift complete! You earned :coins coins."
+    "Shift complete! You earned :coins coins.": "Shift complete! You earned :coins coins.",
+    "Effects after use": "Effects after use",
+    "Lasting effects": "Lasting effects",
+    "Buff": "Buff",
+    "Debuff": "Debuff",
+    "After completion · {count} min": "After completion · {count} min",
+    "{count} min left": "{count} min left",
+    "Until the need is restored": "Until the need is restored",
+    "Bonus per use": "Bonus per use",
+    "p.p.": "p.p.",
+    "Do not use (optional)": "Do not use (optional)",
+    "Sports equipment": "Sports equipment",
+    "Clothing": "Clothing"
 }

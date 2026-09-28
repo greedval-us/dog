@@ -3,9 +3,11 @@
 namespace App\Modules\Pets\Actions;
 
 use App\Models\PetCareAction;
+use App\Models\StatusEffect;
 use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\PetCareRules;
+use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
@@ -21,6 +23,7 @@ final class StartPetCare
         private PetActivityManager $activities,
         private InventoryConsumption $inventory,
         private CompletePetCare $completeCare,
+        private PetStatusRules $statuses,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -72,6 +75,11 @@ final class StartPetCare
                 throw new PetUnavailable('This action is cooling down. Wait before trying again.');
             }
 
+            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
+            $pet->buffs = $this->statuses->active($pet->buffs ?? [], now()->getTimestamp());
+            $pet->debuffs = $this->statuses->debuffs($catalogue, $pet->statePercentages());
+            $modifiers = $this->statuses->modifiers([...$pet->buffs, ...$pet->debuffs]);
+            $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
             $reason = $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy);
 
             if ($reason !== null) {
@@ -81,27 +89,34 @@ final class StartPetCare
             $requirements = $option['requirements'];
             sort($requirements);
 
-            if (array_keys($itemIds) !== $requirements) {
+            if (array_diff($requirements, array_keys($itemIds)) !== [] || array_diff(array_keys($itemIds), [...$requirements, ...$option['optional']]) !== []) {
                 throw new PetUnavailable('Select the required items from your inventory.');
             }
 
             $instances = $owner->inventoryItems()->with('item.category')->whereIn('id', array_values($itemIds))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $qualities = [];
+            $bonuses = [];
+            $grantedCodes = [];
 
             foreach ($itemIds as $category => $id) {
                 $instance = $instances->get($id);
 
-                if ($instance === null || $instance->remaining_uses < $option['uses'][$category] || $instance->item->category->code !== $category) {
+                if ($instance === null || $instance->remaining_uses < ($option['uses'][$category] ?? 1) || $instance->item->category->code !== $category) {
                     throw new PetUnavailable('A selected item is unavailable. Choose another item.');
                 }
 
                 $qualities[$category] = $instance->quality;
+                foreach ($instance->bonuses ?? [] as $state => $bonus) {
+                    $bonuses[$state] = ($bonuses[$state] ?? 0) + $bonus;
+                }
+                $grantedCodes = [...$grantedCodes, ...($instance->granted_effects ?? [])];
             }
 
+            $pet->save();
             $started = $this->activities->start($owner, $petId, PetActivity::from($option['group']), now()->addSeconds($option['duration']), $option['energy']);
 
             foreach ($itemIds as $category => $id) {
-                $usage = $this->inventory->handle($owner, $id, (string) Str::uuid(), $option['uses'][$category]);
+                $usage = $this->inventory->handle($owner, $id, (string) Str::uuid(), $option['uses'][$category] ?? 1);
 
                 if (! $usage->wasRecentlyCreated) {
                     throw new PetUnavailable('A selected item is unavailable. Choose another item.');
@@ -116,7 +131,8 @@ final class StartPetCare
                 'group' => $option['group'],
                 'variant' => $variant,
                 'inventory_item_ids' => $itemIds,
-                'effects' => $this->rules->effects($option, $qualities),
+                'effects' => $this->statuses->applyMood($this->rules->effects($option, $qualities, $bonuses), $modifiers['mood_gain_percent']),
+                'granted_effects' => $this->statuses->grants($catalogue, array_values(array_unique($grantedCodes))),
                 'ends_at' => $started->endsAt,
                 'available_at' => $started->endsAt->addSeconds($option['cooldown']),
             ]);

@@ -178,6 +178,8 @@ const pageLink = (cursor: string) =>
                             </summary>
                             <ItemCharacteristics
                                 :characteristics="item.characteristics"
+                                :bonuses="item.bonuses"
+                                :granted-effects="item.grantedEffects"
                             />
                         </details>
                     </div>

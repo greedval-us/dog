@@ -7,7 +7,7 @@ use App\Modules\Pets\Enums\DogSize;
 /**
  * @phpstan-type VariantBalance array{duration: int, cooldown: int, energy: int, items: array<string, int>, effects: array<string, int>}
  * @phpstan-type CareBalance array{feeding_by_size: array<string, int>, minimum_needs: array<string, array<string, int>>, quality_bonuses: array<string, array{state: string, per_level: int, base_quality: int, max_quality: int}>, options: array<string, VariantBalance>}
- * @phpstan-type CareOption array{group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, uses: array<string, int>, effects: array<string, int>}
+ * @phpstan-type CareOption array{group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, optional: list<string>, uses: array<string, int>, effects: array<string, int>}
  */
 final class PetCareRules
 {
@@ -43,6 +43,9 @@ final class PetCareRules
                 'duration' => $settings['duration'], 'cooldown' => $settings['cooldown'],
                 'energy' => $settings['energy'], 'requirements' => array_keys($settings['items']),
                 'uses' => $settings['items'], 'effects' => $settings['effects'],
+                'optional' => match ($id) {
+                    'walk' => ['clothing'], 'toy' => ['sports'], default => []
+                },
             ];
         }
 
@@ -76,15 +79,22 @@ final class PetCareRules
 
     /** @param CareOption $option
      * @param  array<string, int>  $qualities
+     * @param  array<string, int>  $bonuses
      * @return array<string, int>
      */
-    public function effects(array $option, array $qualities): array
+    public function effects(array $option, array $qualities, array $bonuses = []): array
     {
         $effects = $option['effects'];
 
         foreach ($qualities as $category => $quality) {
             foreach ($this->qualityBonus($category, $quality) as $state => $bonus) {
                 $effects[$state] = ($effects[$state] ?? 0) + $bonus;
+            }
+        }
+
+        foreach ($bonuses as $state => $bonus) {
+            if (in_array($state, ['health', 'energy', 'satiety', 'hydration', 'mood', 'cleanliness', 'bond'], true)) {
+                $effects[$state] = ($effects[$state] ?? 0) + max(0, min(30, $bonus));
             }
         }
 

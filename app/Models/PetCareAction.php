@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
+ * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ *
+ * @property list<Effect>|null $granted_effects
  * @property int $id
  * @property int $user_id
  * @property int $pet_id
@@ -22,7 +25,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable $available_at
  * @property CarbonImmutable|null $completed_at
  */
-#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'ends_at', 'available_at', 'completed_at'])]
+#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'ends_at', 'available_at', 'completed_at'])]
 class PetCareAction extends Model
 {
     /** @use HasFactory<PetCareActionFactory> */
@@ -36,6 +39,7 @@ class PetCareAction extends Model
             'pet_id' => 'integer',
             'inventory_item_ids' => 'array',
             'effects' => 'array',
+            'granted_effects' => 'array',
             'ends_at' => 'immutable_datetime',
             'available_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',

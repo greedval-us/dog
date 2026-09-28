@@ -73,7 +73,7 @@ const { t } = useI18n();
                 height="941"
             />
             <div class="pet-stage">
-                <PetHero :pet="pet" :appearance="appearance" />
+                <PetHero :pet="pet" :appearance="appearance" :care="care" />
                 <aside
                     class="pet-sidebar"
                     :aria-label="t('Wellbeing and care')"

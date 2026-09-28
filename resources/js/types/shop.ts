@@ -1,3 +1,4 @@
+import type { StatusEffect } from '@/types/pet-care';
 export type ShopCategory = {
     id: number;
     code: string;
@@ -13,6 +14,8 @@ export type ShopOffer = {
     categoryCode: string;
     quality: number;
     usageLimit: number;
+    bonuses: Record<string, number>;
+    grantedEffects: StatusEffect[];
     characteristics: Record<string, number | string | boolean>;
     currency: 'coins';
     price: number;

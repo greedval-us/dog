@@ -14,7 +14,7 @@ class ShopItemSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(ItemCategorySeeder::class);
+        $this->call([ItemCategorySeeder::class, StatusEffectSeeder::class]);
         $categories = ItemCategory::query()->pluck('id', 'code');
         $sortOrder = 0;
 
@@ -27,8 +27,13 @@ class ShopItemSeeder extends Seeder
                     'quality' => $quality,
                     'usage_limit' => $uses,
                     'characteristics' => [],
+                    ...config('item_bonuses.'.$code, ['bonuses' => [], 'granted_effects' => []]),
                     'is_active' => true,
                 ]);
+
+                if ($item->bonuses === null && $item->granted_effects === null) {
+                    $item->update(config('item_bonuses.'.$code, ['bonuses' => [], 'granted_effects' => []]));
+                }
 
                 ShopOffer::query()->firstOrCreate(['item_id' => $item->id, 'currency' => $currency], [
                     'price' => $price,

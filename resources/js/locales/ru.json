@@ -479,5 +479,17 @@
     "You have already worked today. Come back tomorrow.": "Сегодня ты уже поработал. Приходи завтра.",
     "This work is currently unavailable.": "Эта работа сейчас недоступна.",
     "Shift complete! You earned :coins coins and :gems gems.": "Смена завершена! Ты получил :coins монет и :gems кристаллов.",
-    "Shift complete! You earned :coins coins.": "Смена завершена! Ты получил :coins монет."
+    "Shift complete! You earned :coins coins.": "Смена завершена! Ты получил :coins монет.",
+    "Effects after use": "Эффекты после применения",
+    "Lasting effects": "Длительные эффекты",
+    "Buff": "Баф",
+    "Debuff": "Дебаф",
+    "After completion · {count} min": "После завершения · {count} мин",
+    "{count} min left": "Осталось {count} мин",
+    "Until the need is restored": "До восстановления потребности",
+    "Bonus per use": "Бонус за применение",
+    "p.p.": "п.п.",
+    "Do not use (optional)": "Не использовать (необязательно)",
+    "Sports equipment": "Спортивный инвентарь",
+    "Clothing": "Одежда"
 }

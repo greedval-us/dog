@@ -15,8 +15,14 @@ import type { PetAppearance } from '@/types/appearance';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
+import StatusEffects from '@/components/StatusEffects.vue';
+import type { PetCare } from '@/types/pet-care';
 
-defineProps<{ pet: PlayerPet; appearance: PetAppearance }>();
+defineProps<{
+    pet: PlayerPet;
+    appearance: PetAppearance;
+    care?: PetCare | null;
+}>();
 const { t, locale } = useI18n();
 const date = (value: string) =>
     new Intl.DateTimeFormat(locale.value, {
@@ -95,6 +101,11 @@ const date = (value: string) =>
                 {{ t('Good dogs make the world a kinder place.') }}
                 <Heart :size="20" />
             </p>
+            <StatusEffects
+                v-if="care"
+                :effects="[...care.buffs, ...care.debuffs]"
+                :server-now="care.serverNow"
+            />
         </header>
         <figure class="pet-hero-portrait">
             <GameAssetArtwork

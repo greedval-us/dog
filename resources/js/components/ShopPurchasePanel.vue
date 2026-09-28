@@ -40,7 +40,11 @@ watch(
             <h3>{{ offer.name }}</h3>
             <p>{{ offer.description }}</p>
         </div>
-        <ItemCharacteristics :characteristics="offer.characteristics">
+        <ItemCharacteristics
+            :characteristics="offer.characteristics"
+            :bonuses="offer.bonuses"
+            :granted-effects="offer.grantedEffects"
+        >
             <div>
                 <dt>{{ t('Quality') }}</dt>
                 <dd>{{ number(offer.quality) }} / 10</dd>

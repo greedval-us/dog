@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'daily_kibble' => ['bonuses' => ['satiety' => 4], 'granted_effects' => []],
+    'beef_treats' => ['bonuses' => ['mood' => 8, 'bond' => 2], 'granted_effects' => []],
+    'salmon_menu' => ['bonuses' => ['satiety' => 8], 'granted_effects' => ['energized']],
+    'everyday_collar' => ['bonuses' => ['mood' => 3], 'granted_effects' => []],
+    'woven_collar' => ['bonuses' => ['mood' => 8], 'granted_effects' => []],
+    'leather_collar' => ['bonuses' => ['mood' => 5], 'granted_effects' => ['comfortable']],
+    'walking_leash' => ['bonuses' => ['bond' => 2], 'granted_effects' => []],
+    'long_leash' => ['bonuses' => ['mood' => 7], 'granted_effects' => []],
+    'retractable_leash' => ['bonuses' => ['bond' => 4], 'granted_effects' => ['comfortable']],
+    'soft_brush' => ['bonuses' => ['bond' => 3], 'granted_effects' => []],
+    'gentle_shampoo' => ['bonuses' => ['cleanliness' => 10], 'granted_effects' => []],
+    'grooming_set' => ['bonuses' => ['cleanliness' => 5], 'granted_effects' => ['relaxed']],
+    'rubber_ball' => ['bonuses' => ['mood' => 4], 'granted_effects' => []],
+    'rope_toy' => ['bonuses' => ['bond' => 5], 'granted_effects' => []],
+    'snuffle_mat' => ['bonuses' => ['mood' => 3], 'granted_effects' => ['relaxed']],
+    'sage_bandana' => ['bonuses' => ['bond' => 3], 'granted_effects' => []],
+    'raincoat' => ['bonuses' => ['cleanliness' => 10], 'granted_effects' => []],
+    'knitted_sweater' => ['bonuses' => ['mood' => 3], 'granted_effects' => ['comfortable']],
+    'training_cones' => ['bonuses' => ['bond' => 3], 'granted_effects' => []],
+    'agility_bar' => ['bonuses' => ['mood' => 8], 'granted_effects' => []],
+    'agility_tunnel' => ['bonuses' => ['bond' => 2], 'granted_effects' => ['relaxed']],
+];
