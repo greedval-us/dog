@@ -5,6 +5,7 @@ namespace App\Modules\Pets\Actions;
 use App\Models\PetCareAction;
 use App\Models\StatusEffect;
 use App\Models\User;
+use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 final class CompletePetCare
 {
-    public function __construct(private PetActivityManager $activities, private PetStatusRules $statuses) {}
+    public function __construct(private PetActivityManager $activities, private PetStatusRules $statuses, private PetStateCalculator $states) {}
 
     public function handle(User $user, int $petId, string $token): bool
     {
@@ -36,6 +37,8 @@ final class CompletePetCare
                 throw new PetUnavailable('This activity is not ready to finish.');
             }
 
+            $pet->advanceStatesTo(now(), $this->states);
+
             foreach ($care->effects as $name => $percentage) {
                 $state = PetState::from($name);
                 $maximum = $pet->getAttribute($state->maximumColumn());
@@ -50,7 +53,6 @@ final class CompletePetCare
                 $timed = $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $care->ends_at->getTimestamp(), now()->getTimestamp());
                 $pet->setAttribute($column, $this->statuses->current($catalogue, $pet->statePercentages(), $timed, now()->getTimestamp(), $kind));
             }
-            $pet->state_updated_at = now();
             $pet->save();
             $care->completed_at = now();
             $care->save();

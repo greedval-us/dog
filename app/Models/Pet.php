@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\StatePercentageCalculator;
 use App\Modules\Pets\Enums\DogSize;
 use App\Modules\Pets\Enums\PetActivity;
@@ -178,6 +179,27 @@ class Pet extends Model
     protected function availableForActivity(Builder $query): void
     {
         $query->active()->whereNull('activity');
+    }
+
+    /** Advance the in-memory snapshot; callers persist it only inside a locked transaction. */
+    public function advanceStatesTo(CarbonImmutable $at, PetStateCalculator $calculator): void
+    {
+        $at = $at->startOfSecond();
+
+        if ($this->retired_at !== null || $at->lessThanOrEqualTo($this->state_updated_at)) {
+            return;
+        }
+
+        $values = [];
+        $maximums = [];
+
+        foreach (PetState::cases() as $state) {
+            $values[$state->value] = (float) $this->getAttribute($state->value);
+            $maximums[$state->value] = (int) $this->getAttribute($state->maximumColumn());
+        }
+
+        $this->fill($calculator->calculate($values, $maximums, $at->getTimestamp() - $this->state_updated_at->getTimestamp()));
+        $this->state_updated_at = $at;
     }
 
     /** @return array<string, float> */

@@ -49,9 +49,9 @@ test('feeding consumes a portion once and restores satiety according to size and
     expect($pet->fresh())->satiety->toBe($expected)->activity->toBeNull();
     $this->assertDatabaseHas('pet_care_actions', ['token' => $token, 'completed_at' => now()->toDateTimeString()]);
 })->with([
-    'small' => ['small', 200, 50.0, 110.0],
-    'medium' => ['medium', 200, 50.0, 94.0],
-    'large' => ['large', 200, 50.0, 80.0],
+    'small' => ['small', 200, 50.0, 109.9167],
+    'medium' => ['medium', 200, 50.0, 93.9167],
+    'large' => ['large', 200, 50.0, 79.9167],
     'cap at maximum' => ['small', 200, 190.0, 200.0],
 ]);
 
@@ -80,15 +80,15 @@ test('care variants apply their costs and effects after the saved duration', fun
         $this->assertDatabaseHas('inventory_items', ['id' => $id, 'remaining_uses' => 4]);
     }
 })->with([
-    'water' => ['water', [], 15, 0, ['hydration' => 85]],
-    'walk' => ['walk', ['collars', 'leashes'], 300, 12, ['energy' => 38, 'mood' => 75, 'bond' => 54, 'satiety' => 42, 'hydration' => 40, 'cleanliness' => 38]],
-    'home alternative' => ['home', [], 120, 4, ['energy' => 46, 'mood' => 58, 'bond' => 51]],
-    'play without toy' => ['attention', [], 120, 6, ['energy' => 44, 'mood' => 60, 'bond' => 52]],
-    'toy' => ['toy', ['toys'], 180, 10, ['energy' => 40, 'mood' => 70, 'bond' => 54]],
-    'basic wash' => ['wash', [], 60, 0, ['cleanliness' => 60, 'bond' => 51]],
-    'care product' => ['care', ['care'], 180, 0, ['cleanliness' => 77, 'bond' => 53]],
-    'nap' => ['nap', [], 300, 0, ['energy' => 75, 'satiety' => 46, 'hydration' => 46]],
-    'long sleep capped' => ['sleep', [], 1200, 0, ['energy' => 100, 'satiety' => 38, 'hydration' => 38]],
+    'water' => ['water', [], 15, 0, ['hydration' => 84.9792]],
+    'walk' => ['walk', ['collars', 'leashes'], 300, 12, ['energy' => 38, 'mood' => 74.8333, 'bond' => 53.9583, 'satiety' => 41.5833, 'hydration' => 39.5833, 'cleanliness' => 37.8333]],
+    'home alternative' => ['home', [], 120, 4, ['energy' => 46, 'mood' => 57.9333, 'bond' => 50.9833]],
+    'play without toy' => ['attention', [], 120, 6, ['energy' => 44, 'mood' => 59.9333, 'bond' => 51.9833]],
+    'toy' => ['toy', ['toys'], 180, 10, ['energy' => 40, 'mood' => 69.9, 'bond' => 53.975]],
+    'basic wash' => ['wash', [], 60, 0, ['cleanliness' => 59.9667, 'bond' => 50.9917]],
+    'care product' => ['care', ['care'], 180, 0, ['cleanliness' => 76.9, 'bond' => 52.975]],
+    'nap' => ['nap', [], 300, 0, ['energy' => 75, 'satiety' => 45.5833, 'hydration' => 45.5833]],
+    'long sleep capped' => ['sleep', [], 1200, 0, ['energy' => 100, 'satiety' => 36.3333, 'hydration' => 36.3333]],
 ]);
 
 test('cooldowns survive completion and cannot be bypassed by changing variant or token', function () {
@@ -300,7 +300,7 @@ test('failure while saving completion rolls back the effect and keeps the activi
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
     DB::statement('DROP TRIGGER reject_care_completion');
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 65, 'activity' => null]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 65.4167, 'activity' => null]);
 });
 
 test('replaying an old completion does not interrupt a newer activity', function () {
@@ -311,7 +311,7 @@ test('replaying an old completion does not interrupt a newer activity', function
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $first->token);
     $second = app(StartPetCare::class)->handle($pet->user, $pet->id, 'home', [], (string) Str::uuid());
     $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $first->token])->assertSessionHasNoErrors();
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 41, 'activity_token' => $second->activity_token]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 41.4167, 'activity_token' => $second->activity_token]);
 });
 
 test('configured care balance controls the preview costs timing and saved result', function () {
@@ -374,7 +374,7 @@ test('configured feeding percentages are used for each dog size', function (stri
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], (string) Str::uuid());
     $this->travel(30)->seconds();
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'satiety' => 44]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'satiety' => 43.9167]);
 })->with(['small', 'medium', 'large']);
 
 test('configured minimum needs agree in the preview and action validation', function () {
@@ -402,7 +402,7 @@ test('starting another action applies expired care once and uses the restored en
     $this->post(route('pets.care.complete', $pet), ['token' => $first->token])->assertSessionHasNoErrors();
 
     $this->assertDatabaseHas('pet_care_actions', ['id' => $first->id, 'completed_at' => now()->toDateTimeString()]);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 19, 'satiety' => 46, 'activity' => 'play']);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 19, 'satiety' => 45.5833, 'activity' => 'play']);
     $this->assertDatabaseHas('pet_care_actions', ['token' => $token, 'completed_at' => null]);
     $this->assertDatabaseCount('pet_care_actions', 2);
 });
@@ -421,7 +421,7 @@ test('automatic completion keeps the original cooldown and permits reuse exactly
     $this->post(route('pets.care.store', $pet), [
         'variant' => 'sleep', 'items' => [], 'token' => (string) Str::uuid(),
     ])->assertSessionHasNoErrors();
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 30, 'activity' => 'sleep']);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 32.9167, 'activity' => 'sleep']);
     $this->assertDatabaseHas('pet_care_actions', [
         'id' => $first->id, 'completed_at' => now()->toDateTimeString(),
         'available_at' => $first->available_at->toDateTimeString(),
@@ -445,7 +445,7 @@ test('automatic care completion does not release an unrelated expired activity',
     $this->assertDatabaseCount('pet_care_actions', 1);
 });
 
-test('sleep variants restore different percentages and enforce their own shared cooldown', function (string $variant, int $duration, int $cooldown, int $restored) {
+test('sleep variants restore different percentages and enforce their own shared cooldown', function (string $variant, int $duration, int $cooldown, float $restored, float $percentage) {
     $this->freezeSecond();
     $pet = Pet::factory()->create(['energy' => 20, 'energy_max' => 200]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, $variant, [], (string) Str::uuid());
@@ -454,7 +454,7 @@ test('sleep variants restore different percentages and enforce their own shared 
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => $restored, 'activity' => null]);
     $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
-        ->where('pet.states.energy', $restored / 2)
+        ->where('pet.states.energy', $percentage)
         ->where('care.options.8.effects.energy', 25)->where('care.options.8.cooldown', 1800)
         ->where('care.options.9.effects.energy', 70)->where('care.options.9.cooldown', 3600)
     );
@@ -466,6 +466,6 @@ test('sleep variants restore different percentages and enforce their own shared 
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
     $this->assertDatabaseCount('pet_care_actions', 2);
 })->with([
-    'short sleep' => ['nap', 300, 1800, 70],
-    'long sleep' => ['sleep', 1200, 3600, 160],
+    'short sleep' => ['nap', 300, 1800, 70.8333, 35.4],
+    'long sleep' => ['sleep', 1200, 3600, 163.3333, 81.7],
 ]);

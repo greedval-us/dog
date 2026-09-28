@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Modules\Pets\Calculators\PetCareRules;
+use App\Modules\Pets\Calculators\PetStateCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
@@ -12,7 +13,10 @@ use Illuminate\Validation\Rules\Password;
 use Random\Engine\Secure;
 use Random\Randomizer;
 
-/** @phpstan-import-type CareBalance from PetCareRules */
+/**
+ * @phpstan-import-type CareBalance from PetCareRules
+ * @phpstan-import-type StateBalance from PetStateCalculator
+ */
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -26,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
             $balance = Config::array('pet_care');
 
             return new PetCareRules($balance);
+        });
+        $this->app->bind(PetStateCalculator::class, function (): PetStateCalculator {
+            /** @var StateBalance $balance */
+            $balance = Config::array('pet_states');
+
+            return new PetStateCalculator($balance);
         });
     }
 

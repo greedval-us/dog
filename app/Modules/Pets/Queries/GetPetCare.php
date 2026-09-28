@@ -8,18 +8,20 @@ use App\Models\StatusEffect;
 use App\Models\User;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
+use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Str;
 
 final class GetPetCare
 {
-    public function __construct(private PetCareRules $rules, private PetStatusRules $statuses, private ItemEffectRules $riskRules) {}
+    public function __construct(private PetCareRules $rules, private PetStatusRules $statuses, private ItemEffectRules $riskRules, private PetStateCalculator $states) {}
 
     /** @return array<string, mixed> */
     public function handle(User $user, int $petId, string $locale): array
     {
         $pet = $user->pets()->findOrFail($petId);
+        $pet->advanceStatesTo(now(), $this->states);
         $options = $this->rules->options($pet->size);
         $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
         $buffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->buffs ?? [], now()->getTimestamp(), 'buff');

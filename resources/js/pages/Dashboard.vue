@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { ArrowRight } from '@lucide/vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
@@ -25,6 +25,8 @@ defineProps<{
     care: PetCare | null;
 }>();
 const { t } = useI18n();
+
+usePoll(60_000, { only: ['pet', 'care'] });
 </script>
 
 <template>

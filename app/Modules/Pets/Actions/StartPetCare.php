@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
+use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
@@ -28,6 +29,7 @@ final class StartPetCare
         private PetStatusRules $statuses,
         private ItemEffectRules $riskRules,
         private Randomizer $random,
+        private PetStateCalculator $states,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -80,6 +82,7 @@ final class StartPetCare
                 throw new PetUnavailable('This action is cooling down. Wait before trying again.');
             }
 
+            $pet->advanceStatesTo(now(), $this->states);
             $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
             $pet->buffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->buffs ?? [], now()->getTimestamp(), 'buff');
             $pet->debuffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->debuffs ?? [], now()->getTimestamp(), 'debuff');
