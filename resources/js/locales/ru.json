@@ -491,5 +491,12 @@
     "p.p.": "п.п.",
     "Do not use (optional)": "Не использовать (необязательно)",
     "Sports equipment": "Спортивный инвентарь",
-    "Clothing": "Одежда"
+    "Clothing": "Одежда",
+    "Risk per action: {effect} — {chance}%": "Риск за действие: {effect} — {chance}%",
+    "Higher quality reduces the risk. Matching risks use the highest chance, not their sum.": "Чем выше качество, тем ниже риск. Для одинаковых рисков учитывается наибольший шанс.",
+    "Recent events": "Последние события",
+    "After using {item} (quality {quality}/10).": "После применения «{item}» (качество {quality}/10).",
+    "Chance per action: {effect} — {chance}%": "Шанс за действие: {effect} — {chance}%",
+    "Chance is shown for this item’s quality. Matching effects use the highest chance; equal chances use the longest duration.": "Шанс указан для качества этой вещи. У одинаковых эффектов выбирается наибольший шанс, а при равенстве — большая длительность.",
+    "While the condition is met": "Пока выполняется условие"
 }

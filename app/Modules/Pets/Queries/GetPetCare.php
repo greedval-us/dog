@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\PetCareAction;
 use App\Models\StatusEffect;
 use App\Models\User;
+use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -13,16 +14,16 @@ use Illuminate\Support\Str;
 
 final class GetPetCare
 {
-    public function __construct(private PetCareRules $rules, private PetStatusRules $statuses) {}
+    public function __construct(private PetCareRules $rules, private PetStatusRules $statuses, private ItemEffectRules $riskRules) {}
 
     /** @return array<string, mixed> */
     public function handle(User $user, int $petId, string $locale): array
     {
         $pet = $user->pets()->findOrFail($petId);
         $options = $this->rules->options($pet->size);
-        $catalogue = array_values(StatusEffect::query()->where('is_active', true)->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
-        $buffs = $this->statuses->active($pet->buffs ?? [], now()->getTimestamp());
-        $debuffs = $this->statuses->debuffs($catalogue, $pet->statePercentages());
+        $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
+        $buffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->buffs ?? [], now()->getTimestamp(), 'buff');
+        $debuffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->debuffs ?? [], now()->getTimestamp(), 'debuff');
         $modifiers = $this->statuses->modifiers([...$buffs, ...$debuffs]);
         $items = $user->inventoryItems()->with('item.category')->where('remaining_uses', '>', 0)
             ->whereHas('item.category', fn ($query) => $query->whereIn('code', ['food', 'collars', 'leashes', 'toys', 'care', 'clothing', 'sports']))
@@ -49,7 +50,13 @@ final class GetPetCare
             'token' => (string) Str::uuid(),
             'serverNow' => now()->toIso8601String(),
             'buffs' => $buffs,
+            'modifierKeys' => $this->statuses->modifierKeys(),
             'debuffs' => $debuffs,
+            'recentIncidents' => PetCareAction::query()->where('user_id', $user->id)->where('pet_id', $petId)
+                ->whereNotNull('completed_at')->whereNotNull('incidents')->latest('completed_at')->latest('id')->limit(3)->get()
+                ->map(fn (PetCareAction $care): array => [
+                    'id' => $care->id, 'occurredAt' => $care->ends_at->toIso8601String(), 'incidents' => $care->incidents,
+                ])->all(),
             'blocked' => $user->status !== PlayerStatus::Active || $pet->retired_at !== null,
             'busy' => $pet->isBusy(),
             'cooldowns' => $cooldowns,
@@ -61,7 +68,8 @@ final class GetPetCare
                 'quality' => $item->quality,
                 'bonus' => $this->rules->qualityBonus($item->item->category->code, $item->quality),
                 'bonuses' => $item->bonuses ?? [],
-                'grantedEffects' => $this->statuses->grants($catalogue, $item->granted_effects ?? []),
+                'grantedEffects' => $this->riskRules->guaranteed($this->riskRules->forItem($item->effect_rules ?? [], $item->quality, $item->name)),
+                'risks' => $this->riskRules->uncertain($this->riskRules->forItem($item->effect_rules ?? [], $item->quality, $item->name)),
                 'remainingUses' => $item->remaining_uses,
             ])->all(),
             'active' => $active === null ? null : [

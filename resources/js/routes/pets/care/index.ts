@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PetCareController::store
- * @see app/Http/Controllers/PetCareController.php:19
+ * @see app/Http/Controllers/PetCareController.php:20
  * @route '/pets/{pet}/care'
  */
 export const store = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PetCareController::store
- * @see app/Http/Controllers/PetCareController.php:19
+ * @see app/Http/Controllers/PetCareController.php:20
  * @route '/pets/{pet}/care'
  */
 store.url = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ store.url = (args: { pet: string | number } | [pet: string | number ] | string |
 
 /**
 * @see \App\Http\Controllers\PetCareController::store
- * @see app/Http/Controllers/PetCareController.php:19
+ * @see app/Http/Controllers/PetCareController.php:20
  * @route '/pets/{pet}/care'
  */
 store.post = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -54,7 +54,7 @@ store.post = (args: { pet: string | number } | [pet: string | number ] | string 
 
     /**
 * @see \App\Http\Controllers\PetCareController::store
- * @see app/Http/Controllers/PetCareController.php:19
+ * @see app/Http/Controllers/PetCareController.php:20
  * @route '/pets/{pet}/care'
  */
     const storeForm = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -64,7 +64,7 @@ store.post = (args: { pet: string | number } | [pet: string | number ] | string 
 
             /**
 * @see \App\Http\Controllers\PetCareController::store
- * @see app/Http/Controllers/PetCareController.php:19
+ * @see app/Http/Controllers/PetCareController.php:20
  * @route '/pets/{pet}/care'
  */
         storeForm.post = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -75,7 +75,7 @@ store.post = (args: { pet: string | number } | [pet: string | number ] | string 
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\PetCareController::complete
- * @see app/Http/Controllers/PetCareController.php:37
+ * @see app/Http/Controllers/PetCareController.php:38
  * @route '/pets/{pet}/care/complete'
  */
 export const complete = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -90,7 +90,7 @@ complete.definition = {
 
 /**
 * @see \App\Http\Controllers\PetCareController::complete
- * @see app/Http/Controllers/PetCareController.php:37
+ * @see app/Http/Controllers/PetCareController.php:38
  * @route '/pets/{pet}/care/complete'
  */
 complete.url = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -118,7 +118,7 @@ complete.url = (args: { pet: string | number } | [pet: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\PetCareController::complete
- * @see app/Http/Controllers/PetCareController.php:37
+ * @see app/Http/Controllers/PetCareController.php:38
  * @route '/pets/{pet}/care/complete'
  */
 complete.post = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -128,7 +128,7 @@ complete.post = (args: { pet: string | number } | [pet: string | number ] | stri
 
     /**
 * @see \App\Http\Controllers\PetCareController::complete
- * @see app/Http/Controllers/PetCareController.php:37
+ * @see app/Http/Controllers/PetCareController.php:38
  * @route '/pets/{pet}/care/complete'
  */
     const completeForm = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -138,7 +138,7 @@ complete.post = (args: { pet: string | number } | [pet: string | number ] | stri
 
             /**
 * @see \App\Http\Controllers\PetCareController::complete
- * @see app/Http/Controllers/PetCareController.php:37
+ * @see app/Http/Controllers/PetCareController.php:38
  * @route '/pets/{pet}/care/complete'
  */
         completeForm.post = (args: { pet: string | number } | [pet: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

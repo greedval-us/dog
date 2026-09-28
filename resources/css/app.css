@@ -1653,6 +1653,36 @@
     gap: 8px;
     font-size: 12px;
 }
+
+.item-risk-warning {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--danger-surface);
+    color: var(--foreground);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.item-risk-warning small {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted-foreground);
+}
+.pet-care-incidents {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.pet-care-incidents h3 {
+    font-size: 13px;
+    font-weight: 600;
+}
+.pet-care-incidents time {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted-foreground);
+}
 .pet-care-preview h3 {
     font-size: 12px;
     font-weight: 600;

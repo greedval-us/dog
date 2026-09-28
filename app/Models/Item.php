@@ -16,13 +16,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, string> $name
  * @property array<string, string>|null $description
  * @property array<string, int>|null $bonuses
- * @property list<string>|null $granted_effects
  * @property int $quality
  * @property int $usage_limit
  * @property array<string, int|float|string|bool> $characteristics
  * @property bool $is_active
+ *
+ * @phpstan-import-type Rule from \App\Modules\Pets\Calculators\ItemEffectRules
  */
-#[Fillable(['item_category_id', 'code', 'name', 'description', 'quality', 'usage_limit', 'characteristics', 'bonuses', 'granted_effects', 'is_active'])]
+#[Fillable(['item_category_id', 'code', 'name', 'description', 'quality', 'usage_limit', 'characteristics', 'bonuses', 'is_active'])]
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
@@ -46,7 +47,20 @@ class Item extends Model
         return $this->hasMany(InventoryItem::class);
     }
 
-    /** @return array{name: array<string, string>, quality: int, usage_limit: int, bonuses: array<string, int>, granted_effects: list<string>, characteristics: array<string, int|float|string|bool>} */
+    /** @return HasMany<ItemEffectRule, $this> */
+    public function effectRules(): HasMany
+    {
+        return $this->hasMany(ItemEffectRule::class)->orderBy('id');
+    }
+
+    /** @return list<Rule> */
+    public function effectRuleSnapshots(): array
+    {
+        return array_values($this->effectRules->filter(fn (ItemEffectRule $rule): bool => $rule->is_active && $rule->statusEffect->is_active)
+            ->map(fn (ItemEffectRule $rule): array => $rule->snapshot())->all());
+    }
+
+    /** @return array{name: array<string, string>, quality: int, usage_limit: int, bonuses: array<string, int>, effect_rules: list<Rule>, characteristics: array<string, int|float|string|bool>} */
     public function inventorySnapshot(): array
     {
         return [
@@ -55,7 +69,7 @@ class Item extends Model
             'usage_limit' => $this->usage_limit,
             'characteristics' => $this->characteristics,
             'bonuses' => $this->bonuses ?? [],
-            'granted_effects' => $this->granted_effects ?? [],
+            'effect_rules' => $this->effectRuleSnapshots(),
         ];
     }
 
@@ -70,7 +84,6 @@ class Item extends Model
             'usage_limit' => 'integer',
             'characteristics' => 'array',
             'bonuses' => 'array',
-            'granted_effects' => 'array',
             'is_active' => 'boolean',
         ];
     }

@@ -180,6 +180,7 @@ const pageLink = (cursor: string) =>
                                 :characteristics="item.characteristics"
                                 :bonuses="item.bonuses"
                                 :granted-effects="item.grantedEffects"
+                                :risks="item.risks"
                             />
                         </details>
                     </div>

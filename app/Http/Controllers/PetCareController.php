@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StartPetCareRequest;
+use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
 use App\Modules\Pets\Actions\CompletePetCare;
@@ -47,7 +48,13 @@ class PetCareController extends Controller
         }
 
         if ($changed) {
-            Inertia::flash('toast', ['type' => 'success', 'message' => __('Care completed. Your dog’s condition has been updated.')]);
+            $care = PetCareAction::query()->where('user_id', $user->id)->where('pet_id', $pet)->where('token', strtolower($validated['token']))->firstOrFail();
+            $negative = array_filter($care->incidents ?? [], fn (array $incident): bool => $incident['effect']['kind'] === 'debuff');
+            Inertia::flash('toast', $negative !== []
+                ? ['type' => 'warning', 'message' => __('An item caused an adverse event. See your dog’s recent events.')]
+                : ['type' => 'success', 'message' => __($care->incidents === null
+                    ? 'Care completed. Your dog’s condition has been updated.'
+                    : 'An item granted a bonus effect. See your dog’s recent events.')]);
         }
 
         return to_route('dashboard', ['pet' => $pet]);

@@ -73,7 +73,7 @@ const minutes = (effect: StatusEffect) =>
                     { count: number(minutes(effect)) },
                 )
             }}</small>
-            <small v-else>{{ t('Until the need is restored') }}</small>
+            <small v-else>{{ t('While the condition is met') }}</small>
         </li>
     </ul>
 </template>

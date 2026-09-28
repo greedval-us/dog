@@ -1,4 +1,4 @@
-import type { StatusEffect } from '@/types/pet-care';
+import type { StatusEffect, ItemRisk } from '@/types/pet-care';
 export type InventoryItem = {
     id: number;
     name: string;
@@ -9,6 +9,7 @@ export type InventoryItem = {
     remainingUses: number;
     bonuses: Record<string, number>;
     grantedEffects: StatusEffect[];
+    risks: ItemRisk[];
     characteristics: Record<string, number | string | boolean>;
     acquiredAt: string | null;
 };

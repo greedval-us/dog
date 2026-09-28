@@ -131,5 +131,7 @@
   "You have already worked today. Come back tomorrow.": "Сегодня ты уже поработал. Приходи завтра.",
   "This work is currently unavailable.": "Эта работа сейчас недоступна.",
   "Shift complete! You earned :coins coins and :gems gems.": "Смена завершена! Ты получил :coins монет и :gems кристаллов.",
-  "Shift complete! You earned :coins coins.": "Смена завершена! Ты получил :coins монет."
+  "Shift complete! You earned :coins coins.": "Смена завершена! Ты получил :coins монет.",
+  "An item caused an adverse event. See your dog’s recent events.": "Предмет вызвал неприятное событие. Посмотри последние события питомца.",
+  "An item granted a bonus effect. See your dog’s recent events.": "Предмет дал дополнительный эффект. Подробности — в последних событиях собаки."
 }

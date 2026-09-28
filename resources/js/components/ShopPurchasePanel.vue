@@ -44,6 +44,7 @@ watch(
             :characteristics="offer.characteristics"
             :bonuses="offer.bonuses"
             :granted-effects="offer.grantedEffects"
+            :risks="offer.risks"
         >
             <div>
                 <dt>{{ t('Quality') }}</dt>

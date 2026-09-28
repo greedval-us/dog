@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import ItemBonuses from '@/components/ItemBonuses.vue';
-import type { StatusEffect } from '@/types/pet-care';
+import ItemRisks from '@/components/ItemRisks.vue';
+import type { StatusEffect, ItemRisk } from '@/types/pet-care';
 
 defineProps<{
     characteristics: Record<string, number | string | boolean>;
     bonuses?: Record<string, number>;
     grantedEffects?: StatusEffect[];
+    risks?: ItemRisk[];
 }>();
 const { t, number } = useI18n();
 </script>
@@ -31,5 +33,6 @@ const { t, number } = useI18n();
             :bonuses="bonuses ?? {}"
             :effects="grantedEffects ?? []"
         />
+        <ItemRisks :risks="risks ?? []" />
     </div>
 </template>

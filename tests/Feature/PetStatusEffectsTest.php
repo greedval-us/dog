@@ -3,6 +3,7 @@
 use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\ItemCategory;
+use App\Models\ItemEffectRule;
 use App\Models\Pet;
 use App\Models\StatusEffect;
 use App\Models\User;
@@ -16,17 +17,34 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Random\Engine;
+use Random\Randomizer;
 
 beforeEach(function () {
     $this->withoutVite();
     $this->freezeSecond();
+    $this->app->instance(Randomizer::class, new Randomizer(new class implements Engine
+    {
+        public function generate(): string
+        {
+            return pack('V', 9999);
+        }
+    }));
 });
 
 function statusItem(Pet $pet, string $category, array $attributes = []): InventoryItem
 {
-    return InventoryItem::factory()->for($pet->user)->for(
+    $codes = $attributes['effect_codes'] ?? [];
+    unset($attributes['effect_codes']);
+    $instance = InventoryItem::factory()->for($pet->user)->for(
         Item::factory()->for(ItemCategory::factory()->state(['code' => $category]), 'category')
     )->create(['quality' => 1, ...$attributes]);
+    foreach (StatusEffect::query()->whereIn('code', $codes)->get() as $effect) {
+        ItemEffectRule::factory()->for($instance->item)->for($effect, 'statusEffect')->create();
+    }
+    $instance->update(['effect_rules' => $instance->item->effectRuleSnapshots()]);
+
+    return $instance;
 }
 
 test('purchased bonuses survive catalogue edits and appear in shop and inventory', function () {
@@ -37,10 +55,11 @@ test('purchased bonuses survive catalogue edits and appear in shop and inventory
     $purchase = app(PurchaseItem::class)->handle($user, new PurchaseItemData($offer->id, $item->id, 'coins', $offer->price, (string) Str::uuid()));
     $this->actingAs($user)->get(route('shop.index', ['category' => $item->item_category_id]))->assertInertia(fn (Assert $page) => $page
         ->where('offers.2.bonuses.mood', 5)->where('offers.2.grantedEffects.0.code', 'comfortable'));
-    $item->update(['bonuses' => ['mood' => 1], 'granted_effects' => []]);
+    $item->update(['bonuses' => ['mood' => 1]]);
+    $item->effectRules()->delete();
 
     expect($purchase->inventoryItem->bonuses)->toBe(['mood' => 5]);
-    expect($purchase->item_snapshot['granted_effects'])->toBe(['comfortable']);
+    expect(array_column(array_column($purchase->item_snapshot['effect_rules'], 'effect'), 'code'))->toContain('comfortable');
     $this->get(route('inventory.index'))->assertInertia(fn (Assert $page) => $page
         ->where('items.0.bonuses.mood', 5)->where('items.0.grantedEffects.0.code', 'comfortable'));
 });
@@ -48,7 +67,7 @@ test('purchased bonuses survive catalogue edits and appear in shop and inventory
 test('item bonuses and timed buffs are saved at start and awarded only once after completion', function () {
     $effect = StatusEffect::factory()->create(['code' => 'comfort']);
     $pet = Pet::factory()->create(['mood' => 0, 'mood_max' => 100, 'energy' => 50]);
-    $toy = statusItem($pet, 'toys', ['remaining_uses' => 1, 'bonuses' => ['mood' => 7], 'granted_effects' => ['comfort']]);
+    $toy = statusItem($pet, 'toys', ['remaining_uses' => 1, 'bonuses' => ['mood' => 7], 'effect_codes' => ['comfort']]);
     $token = (string) Str::uuid();
     $payload = ['variant' => 'toy', 'items' => ['toys' => $toy->id], 'token' => $token];
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
@@ -81,7 +100,7 @@ test('active buffs reduce energy cost and increase mood while expired buffs do n
 test('late completion cannot restart an already expired buff', function () {
     $effect = StatusEffect::factory()->create(['duration_seconds' => 60]);
     $pet = Pet::factory()->create();
-    $toy = statusItem($pet, 'toys', ['granted_effects' => [$effect->code]]);
+    $toy = statusItem($pet, 'toys', ['effect_codes' => [$effect->code]]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid());
     $this->travel(240)->seconds();
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
@@ -91,8 +110,8 @@ test('late completion cannot restart an already expired buff', function () {
 test('repeated sources refresh one buff without stacking its strength', function () {
     $effect = StatusEffect::factory()->create();
     $pet = Pet::factory()->create(['buffs' => [[...$effect->snapshot(), 'expires_at' => now()->addSeconds(600)->timestamp]]]);
-    $collar = statusItem($pet, 'collars', ['granted_effects' => [$effect->code]]);
-    $leash = statusItem($pet, 'leashes', ['granted_effects' => [$effect->code]]);
+    $collar = statusItem($pet, 'collars', ['effect_codes' => [$effect->code]]);
+    $leash = statusItem($pet, 'leashes', ['effect_codes' => [$effect->code]]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'walk', ['collars' => $collar->id, 'leashes' => $leash->id], (string) Str::uuid());
     $this->travel(300)->seconds();
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
@@ -149,7 +168,7 @@ test('foreign optional items and optional items for another action are rejected 
 test('a failed completion rolls back buffs as well as state changes', function () {
     $effect = StatusEffect::factory()->create();
     $pet = Pet::factory()->create(['mood' => 0]);
-    $toy = statusItem($pet, 'toys', ['granted_effects' => [$effect->code]]);
+    $toy = statusItem($pet, 'toys', ['effect_codes' => [$effect->code]]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid());
     $this->travel(180)->seconds();
     DB::statement("CREATE TRIGGER reject_status_completion BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Failure'); END");
@@ -178,7 +197,7 @@ test('combined modifiers and item bonuses stay within the balance limits', funct
 test('disabled and unknown effects cannot be granted by an item', function () {
     $effect = StatusEffect::factory()->create(['is_active' => false]);
     $pet = Pet::factory()->create();
-    $toy = statusItem($pet, 'toys', ['granted_effects' => [$effect->code, 'missing']]);
+    $toy = statusItem($pet, 'toys', ['effect_codes' => [$effect->code, 'missing']]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid());
     $this->travel(180)->seconds();
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);

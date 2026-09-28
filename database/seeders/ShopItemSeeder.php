@@ -27,12 +27,12 @@ class ShopItemSeeder extends Seeder
                     'quality' => $quality,
                     'usage_limit' => $uses,
                     'characteristics' => [],
-                    ...config('item_bonuses.'.$code, ['bonuses' => [], 'granted_effects' => []]),
+                    'bonuses' => config('item_bonuses.'.$code.'.bonuses', []),
                     'is_active' => true,
                 ]);
 
-                if ($item->bonuses === null && $item->granted_effects === null) {
-                    $item->update(config('item_bonuses.'.$code, ['bonuses' => [], 'granted_effects' => []]));
+                if ($item->wasRecentlyCreated) {
+                    (new ItemEffectRuleSeeder)->seedFor($item);
                 }
 
                 ShopOffer::query()->firstOrCreate(['item_id' => $item->id, 'currency' => $currency], [

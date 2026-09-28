@@ -4,18 +4,19 @@ namespace App\Modules\Inventory\Queries;
 
 use App\Models\InventoryItem;
 use App\Models\ItemCategory;
-use App\Models\StatusEffect;
 use App\Models\User;
+use App\Modules\Pets\Calculators\ItemEffectRules;
 use Illuminate\Database\Eloquent\Builder;
 
+/** @phpstan-import-type Risk from ItemEffectRules */
 final class GetInventoryCatalogue
 {
-    public function __construct(private GetPlayerInventory $inventory) {}
+    public function __construct(private GetPlayerInventory $inventory, private ItemEffectRules $riskRules) {}
 
     /**
      * @return array{
      *     categories: array<int, array{id: int, code: string, name: string}>,
-     *     items: array<int, array{id: int, name: string, category: string, categoryCode: string, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, remainingUses: int, characteristics: array<string, int|float|string|bool>, acquiredAt: string|null}>,
+     *     items: array<int, array{id: int, name: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, remainingUses: int, characteristics: array<string, int|float|string|bool>, acquiredAt: string|null}>,
      *     inventoryCount: int, itemTypesCount: int, nextCursor: string|null, previousCursor: string|null
      * }
      */
@@ -23,15 +24,14 @@ final class GetInventoryCatalogue
     {
         $items = $this->inventory->handle($user, perPage: 12, categoryId: $categoryId);
 
-        $statusEffects = StatusEffect::query()->where('is_active', true)->get()->keyBy('code');
-
         return [
             'categories' => ItemCategory::query()
                 ->whereHas('items.inventoryItems', fn (Builder $query) => $query->where('user_id', $user->id))
                 ->orderBy('sort_order')->orderBy('id')->get()
                 ->map(fn (ItemCategory $category): array => CatalogueLabels::category($category, $locale))->all(),
-            'items' => $items->getCollection()->map(function (InventoryItem $instance) use ($locale, $statusEffects): array {
+            'items' => $items->getCollection()->map(function (InventoryItem $instance) use ($locale): array {
                 $category = $instance->item->category;
+                $outcomes = $this->riskRules->forItem($instance->effect_rules ?? [], $instance->quality, $instance->name);
 
                 return [
                     'id' => $instance->id,
@@ -42,8 +42,9 @@ final class GetInventoryCatalogue
                     'usageLimit' => $instance->usage_limit,
                     'remainingUses' => $instance->remaining_uses,
                     'characteristics' => $instance->characteristics,
+                    'risks' => $this->riskRules->uncertain($outcomes),
                     'bonuses' => $instance->bonuses ?? [],
-                    'grantedEffects' => array_values($statusEffects->filter(fn (StatusEffect $effect): bool => in_array($effect->code, $instance->granted_effects ?? [], true))->map(fn (StatusEffect $effect): array => $effect->snapshot())->all()),
+                    'grantedEffects' => $this->riskRules->guaranteed($outcomes),
                     'acquiredAt' => $instance->created_at?->toDateString(),
                 ];
             })->all(),

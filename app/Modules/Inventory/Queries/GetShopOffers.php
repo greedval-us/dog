@@ -17,7 +17,7 @@ final class GetShopOffers
         }
 
         return ShopOffer::query()
-            ->with('item.category')
+            ->with(['item.category', 'item.effectRules.statusEffect'])
             ->where('is_active', true)
             ->where('currency', 'coins')
             ->where(fn (Builder $query) => $query->whereNull('stock')->orWhere('stock', '>', 0))

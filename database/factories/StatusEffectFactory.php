@@ -25,7 +25,7 @@ class StatusEffectFactory extends Factory
             'modifiers' => ['energy_cost_percent' => -10],
             'duration_seconds' => 1800,
             'condition_state' => null,
-            'condition_below' => null,
+            'condition_threshold' => null,
             'is_active' => true,
         ];
     }

@@ -15,6 +15,7 @@ import {
 } from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 import ItemBonuses from '@/components/ItemBonuses.vue';
+import ItemRisks from '@/components/ItemRisks.vue';
 import StatusEffects from '@/components/StatusEffects.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import InputError from '@/components/InputError.vue';
@@ -31,10 +32,22 @@ import { stateLabels } from '@/lib/petLabels';
 import { store, complete } from '@/routes/pets/care';
 import { index as shop } from '@/routes/shop';
 import type { DogState, PlayerPet } from '@/types/pet';
-import type { CareGroup, PetCare } from '@/types/pet-care';
+import type {
+    CareGroup,
+    PetCare,
+    ItemRisk,
+    StatusEffect,
+} from '@/types/pet-care';
 
 const props = defineProps<{ pet: PlayerPet; care: PetCare }>();
-const { t, number } = useI18n();
+const { t, number, locale } = useI18n();
+const localized = (value: Record<string, string>) =>
+    value[locale.value] ?? value.en ?? '';
+const eventDate = (value: string) =>
+    new Intl.DateTimeFormat(locale.value, {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    }).format(new Date(value));
 const id = useId();
 const open = ref(false);
 const group = ref<CareGroup>('feed');
@@ -134,36 +147,56 @@ const missingItems = computed(
 const error = computed(() => Object.values(form.errors).join(' '));
 const finishError = computed(() => Object.values(finish.errors).join(' '));
 const liveModifiers = computed(() => {
-    const result = { energy_cost_percent: 0, mood_gain_percent: 0 };
+    const result: Record<string, number> = Object.fromEntries(
+        props.care.modifierKeys.map((key) => [key, 0]),
+    );
     for (const effect of [...props.care.buffs, ...props.care.debuffs]) {
         if (effect.expires_at && effect.expires_at * 1000 <= now.value)
             continue;
-        result.energy_cost_percent += effect.modifiers.energy_cost_percent ?? 0;
-        result.mood_gain_percent += effect.modifiers.mood_gain_percent ?? 0;
+        for (const key of props.care.modifierKeys)
+            result[key] += effect.modifiers[key] ?? 0;
     }
-    return {
-        energy_cost_percent: Math.max(
-            -50,
-            Math.min(50, result.energy_cost_percent),
-        ),
-        mood_gain_percent: Math.max(
-            -50,
-            Math.min(50, result.mood_gain_percent),
-        ),
-    };
+    for (const key of props.care.modifierKeys)
+        result[key] = Math.max(-50, Math.min(50, result[key]));
+    return result;
 });
 const selectedItems = computed(() =>
     props.care.items.filter((item) =>
         Object.values(form.items).includes(item.id),
     ),
 );
-const grantedEffects = computed(() => [
-    ...new Map(
-        selectedItems.value
-            .flatMap((item) => item.grantedEffects)
-            .map((effect) => [effect.code, effect]),
-    ).values(),
-]);
+const grantedEffects = computed(() => {
+    const combined = new Map<string, StatusEffect>();
+    for (const item of selectedItems.value) {
+        for (const effect of item.grantedEffects) {
+            if (
+                (effect.duration_seconds ?? 0) >
+                (combined.get(effect.code)?.duration_seconds ?? 0)
+            )
+                combined.set(effect.code, effect);
+        }
+    }
+    return [...combined.values()];
+});
+const risks = computed(() => {
+    const combined = new Map<string, ItemRisk>();
+    for (const item of selectedItems.value) {
+        for (const risk of item.risks) {
+            if (
+                !grantedEffects.value.some(
+                    (effect) => effect.code === risk.effect.code,
+                ) &&
+                (risk.chance > (combined.get(risk.effect.code)?.chance ?? 0) ||
+                    (risk.chance === combined.get(risk.effect.code)?.chance &&
+                        (risk.effect.duration_seconds ?? 0) >
+                            (combined.get(risk.effect.code)?.effect
+                                .duration_seconds ?? 0)))
+            )
+                combined.set(risk.effect.code, risk);
+        }
+    }
+    return [...combined.values()];
+});
 const energyCost = computed(() => {
     const base = selected.value?.baseEnergy ?? 0;
     return base === 0
@@ -214,14 +247,14 @@ const effects = computed(() => {
         const key = state as DogState;
         result[key] = (result[key] ?? 0) + Math.max(0, Math.min(30, bonus));
     }
-    if ((result.mood ?? 0) > 0)
-        result.mood =
-            Math.round(
-                ((result.mood! *
-                    (100 + liveModifiers.value.mood_gain_percent)) /
-                    100) *
-                    10000,
-            ) / 10000;
+    for (const [state, value] of Object.entries(result)) {
+        const modifier =
+            liveModifiers.value[
+                state + (value >= 0 ? '_gain_percent' : '_loss_percent')
+            ] ?? 0;
+        result[state as DogState] =
+            Math.round(((value * (100 + modifier)) / 100) * 10000) / 10000;
+    }
     return Object.entries(result).map(([state, amount]) => {
         const current =
             state === 'energy'
@@ -347,6 +380,38 @@ function finishActivity() {
 
 <template>
     <SurfaceCard id="pet-care" class="pet-care" :title="t('Quick actions')">
+        <section
+            v-if="care.recentIncidents.length"
+            class="pet-care-incidents"
+            aria-live="polite"
+            :aria-label="t('Recent events')"
+        >
+            <h3>{{ t('Recent events') }}</h3>
+            <article
+                v-for="event in care.recentIncidents"
+                :key="event.id"
+                class="pet-status pet-status-negative"
+            >
+                <time :datetime="event.occurredAt">{{
+                    eventDate(event.occurredAt)
+                }}</time>
+                <div
+                    v-for="incident in event.incidents"
+                    :key="incident.effect.code"
+                >
+                    <strong>{{ localized(incident.effect.name) }}</strong>
+                    <p>
+                        {{
+                            t('After using {item} (quality {quality}/10).', {
+                                item: localized(incident.item_name),
+                                quality: number(incident.quality),
+                            })
+                        }}
+                    </p>
+                    <p>{{ localized(incident.effect.description) }}</p>
+                </div>
+            </article>
+        </section>
         <div class="pet-care-actions">
             <Button
                 v-for="action in actions"
@@ -623,6 +688,7 @@ function finishActivity() {
                             </div>
                         </section>
                         <StatusEffects :effects="grantedEffects" preview />
+                        <ItemRisks :risks="risks" />
                         <div class="pet-care-timing">
                             <div>
                                 <Clock3 :size="16" aria-hidden="true" /><span

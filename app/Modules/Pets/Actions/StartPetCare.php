@@ -6,6 +6,7 @@ use App\Models\PetCareAction;
 use App\Models\StatusEffect;
 use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
+use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetActivity;
@@ -15,6 +16,7 @@ use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Random\Randomizer;
 
 final class StartPetCare
 {
@@ -24,6 +26,8 @@ final class StartPetCare
         private InventoryConsumption $inventory,
         private CompletePetCare $completeCare,
         private PetStatusRules $statuses,
+        private ItemEffectRules $riskRules,
+        private Randomizer $random,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -35,8 +39,9 @@ final class StartPetCare
 
         $token = strtolower($token);
         ksort($itemIds);
+        $rolls = [];
 
-        return DB::transaction(function () use ($user, $petId, $variant, $itemIds, $token): PetCareAction {
+        return DB::transaction(function () use ($user, $petId, $variant, $itemIds, $token, &$rolls): PetCareAction {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
 
             if ($owner->status !== PlayerStatus::Active) {
@@ -75,9 +80,9 @@ final class StartPetCare
                 throw new PetUnavailable('This action is cooling down. Wait before trying again.');
             }
 
-            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
-            $pet->buffs = $this->statuses->active($pet->buffs ?? [], now()->getTimestamp());
-            $pet->debuffs = $this->statuses->debuffs($catalogue, $pet->statePercentages());
+            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
+            $pet->buffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->buffs ?? [], now()->getTimestamp(), 'buff');
+            $pet->debuffs = $this->statuses->current($catalogue, $pet->statePercentages(), $pet->debuffs ?? [], now()->getTimestamp(), 'debuff');
             $modifiers = $this->statuses->modifiers([...$pet->buffs, ...$pet->debuffs]);
             $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
             $reason = $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy);
@@ -96,7 +101,7 @@ final class StartPetCare
             $instances = $owner->inventoryItems()->with('item.category')->whereIn('id', array_values($itemIds))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $qualities = [];
             $bonuses = [];
-            $grantedCodes = [];
+            $risks = [];
 
             foreach ($itemIds as $category => $id) {
                 $instance = $instances->get($id);
@@ -109,7 +114,7 @@ final class StartPetCare
                 foreach ($instance->bonuses ?? [] as $state => $bonus) {
                     $bonuses[$state] = ($bonuses[$state] ?? 0) + $bonus;
                 }
-                $grantedCodes = [...$grantedCodes, ...($instance->granted_effects ?? [])];
+                $risks = [...$risks, ...$this->riskRules->forItem($instance->effect_rules ?? [], $instance->quality, $instance->name)];
             }
 
             $pet->save();
@@ -123,6 +128,21 @@ final class StartPetCare
                 }
             }
 
+            $incidents = [];
+            $grantedEffects = [];
+            foreach ($this->riskRules->combine($risks) as $risk) {
+                $code = $risk['effect']['code'];
+                if ($risk['chance'] === 10000 && $risk['effect']['kind'] === 'buff') {
+                    $grantedEffects[] = $risk['effect'];
+
+                    continue;
+                }
+                $rolls[$code] ??= $risk['chance'] === 10000 ? 1 : $this->random->getInt(1, 10000);
+                if ($rolls[$code] <= $risk['chance']) {
+                    $incidents[] = $risk;
+                }
+            }
+
             return PetCareAction::query()->create([
                 'user_id' => $owner->id,
                 'pet_id' => $petId,
@@ -131,8 +151,9 @@ final class StartPetCare
                 'group' => $option['group'],
                 'variant' => $variant,
                 'inventory_item_ids' => $itemIds,
-                'effects' => $this->statuses->applyMood($this->rules->effects($option, $qualities, $bonuses), $modifiers['mood_gain_percent']),
-                'granted_effects' => $this->statuses->grants($catalogue, array_values(array_unique($grantedCodes))),
+                'effects' => $this->statuses->apply($this->rules->effects($option, $qualities, $bonuses), $modifiers),
+                'granted_effects' => $grantedEffects,
+                'incidents' => $incidents === [] ? null : $incidents,
                 'ends_at' => $started->endsAt,
                 'available_at' => $started->endsAt->addSeconds($option['cooldown']),
             ]);

@@ -69,6 +69,7 @@ final class PurchaseItem
                 }
             }
 
+            $item->load(['effectRules' => fn ($query) => $query->sharedLock(), 'effectRules.statusEffect' => fn ($query) => $query->sharedLock()]);
             $snapshot = $item->inventorySnapshot();
             $purchase = $owner->itemPurchases()->create([
                 'shop_offer_id' => $offer->id,

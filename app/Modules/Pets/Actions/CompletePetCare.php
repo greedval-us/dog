@@ -43,9 +43,13 @@ final class CompletePetCare
                 $pet->setAttribute($name, round(max(0, min($maximum, $value)), 4));
             }
 
-            $pet->buffs = $this->statuses->award($pet->buffs ?? [], $care->granted_effects ?? [], $care->ends_at->getTimestamp(), now()->getTimestamp());
-            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
-            $pet->debuffs = $this->statuses->debuffs($catalogue, $pet->statePercentages());
+            $catalogue = array_values(StatusEffect::query()->where('is_active', true)->whereNotNull('condition_state')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
+            $awards = [...($care->granted_effects ?? []), ...array_column($care->incidents ?? [], 'effect')];
+            foreach (['buff' => 'buffs', 'debuff' => 'debuffs'] as $kind => $column) {
+                $grants = array_values(array_filter($awards, fn (array $effect): bool => $effect['kind'] === $kind));
+                $timed = $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $care->ends_at->getTimestamp(), now()->getTimestamp());
+                $pet->setAttribute($column, $this->statuses->current($catalogue, $pet->statePercentages(), $timed, now()->getTimestamp(), $kind));
+            }
             $pet->state_updated_at = now();
             $pet->save();
             $care->completed_at = now();

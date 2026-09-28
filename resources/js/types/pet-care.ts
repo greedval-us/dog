@@ -8,8 +8,16 @@ export type StatusEffect = {
     modifiers: Record<string, number>;
     duration_seconds: number | null;
     condition_state: DogState | null;
-    condition_below: number | null;
+    condition_threshold?: number | null;
+    condition_operator?: 'lt' | 'lte' | 'gt' | 'gte';
     expires_at?: number | null;
+};
+
+export type ItemRisk = {
+    effect: StatusEffect;
+    chance: number;
+    item_name: Record<string, string>;
+    quality: number;
 };
 
 export type CareGroup = 'feed' | 'walk' | 'play' | 'groom' | 'sleep';
@@ -20,6 +28,7 @@ export type CareItem = {
     quality: number;
     bonuses: Partial<Record<DogState, number>>;
     grantedEffects: StatusEffect[];
+    risks: ItemRisk[];
     bonus: Partial<Record<DogState, number>>;
     remainingUses: number;
 };
@@ -39,8 +48,14 @@ export type CareOption = {
 };
 export type PetCare = {
     token: string;
+    modifierKeys: string[];
     buffs: StatusEffect[];
     debuffs: StatusEffect[];
+    recentIncidents: {
+        id: number;
+        occurredAt: string;
+        incidents: ItemRisk[];
+    }[];
     serverNow: string;
     blocked: boolean;
     busy: boolean;
