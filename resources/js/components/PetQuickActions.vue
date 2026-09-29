@@ -12,6 +12,10 @@ import {
     Check,
     ShoppingBag,
     Zap,
+    Dumbbell,
+    ChevronRight,
+    Heart,
+    Droplets,
 } from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 import ItemBonuses from '@/components/ItemBonuses.vue';
@@ -28,11 +32,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
-import { stateLabels } from '@/lib/petLabels';
+import { stateLabels, statLabels } from '@/lib/petLabels';
 import { store, complete } from '@/routes/pets/care';
 import { careItems } from '@/routes';
 import { index as shop } from '@/routes/shop';
-import type { DogState, PlayerPet } from '@/types/pet';
+import type { DogState, DogStat, PlayerPet } from '@/types/pet';
 import type {
     CareGroup,
     PetCare,
@@ -41,7 +45,10 @@ import type {
     CareItem,
 } from '@/types/pet-care';
 
-const props = defineProps<{ pet: PlayerPet; care: PetCare }>();
+const props = withDefaults(
+    defineProps<{ pet: PlayerPet; care: PetCare; trainingOnly?: boolean }>(),
+    { trainingOnly: false },
+);
 const { t, number, locale } = useI18n();
 const localized = (value: Record<string, string>) =>
     value[locale.value] ?? value.en ?? '';
@@ -114,19 +121,34 @@ const finish = useForm({ token: '' });
 const options = computed(() =>
     props.care.options.filter((option) => option.group === group.value),
 );
+const trainingOptions = computed(() =>
+    props.care.options.filter((option) => option.group === 'training'),
+);
+const statGains = computed(() => {
+    const equipment = selectedItems.value.find(
+        (item) => item.category === 'sports',
+    );
+    if (!equipment) return [];
+    return Object.entries(
+        selected.value?.gainsByQuality[equipment.quality] ?? {},
+    ).map(([stat, gain]) => ({ label: statLabels[stat as DogStat], gain }));
+});
 const selected = computed(() =>
     options.value.find((option) => option.id === form.variant),
 );
 const groupLabel = computed(
     () =>
         actions.find((action) => action.group === group.value)?.label ??
-        'Quick actions',
+        (props.trainingOnly ? 'Training' : 'Quick actions'),
 );
 const groupIcon = computed(
-    () => actions.find((action) => action.group === group.value)?.icon,
+    () =>
+        actions.find((action) => action.group === group.value)?.icon ??
+        Dumbbell,
 );
 const groupTone = computed(
-    () => actions.find((action) => action.group === group.value)?.tone,
+    () =>
+        actions.find((action) => action.group === group.value)?.tone ?? 'blue',
 );
 const itemsFor = (
     category: string,
@@ -201,7 +223,9 @@ const recoveryEffects = computed(() =>
     ),
 );
 const risks = computed(() => {
-    const combined = new Map<string, ItemRisk>();
+    const combined = new Map<string, ItemRisk>(
+        (selected.value?.risks ?? []).map((risk) => [risk.effect.code, risk]),
+    );
     for (const item of selectedItems.value) {
         for (const risk of item.risks) {
             if (
@@ -331,7 +355,10 @@ const busyMessage = computed(() => {
 
 watch(
     () =>
-        mounted.value && !props.care.blocked && readyToFinish.value
+        mounted.value &&
+        !props.trainingOnly &&
+        !props.care.blocked &&
+        readyToFinish.value
             ? props.care.active?.token
             : null,
     (token) => {
@@ -395,11 +422,11 @@ watch(open, (value) => {
     }
 });
 
-function choose(value: CareGroup) {
+function choose(value: CareGroup, variant?: string) {
     group.value = value;
     const first =
         options.value.find((option) => !option.reason) ?? options.value[0];
-    if (first) chooseVariant(first.id);
+    if (first) chooseVariant(variant ?? first.id);
     form.token = props.care.token;
     open.value = true;
 }
@@ -443,9 +470,30 @@ function finishActivity() {
 </script>
 
 <template>
-    <SurfaceCard id="pet-care" class="pet-care" :title="t('Quick actions')">
+    <SurfaceCard
+        :id="trainingOnly ? 'pet-training' : 'pet-care'"
+        class="pet-care"
+        :title="t(trainingOnly ? 'Training' : 'Quick actions')"
+    >
+        <div v-if="trainingOnly" class="pet-training-readiness">
+            <span>{{ t('To start') }}</span>
+            <span
+                v-for="need in [
+                    { key: 'health', icon: Heart },
+                    { key: 'satiety', icon: Soup },
+                    { key: 'hydration', icon: Droplets },
+                ] as const"
+                :key="need.key"
+                :class="{ 'pet-training-need-low': pet.states[need.key] < 50 }"
+            >
+                <component :is="need.icon" :size="13" aria-hidden="true" />{{
+                    t(stateLabels[need.key])
+                }}
+                ≥ 50%
+            </span>
+        </div>
         <section
-            v-if="care.recentIncidents.length"
+            v-if="!trainingOnly && care.recentIncidents.length"
             class="pet-care-incidents"
             aria-live="polite"
             :aria-label="t('Recent events')"
@@ -466,17 +514,64 @@ function finishActivity() {
                     <strong>{{ localized(incident.effect.name) }}</strong>
                     <p>
                         {{
-                            t('After using {item} (quality {quality}/10).', {
-                                item: localized(incident.item_name),
-                                quality: number(incident.quality),
-                            })
+                            t(
+                                incident.quality === 0
+                                    ? 'During {item}.'
+                                    : 'After using {item} (quality {quality}/10).',
+                                {
+                                    item: localized(incident.item_name),
+                                    quality: number(incident.quality),
+                                },
+                            )
                         }}
                     </p>
                     <p>{{ localized(incident.effect.description) }}</p>
                 </div>
             </article>
         </section>
-        <div class="pet-care-actions">
+        <div v-if="trainingOnly" class="pet-training-options">
+            <Button
+                v-for="option in trainingOptions"
+                :key="option.id"
+                type="button"
+                variant="plain"
+                class="pet-training-option"
+                :disabled="care.blocked"
+                @click="choose('training', option.id)"
+            >
+                <span class="pet-training-option-heading"
+                    ><Dumbbell :size="16" aria-hidden="true" /><strong>{{
+                        option.label
+                    }}</strong
+                    ><ChevronRight :size="15" aria-hidden="true"
+                /></span>
+                <span class="pet-training-targets"
+                    ><span v-for="(_, stat) in option.statGains" :key="stat">{{
+                        t(statLabels[stat])
+                    }}</span></span
+                >
+                <span class="pet-training-meta"
+                    ><span
+                        ><Clock3 :size="12" aria-hidden="true" />{{
+                            duration(option.duration)
+                        }}</span
+                    ><span
+                        :aria-label="`${t('Energy')}: ${number(option.energy)}`"
+                        ><Zap :size="12" aria-hidden="true" />{{
+                            number(option.energy)
+                        }}</span
+                    ><span v-if="secondsLeft(care.cooldowns.training)"
+                        ><RotateCcw :size="12" aria-hidden="true" />{{
+                            countdown(secondsLeft(care.cooldowns.training))
+                        }}</span
+                    ></span
+                >
+            </Button>
+            <p v-if="!trainingOptions.length" class="pet-feature-note">
+                {{ t('No training sessions are available yet.') }}
+            </p>
+        </div>
+        <div v-else class="pet-care-actions">
             <Button
                 v-for="action in actions"
                 :key="action.group"
@@ -535,8 +630,15 @@ function finishActivity() {
         <p v-else-if="care.blocked" class="pet-care-notice">
             {{ t('Care is unavailable for this dog or account.') }}
         </p>
-        <p v-else class="pet-feature-note">
+        <p v-else-if="!trainingOnly" class="pet-feature-note">
             {{ t('Choose an action to compare its options.') }}
+        </p>
+        <p v-if="trainingOnly" class="pet-training-footnote">
+            {{
+                t(
+                    'One equipment charge per session. Gains depend on quality, mood and bond.',
+                )
+            }}
         </p>
 
         <Dialog v-model:open="open">
@@ -564,7 +666,15 @@ function finishActivity() {
                         class="pet-care-choices"
                         :disabled="form.processing"
                     >
-                        <legend class="sr-only">{{ t('Care options') }}</legend>
+                        <legend class="sr-only">
+                            {{
+                                t(
+                                    trainingOnly
+                                        ? 'Training options'
+                                        : 'Care options',
+                                )
+                            }}
+                        </legend>
                         <label
                             v-for="option in options"
                             :key="option.id"
@@ -763,8 +873,36 @@ function finishActivity() {
                                     ><span>{{ t(effect.label) }}</span>
                                 </div>
                             </div>
-                            <p v-else>
+                            <p v-else-if="!statGains.length && !trainingOnly">
                                 {{ t('These needs are already full.') }}
+                            </p>
+                            <p v-if="trainingOnly && !statGains.length">
+                                {{
+                                    t(
+                                        'Select equipment to preview attribute gains.',
+                                    )
+                                }}
+                            </p>
+                            <div
+                                v-if="statGains.length"
+                                class="pet-care-benefits"
+                            >
+                                <div
+                                    v-for="stat in statGains"
+                                    :key="stat.label"
+                                    class="pet-care-benefit"
+                                >
+                                    <strong
+                                        >+{{ number(stat.gain ?? 0) }}</strong
+                                    ><span>{{ t(stat.label) }}</span>
+                                </div>
+                            </div>
+                            <p v-if="statGains.length" class="pet-care-hint">
+                                {{
+                                    t(
+                                        'Preview for the selected equipment and current mood and bond. Gains are capped by genetic potential.',
+                                    )
+                                }}
                             </p>
                             <p v-if="energyGainCapped">
                                 {{
@@ -814,7 +952,10 @@ function finishActivity() {
                                 )
                             }}
                         </p>
-                        <ItemRisks :risks="risks" />
+                        <ItemRisks
+                            :risks="risks"
+                            :includes-training="trainingOnly"
+                        />
                         <div class="pet-care-timing">
                             <div>
                                 <Clock3 :size="16" aria-hidden="true" /><span
@@ -836,7 +977,9 @@ function finishActivity() {
                         <p class="pet-care-hint">
                             {{
                                 t(
-                                    'The rest period applies to both options in this group.',
+                                    trainingOnly
+                                        ? 'All training sessions share the same rest period.'
+                                        : 'The rest period applies to both options in this group.',
                                 )
                             }}
                         </p>

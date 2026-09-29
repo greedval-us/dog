@@ -51,9 +51,9 @@ class PetCareController extends Controller
             $care = PetCareAction::query()->where('user_id', $user->id)->where('pet_id', $pet)->where('token', strtolower($validated['token']))->firstOrFail();
             $negative = array_filter($care->incidents ?? [], fn (array $incident): bool => $incident['effect']['kind'] === 'debuff');
             Inertia::flash('toast', $negative !== []
-                ? ['type' => 'warning', 'message' => __('An item caused an adverse event. See your dog’s recent events.')]
+                ? ['type' => 'warning', 'message' => __($care->group === 'training' ? 'Training completed with an adverse event. See your dog’s recent events.' : 'An item caused an adverse event. See your dog’s recent events.')]
                 : ['type' => 'success', 'message' => __($care->incidents === null
-                    ? 'Care completed. Your dog’s condition has been updated.'
+                    ? ($care->group === 'training' ? 'Training completed. Your dog’s attributes have improved.' : 'Care completed. Your dog’s condition has been updated.')
                     : 'An item granted a bonus effect. See your dog’s recent events.')]);
         }
 

@@ -75,6 +75,6 @@ CareItemController.head = (options?: RouteQueryOptions): RouteDefinition<'head'>
                     }),
             method: 'get',
         })
-
+    
     CareItemController.form = CareItemControllerForm
 export default CareItemController

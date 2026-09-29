@@ -137,5 +137,19 @@
     "Invalid dog purchase.": "Некорректные параметры покупки собаки.",
     "The token was already used for a different dog purchase.": "Этот запрос уже использован для другой покупки собаки.",
     "This purchase was already paid for, but its receipt is unavailable. Check your dogs before making a new purchase.": "Эта покупка уже оплачена, но квитанция недоступна. Проверь своих собак перед новой покупкой.",
-    "This dog purchase was already completed. You have not been charged again.": "Эта покупка собаки уже выполнена. Монеты повторно не списаны."
+    "This dog purchase was already completed. You have not been charged again.": "Эта покупка собаки уже выполнена. Монеты повторно не списаны.",
+    "Development": "Развитие",
+    "Training": "Тренировка",
+    "Training requires health, satiety and hydration of at least 50%.": "Для тренировки здоровье, сытость и запас воды должны быть не ниже 50%.",
+    "Equipment quality, mood and bond determine attribute gains. Each session uses one equipment charge.": "Прирост характеристик зависит от качества инвентаря, настроения и привязанности. Каждая тренировка расходует одно применение инвентаря.",
+    "No training sessions are available yet.": "Пока нет доступных тренировок.",
+    "Preview for the selected equipment and current mood and bond. Gains are capped by genetic potential.": "Прогноз для выбранного инвентаря, текущего настроения и привязанности. Прирост ограничен генетическим потенциалом.",
+    "All training sessions share the same rest period.": "После тренировки отдых нужен перед любой следующей тренировкой.",
+    "Your dog has reached the potential for this training.": "Собака уже достигла потенциала для этой тренировки.",
+    "Training completed. Your dog’s attributes have improved.": "Тренировка завершена. Характеристики собаки улучшились.",
+    "During {item}.": "Во время тренировки «{item}».",
+    "Training options": "Варианты тренировок",
+    "Select equipment to preview attribute gains.": "Выбери инвентарь, чтобы увидеть прирост характеристик.",
+    "Training and equipment risks are shown together. Matching effects use the highest chance; equal chances use the longest duration.": "Здесь показаны риски тренировки и инвентаря. Для одинаковых эффектов берётся наибольший шанс, при равенстве — большая длительность.",
+    "Training completed with an adverse event. See your dog’s recent events.": "Тренировка завершена, но произошла неприятность. Подробности — в недавних событиях собаки."
 }

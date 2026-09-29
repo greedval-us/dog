@@ -6,7 +6,7 @@ use App\Modules\Pets\Enums\PetState;
 
 /**
  * @phpstan-type Condition array{state: string, operator: string, threshold: int}
- * @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null, conditions?: list<Condition>, condition_group?: string|null, condition_priority?: int, care_variants?: list<string>, recovery_actions?: array<string, int>}
+ * @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null, starts_at?: int, conditions?: list<Condition>, condition_group?: string|null, condition_priority?: int, care_variants?: list<string>, recovery_actions?: array<string, int>}
  */
 final class PetStatusRules
 {
@@ -104,6 +104,7 @@ final class PetStatusRules
     {
         foreach ($effects as &$effect) {
             if ($effect['kind'] === 'debuff' && isset($effect['expires_at'])) {
+                $effect['starts_at'] ??= $effect['expires_at'] - (int) $effect['duration_seconds'];
                 $effect['expires_at'] -= max(0, min(86400, $recovery[$effect['code']] ?? 0));
             }
         }
@@ -138,7 +139,7 @@ final class PetStatusRules
         foreach ($grants as $effect) {
             $expiresAt = $endedAt + (int) $effect['duration_seconds'];
             if ($expiresAt > $timestamp && $expiresAt > ($effects[$effect['code']]['expires_at'] ?? 0)) {
-                $effects[$effect['code']] = [...$effect, 'expires_at' => $expiresAt];
+                $effects[$effect['code']] = [...$effect, 'starts_at' => $endedAt, 'expires_at' => $expiresAt];
             }
         }
 
@@ -166,7 +167,10 @@ final class PetStatusRules
     /** @return list<string> */
     public function modifierKeys(): array
     {
-        $keys = ['energy_cost_percent'];
+        $keys = ['energy_cost_percent', 'stats_decay_percent'];
+        foreach (['satiety', 'hydration', 'mood', 'cleanliness', 'bond', 'endurance', 'speed', 'strength', 'agility', 'obedience', 'intelligence'] as $name) {
+            $keys[] = $name.'_decay_percent';
+        }
         foreach (PetState::cases() as $state) {
             $keys[] = $state->value.'_gain_percent';
             $keys[] = $state->value.'_loss_percent';

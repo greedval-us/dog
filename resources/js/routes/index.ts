@@ -75,7 +75,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     login.form = loginForm
 /**
 * @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
@@ -130,7 +130,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             action: logout.url(options),
             method: 'post',
         })
-
+    
     logout.form = logoutForm
 /**
 * @see \Laravel\Fortify\Http\Controllers\RegisteredUserController::register
@@ -208,7 +208,7 @@ register.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     register.form = registerForm
 /**
 * @see \Inertia\Controller::__invoke
@@ -286,7 +286,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     home.form = homeForm
 /**
 * @see \App\Http\Controllers\DashboardController::__invoke
@@ -364,7 +364,7 @@ dashboard.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     dashboard.form = dashboardForm
 /**
 * @see \App\Http\Controllers\CareItemController::__invoke
@@ -442,7 +442,7 @@ careItems.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     careItems.form = careItemsForm
 /**
 * @see \App\Http\Controllers\GameImageController::petScene
@@ -520,5 +520,5 @@ petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     petScene.form = petSceneForm

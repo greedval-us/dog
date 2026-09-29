@@ -13,9 +13,10 @@ final class PetStateCalculator
     /**
      * @param  array<string, float>  $values
      * @param  array<string, int>  $maximums
+     * @param  array<string, int>  $modifiers
      * @return array<string, float>
      */
-    public function calculate(array $values, array $maximums, int $seconds): array
+    public function calculate(array $values, array $maximums, int $seconds, array $modifiers = []): array
     {
         if ($seconds <= 0) {
             return $values;
@@ -23,6 +24,9 @@ final class PetStateCalculator
 
         $hours = $seconds / 3600;
         $rates = $this->balance['decay_per_hour'];
+        foreach ($rates as $state => $rate) {
+            $rates[$state] = max(0, $rate) * (100 + max(-50, min(50, $modifiers[$state.'_decay_percent'] ?? 0))) / 100;
+        }
         $criticalAfter = INF;
         foreach ($this->balance['health_needs'] as $state) {
             $criticalAfter = min($criticalAfter, $this->hoursUntilThreshold(

@@ -47,6 +47,7 @@ class StatusEffectSeeder extends Seeder
 
         $this->seedTimedEffects();
         $this->seedConditionalEffects();
+        $this->call(LastingItemEffectSeeder::class);
     }
 
     private function seedTimedEffects(): void

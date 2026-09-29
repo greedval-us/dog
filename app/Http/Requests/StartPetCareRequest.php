@@ -19,7 +19,10 @@ class StartPetCareRequest extends FormRequest
     public function rules(PetCareRules $rules): array
     {
         return [
-            'variant' => ['required', Rule::in(array_keys($rules->options(DogSize::Medium)))],
+            'variant' => ['required', 'string', 'max:32', Rule::when(
+                ! is_string($this->input('variant')) || preg_match('/^training:[1-9][0-9]*$/D', $this->input('variant')) !== 1,
+                [Rule::in(array_keys($rules->options(DogSize::Medium)))],
+            )],
             'token' => ['required', 'uuid'],
             'items' => ['present', 'array:food,collars,leashes,toys,care,clothing,sports'],
             'items.*' => ['required', 'integer', 'min:1', 'distinct'],

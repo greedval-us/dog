@@ -1431,6 +1431,87 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 7px;
 }
+.pet-training-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+.pet-training-options .pet-training-option {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    height: auto;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--background);
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.pet-training-option:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--accent);
+}
+.pet-training-option-heading,
+.pet-training-meta,
+.pet-training-meta > span,
+.pet-training-readiness,
+.pet-training-readiness > span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pet-training-option-heading {
+    font-size: 12px;
+}
+.pet-training-option-heading > svg:first-child {
+    color: var(--primary);
+    flex-shrink: 0;
+}
+.pet-training-option-heading > svg:last-child {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+}
+.pet-training-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.pet-training-targets > span {
+    padding: 3px 6px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-size: 10px;
+    font-weight: 500;
+}
+.pet-training-meta {
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--muted-foreground);
+    font-size: 10px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+.pet-training-readiness {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    color: var(--muted-foreground);
+    font-size: 10px;
+}
+.pet-training-readiness .pet-training-need-low {
+    color: var(--destructive);
+}
+.pet-training-footnote {
+    margin-top: 12px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.5;
+}
 .pet-dossier .pet-care-action {
     display: flex;
     flex-direction: column;
@@ -1917,6 +1998,16 @@
     margin-top: 5px;
     color: var(--muted-foreground);
 }
+.item-risk-details {
+    margin-top: 8px;
+}
+.item-risk-details summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+.item-risk-details .pet-status-list {
+    margin-top: 8px;
+}
 .pet-care-incidents {
     display: grid;
     gap: 8px;
@@ -2215,10 +2306,58 @@
     width: 16px;
 }
 .pet-attribute-details {
-    max-width: 660px;
+    min-width: 0;
 }
-.pet-attribute-details .pet-metric {
-    font-size: 13px;
+.pet-development {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+    align-items: start;
+    gap: 16px;
+}
+.pet-development > * {
+    min-width: 0;
+}
+.pet-stat-metrics.pet-stats-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 14px;
+}
+.pet-stat-metrics.pet-stats-compact .pet-metric {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    gap: 6px;
+    font-size: 11px;
+}
+.pet-stats-compact .pet-metric progress {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    height: 5px;
+}
+.pet-stats-compact .pet-metric-value {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 12px;
+}
+.pet-development-retention {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.pet-development-retention p {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.6;
+}
+@media (max-width: 1100px) {
+    .pet-development {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+@media (max-width: 380px) {
+    .pet-stat-metrics.pet-stats-compact {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
 }
 .pet-activity-placeholder {
     display: flex;

@@ -4,8 +4,9 @@ namespace App\Modules\Pets\Actions;
 
 use App\Models\PetCareAction;
 use App\Models\User;
-use App\Modules\Pets\Calculators\PetStateCalculator;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatuses;
@@ -18,7 +19,7 @@ final class CompletePetCare
     public function __construct(
         private PetActivityManager $activities,
         private PetStatusRules $statuses,
-        private PetStateCalculator $states,
+        private PetDecayCalculator $states,
         private GetPetStatuses $getStatuses,
     ) {}
 
@@ -43,7 +44,8 @@ final class CompletePetCare
             }
 
             $at = now();
-            $pet->advanceStatesTo($at, $this->states);
+            $endedAt = $care->ends_at;
+            $pet->advanceTo($endedAt, $this->states);
 
             foreach ($care->effects as $name => $percentage) {
                 $state = PetState::from($name);
@@ -52,12 +54,18 @@ final class CompletePetCare
                 $pet->setAttribute($name, round(max(0, min($maximum, $value)), 4));
             }
 
-            $pet->debuffs = $this->statuses->recover($pet->debuffs ?? [], $care->status_recovery ?? [], $at->getTimestamp());
+            foreach ($care->stat_gains ?? [] as $name => $gain) {
+                $stat = PetStat::from($name);
+                $pet->setAttribute($name, min($pet->getAttribute($stat->potentialColumn()), $pet->getAttribute($name) + $gain));
+            }
+
+            $pet->debuffs = $this->statuses->recover($pet->debuffs ?? [], $care->status_recovery ?? [], $endedAt->getTimestamp());
             $awards = [...($care->granted_effects ?? []), ...array_column($care->incidents ?? [], 'effect')];
             foreach (['buff' => 'buffs', 'debuff' => 'debuffs'] as $kind => $column) {
                 $grants = array_values(array_filter($awards, fn (array $effect): bool => $effect['kind'] === $kind));
-                $pet->setAttribute($column, $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $care->ends_at->getTimestamp(), $at->getTimestamp()));
+                $pet->setAttribute($column, $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $endedAt->getTimestamp(), $endedAt->getTimestamp()));
             }
+            $pet->advanceTo($at, $this->states);
             $status = $this->getStatuses->handle($pet, $at);
             $pet->buffs = $status->buffs;
             $pet->debuffs = $status->debuffs;

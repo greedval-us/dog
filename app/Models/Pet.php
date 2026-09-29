@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
-use App\Modules\Pets\Calculators\PetStateCalculator;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\StatePercentageCalculator;
 use App\Modules\Pets\Enums\DogSize;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Enums\PetSex;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Enums\PetState;
 use Carbon\CarbonImmutable;
 use Database\Factories\PetFactory;
@@ -47,6 +48,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
  * @property CarbonImmutable $state_updated_at
+ * @property array<string, float>|null $stat_decay_remainders
  * @property CarbonImmutable $stats_updated_at
  * @property CarbonImmutable|null $last_activity_at
  * @property PetActivity|null $activity
@@ -84,7 +86,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $bond
  * @property int $bond_max
  */
-#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
+#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'stat_decay_remainders', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
 class Pet extends Model
 {
     /** @use HasFactory<PetFactory> */
@@ -182,11 +184,11 @@ class Pet extends Model
     }
 
     /** Advance the in-memory snapshot; callers persist it only inside a locked transaction. */
-    public function advanceStatesTo(CarbonImmutable $at, PetStateCalculator $calculator): void
+    public function advanceTo(CarbonImmutable $at, PetDecayCalculator $calculator): void
     {
         $at = $at->startOfSecond();
 
-        if ($this->retired_at !== null || $at->lessThanOrEqualTo($this->state_updated_at)) {
+        if ($this->retired_at !== null) {
             return;
         }
 
@@ -198,8 +200,21 @@ class Pet extends Model
             $maximums[$state->value] = (int) $this->getAttribute($state->maximumColumn());
         }
 
-        $this->fill($calculator->calculate($values, $maximums, $at->getTimestamp() - $this->state_updated_at->getTimestamp()));
-        $this->state_updated_at = $at;
+        $effects = [...($this->buffs ?? []), ...($this->debuffs ?? [])];
+        if ($at->greaterThan($this->state_updated_at)) {
+            $this->fill($calculator->states($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects));
+            $this->state_updated_at = $at;
+        }
+        if ($at->greaterThan($this->stats_updated_at)) {
+            $stats = [];
+            foreach (PetStat::cases() as $stat) {
+                $stats[$stat->value] = (int) $this->getAttribute($stat->value);
+            }
+            $result = $calculator->stats($stats, $this->stat_decay_remainders ?? [], $this->stats_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $this->fill($result['values']);
+            $this->stat_decay_remainders = $result['remainders'];
+            $this->stats_updated_at = $at;
+        }
     }
 
     /** @return array<string, float> */
@@ -231,6 +246,7 @@ class Pet extends Model
             'retired_at' => 'datetime',
             'state_updated_at' => 'datetime',
             'stats_updated_at' => 'datetime',
+            'stat_decay_remainders' => 'array',
             'last_activity_at' => 'datetime',
             'activity' => PetActivity::class,
             'activity_started_at' => 'datetime',

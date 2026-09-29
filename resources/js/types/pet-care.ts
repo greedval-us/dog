@@ -1,4 +1,4 @@
-import type { DogState } from '@/types/pet';
+import type { DogState, DogStat } from '@/types/pet';
 
 export type StatusEffect = {
     code: string;
@@ -21,7 +21,13 @@ export type ItemRisk = {
     quality: number;
 };
 
-export type CareGroup = 'feed' | 'walk' | 'play' | 'groom' | 'sleep';
+export type CareGroup =
+    | 'feed'
+    | 'walk'
+    | 'play'
+    | 'groom'
+    | 'sleep'
+    | 'training';
 export type CareItem = {
     id: number;
     category: string;
@@ -48,6 +54,9 @@ export type CareOption = {
     uses: Record<string, number>;
     effects: Partial<Record<DogState, number>>;
     reason: string | null;
+    statGains?: Partial<Record<DogStat, number>>;
+    gainsByQuality: Record<number, Partial<Record<DogStat, number>>>;
+    risks?: ItemRisk[];
 };
 export type PetCare = {
     token: string;

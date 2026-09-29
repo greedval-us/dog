@@ -110,7 +110,7 @@ test('poisoning is saved once hidden until completion and reported with its orig
     $this->assertDatabaseCount('item_usages', 1);
 });
 
-test('equipment takes one injury roll at the highest risk and uses the inventory quality snapshot', function () {
+test('equipment takes one chafing roll at the highest risk and uses the inventory quality snapshot', function () {
     $pet = Pet::factory()->create();
     $collar = riskItem($pet, 'collars', 1);
     $leash = riskItem($pet, 'leashes', 5);
@@ -123,7 +123,7 @@ test('equipment takes one injury roll at the highest risk and uses the inventory
     expect($engine->calls)->toBe(1);
     expect($care->incidents)->toHaveCount(1);
     expect($care->incidents[0])->toMatchArray(['chance' => 300, 'quality' => 1]);
-    expect($pet->fresh()->debuffs[0]['code'])->toBe('minor_injury');
+    expect($pet->fresh()->debuffs[0]['code'])->toBe('chafing');
 });
 
 test('timed debuffs affect later care persist through recovery and disappear at expiry', function () {

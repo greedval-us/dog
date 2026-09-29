@@ -15,7 +15,7 @@ import type { DogStat } from '@/types/pet';
 withDefaults(
     defineProps<{
         values: Record<DogStat, number | { value: number; potential: number }>;
-        variant?: 'tiles' | 'bars';
+        variant?: 'tiles' | 'bars' | 'compact';
     }>(),
     { variant: 'tiles' },
 );
@@ -31,7 +31,11 @@ const { t, number } = useI18n();
 </script>
 
 <template>
-    <div v-if="variant === 'bars'" class="pet-metrics pet-stat-metrics">
+    <div
+        v-if="variant !== 'tiles'"
+        class="pet-metrics pet-stat-metrics"
+        :class="{ 'pet-stats-compact': variant === 'compact' }"
+    >
         <PetMetric
             v-for="(label, key) in statLabels"
             :key="key"

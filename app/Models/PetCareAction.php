@@ -24,11 +24,13 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $variant
  * @property array<string, int> $inventory_item_ids
  * @property array<string, int|float> $effects
+ * @property array<string, int>|null $stat_gains
+ * @property array<string, string>|null $training_name
  * @property CarbonImmutable $ends_at
  * @property CarbonImmutable $available_at
  * @property CarbonImmutable|null $completed_at
  */
-#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'incidents', 'status_recovery', 'ends_at', 'available_at', 'completed_at'])]
+#[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'incidents', 'status_recovery', 'stat_gains', 'training_name', 'ends_at', 'available_at', 'completed_at'])]
 class PetCareAction extends Model
 {
     /** @use HasFactory<PetCareActionFactory> */
@@ -42,6 +44,8 @@ class PetCareAction extends Model
             'pet_id' => 'integer',
             'inventory_item_ids' => 'array',
             'effects' => 'array',
+            'stat_gains' => 'array',
+            'training_name' => 'array',
             'granted_effects' => 'array',
             'incidents' => 'array',
             'status_recovery' => 'array',

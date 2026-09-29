@@ -7,7 +7,10 @@ use App\Modules\Pets\Enums\DogSize;
 /**
  * @phpstan-type VariantBalance array{duration: int, cooldown: int, energy: int, items: array<string, int>, effects: array<string, int>}
  * @phpstan-type CareBalance array{feeding_by_size: array<string, int>, minimum_needs: array<string, array<string, int>>, quality_bonuses: array<string, array{state: string, per_level: int, base_quality: int, max_quality: int}>, options: array<string, VariantBalance>}
- * @phpstan-type CareOption array{group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, optional: list<string>, uses: array<string, int>, effects: array<string, int>}
+ *
+ * @phpstan-import-type Risk from ItemEffectRules
+ *
+ * @phpstan-type CareOption array{group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, optional: list<string>, uses: array<string, int>, effects: array<string, int>, statGains?: array<string, int>, trainingName?: array<string, string>, risks?: list<Risk>}
  */
 final class PetCareRules
 {
@@ -57,6 +60,10 @@ final class PetCareRules
      */
     public function unavailableReason(array $option, array $states, float $energy, bool $hasStatusRecovery = false): ?string
     {
+        if ($option['group'] === 'training' && min($states['health'], $states['satiety'], $states['hydration']) < 50) {
+            return 'Training requires health, satiety and hydration of at least 50%.';
+        }
+
         if ($energy < $option['energy']) {
             return 'Not enough energy. Let your dog rest first.';
         }

@@ -71,10 +71,10 @@ test('finishing care settles decay before restoring water and retries never repe
     $this->actingAs($pet->user)->post(route('pets.care.complete', $pet), ['token' => $care->token])->assertSessionHasNoErrors();
     $this->post(route('pets.care.complete', $pet), ['token' => $care->token])->assertSessionHasNoErrors();
 
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'hydration' => 50, 'health' => 95, 'activity' => null, 'state_updated_at' => now()->toDateTimeString()]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'hydration' => 50, 'health' => 100, 'activity' => null, 'state_updated_at' => now()->toDateTimeString()]);
     $this->travel(1)->hours();
     $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('pet.states.hydration', 45)->where('pet.states.health', 95));
+        ->where('pet.states.hydration', 45)->where('pet.states.health', 100));
 });
 
 test('failed completion rolls back decay together with the care effect', function () {

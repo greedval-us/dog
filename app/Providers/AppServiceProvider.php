@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Modules\Pets\Calculators\PetCareRules;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStateCalculator;
+use App\Modules\Pets\Calculators\PetStatusRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
@@ -16,6 +18,7 @@ use Random\Randomizer;
 /**
  * @phpstan-import-type CareBalance from PetCareRules
  * @phpstan-import-type StateBalance from PetStateCalculator
+ * @phpstan-import-type StatBalance from PetDecayCalculator
  */
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,6 +39,12 @@ class AppServiceProvider extends ServiceProvider
             $balance = Config::array('pet_states');
 
             return new PetStateCalculator($balance);
+        });
+        $this->app->bind(PetDecayCalculator::class, function (): PetDecayCalculator {
+            /** @var StatBalance $balance */
+            $balance = Config::array('pet_stats');
+
+            return new PetDecayCalculator($this->app->make(PetStateCalculator::class), $this->app->make(PetStatusRules::class), $balance);
         });
     }
 

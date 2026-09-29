@@ -177,12 +177,12 @@ test('catalogue reseeding keeps custom effects and purchased snapshots while add
     $this->seed([StatusEffectSeeder::class, ItemEffectRuleSeeder::class]);
     $this->seed([StatusEffectSeeder::class, ItemEffectRuleSeeder::class]);
 
-    $this->assertDatabaseCount('status_effects', 34);
+    $this->assertDatabaseCount('status_effects', 53);
     expect($custom->fresh()->modifiers)->toBe(['mood_gain_percent' => 7]);
     expect($instance->fresh()->effect_rules)->toBe($snapshot);
     expect(array_column(array_column($snapshot, 'effect'), 'code'))->toContain('eager');
     $this->assertDatabaseHas('status_effects', ['code' => 'eager', 'is_active' => false]);
-    expect($item->effectRules()->count())->toBe(2);
+    expect($item->effectRules()->count())->toBe(3);
 });
 
 test('care and toys carry distinct mild risks that get shorter as quality improves', function (string $category, string $code, int $quality, int $duration) {

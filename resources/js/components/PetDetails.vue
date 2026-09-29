@@ -12,7 +12,11 @@ import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
 import DogStats from '@/components/DogStats.vue';
 import PetFeaturePlaceholder from '@/components/PetFeaturePlaceholder.vue';
 import PetOverview from '@/components/PetOverview.vue';
+import PetQuickActions from '@/components/PetQuickActions.vue';
+import { Deferred, router } from '@inertiajs/vue3';
+import { Button } from '@/components/ui/button';
 import SurfaceCard from '@/components/SurfaceCard.vue';
+import StatusEffects from '@/components/StatusEffects.vue';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
@@ -21,7 +25,7 @@ defineProps<{ pet: PlayerPet; care: PetCare | null }>();
 const { t } = useI18n();
 const tabs = [
     { value: 'overview', label: 'Overview', icon: PawPrint },
-    { value: 'attributes', label: 'Attributes', icon: TrendingUp },
+    { value: 'attributes', label: 'Development', icon: TrendingUp },
     {
         value: 'skills',
         label: 'Skills',
@@ -79,19 +83,52 @@ const tabs = [
         <TabsContent value="overview" class="pet-tab-panel"
             ><PetOverview :pet="pet" :care="care"
         /></TabsContent>
-        <TabsContent value="attributes" class="pet-tab-panel">
+        <TabsContent value="attributes" class="pet-tab-panel pet-development">
             <SurfaceCard
                 :title="t('Main attributes')"
                 :description="t('Current value / genetic potential.')"
                 class="pet-attribute-details"
             >
-                <DogStats :values="pet.stats" variant="bars" />
-                <p class="pet-feature-note">
-                    {{
-                        t('Training will become available in a future update.')
-                    }}
-                </p>
+                <DogStats :values="pet.stats" variant="compact" />
+                <div class="pet-development-retention">
+                    <p>
+                        {{
+                            t(
+                                'Keep practicing: attributes slowly decrease over time. Item effects help retain progress.',
+                            )
+                        }}
+                    </p>
+                    <StatusEffects
+                        v-if="care"
+                        :effects="[...care.buffs, ...care.debuffs]"
+                        :server-now="care.serverNow"
+                        compact
+                    />
+                </div>
             </SurfaceCard>
+            <Deferred data="care">
+                <template #fallback
+                    ><div class="dashboard-loading" role="status">
+                        {{ t('Loading...') }}
+                    </div></template
+                >
+                <template #rescue="{ reloading }"
+                    ><div role="alert">
+                        <p>{{ t('Could not load data. Please retry.') }}</p>
+                        <Button
+                            :disabled="reloading"
+                            @click="router.reload({ only: ['care'] })"
+                            >{{ t('Retry') }}</Button
+                        >
+                    </div></template
+                >
+                <PetQuickActions
+                    v-if="care"
+                    :pet="pet"
+                    :care="care"
+                    training-only
+                />
+            </Deferred>
         </TabsContent>
         <template v-for="tab in tabs" :key="tab.value">
             <TabsContent

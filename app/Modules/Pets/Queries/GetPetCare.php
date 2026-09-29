@@ -5,8 +5,10 @@ namespace App\Modules\Pets\Queries;
 use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetCareRules;
-use App\Modules\Pets\Calculators\PetStateCalculator;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
+use App\Modules\Pets\Calculators\TrainingRules;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -16,9 +18,11 @@ final class GetPetCare
     public function __construct(
         private PetCareRules $rules,
         private PetStatusRules $statuses,
-        private PetStateCalculator $states,
+        private PetDecayCalculator $states,
         private GetPetStatuses $getStatuses,
         private GetCareStatusEffects $careStatuses,
+        private GetTrainingOptions $trainings,
+        private TrainingRules $trainingRules,
     ) {}
 
     /** @return array<string, mixed> */
@@ -26,8 +30,8 @@ final class GetPetCare
     {
         $pet = $user->pets()->findOrFail($petId);
         $at = now();
-        $pet->advanceStatesTo($at, $this->states);
-        $options = $this->rules->options($pet->size);
+        $pet->advanceTo($at, $this->states);
+        $options = [...$this->rules->options($pet->size), ...$this->trainings->handle($locale)];
         $status = $this->getStatuses->handle($pet, $at);
         $modifiers = $status->modifiers;
         $cooldowns = PetCareAction::query()->where('pet_id', $petId)->where('available_at', '>', $at)
@@ -43,13 +47,25 @@ final class GetPetCare
             $baseEnergy = $option['energy'];
             $recovery = $this->statuses->recovery($status->debuffs, $id);
             $option['energy'] = $this->statuses->energyCost($baseEnergy, $modifiers['energy_cost_percent']);
+            $gainsByQuality = [];
+            if (isset($option['statGains'])) {
+                $remaining = [];
+                foreach ($option['statGains'] as $name => $gain) {
+                    $remaining[$name] = $pet->getAttribute(PetStat::from($name)->potentialColumn()) - $pet->getAttribute($name);
+                }
+                foreach (range(1, 10) as $quality) {
+                    $gainsByQuality[$quality] = $this->trainingRules->gains($option['statGains'], $quality, $pet->statePercentages(null), $remaining);
+                }
+            }
             $variants[] = [
                 'id' => $id,
                 ...$option,
                 'baseEnergy' => $baseEnergy,
                 'grantedEffects' => $careEffects[$id] ?? [],
                 'statusRecovery' => $recovery,
-                'reason' => $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy, $recovery !== []),
+                'gainsByQuality' => $gainsByQuality,
+                'reason' => $this->rules->unavailableReason($option, $pet->statePercentages(null), $pet->energy, $recovery !== [])
+                    ?? ($gainsByQuality !== [] && array_sum($gainsByQuality[10]) === 0 ? 'Your dog has reached the potential for this training.' : null),
             ];
         }
 
@@ -70,10 +86,11 @@ final class GetPetCare
             'options' => $variants,
             'active' => $active === null ? null : [
                 'token' => $active->token,
-                'label' => $options[$active->variant]['label'],
+                'label' => $active->training_name[$locale] ?? $active->training_name['en'] ?? $options[$active->variant]['label'] ?? 'Training',
                 'startedAt' => $active->created_at->toIso8601String(),
                 'endsAt' => $active->ends_at->toIso8601String(),
                 'effects' => $active->effects,
+                'statGains' => $active->stat_gains,
             ],
         ];
     }

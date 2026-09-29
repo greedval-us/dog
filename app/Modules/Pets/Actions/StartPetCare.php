@@ -7,12 +7,15 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
-use App\Modules\Pets\Calculators\PetStateCalculator;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
+use App\Modules\Pets\Calculators\TrainingRules;
 use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetCareStatusEffects;
 use App\Modules\Pets\Queries\GetPetStatuses;
+use App\Modules\Pets\Queries\GetTrainingOptions;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -30,9 +33,11 @@ final class StartPetCare
         private PetStatusRules $statuses,
         private ItemEffectRules $riskRules,
         private Randomizer $random,
-        private PetStateCalculator $states,
+        private PetDecayCalculator $states,
         private GetPetStatuses $getStatuses,
         private GetCareStatusEffects $careStatuses,
+        private GetTrainingOptions $trainings,
+        private TrainingRules $trainingRules,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -64,7 +69,8 @@ final class StartPetCare
                 return $existing;
             }
 
-            $option = $this->rules->options($pet->size)[$variant] ?? throw new InvalidArgumentException('Unknown care action.');
+            $options = str_starts_with($variant, 'training:') ? $this->trainings->handle('en') : $this->rules->options($pet->size);
+            $option = $options[$variant] ?? throw new InvalidArgumentException('Unknown care action.');
 
             if ($pet->isBusy() && $pet->retired_at === null) {
                 $finished = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $petId)
@@ -86,14 +92,14 @@ final class StartPetCare
             }
 
             $at = now();
-            $pet->advanceStatesTo($at, $this->states);
+            $pet->advanceTo($at, $this->states);
             $status = $this->getStatuses->handle($pet, $at);
             $pet->buffs = $status->buffs;
             $pet->debuffs = $status->debuffs;
             $modifiers = $status->modifiers;
             $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
             $recovery = $this->statuses->recovery($status->debuffs, $variant);
-            $reason = $this->rules->unavailableReason($option, $pet->statePercentages(), $pet->energy, $recovery !== []);
+            $reason = $this->rules->unavailableReason($option, $pet->statePercentages(null), $pet->energy, $recovery !== []);
 
             if ($reason !== null) {
                 throw new PetUnavailable($reason);
@@ -109,7 +115,7 @@ final class StartPetCare
             $instances = $owner->inventoryItems()->with('item.category')->whereIn('id', array_values($itemIds))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $qualities = [];
             $bonuses = [];
-            $risks = [];
+            $risks = $option['risks'] ?? [];
 
             foreach ($itemIds as $category => $id) {
                 $instance = $instances->get($id);
@@ -123,6 +129,19 @@ final class StartPetCare
                     $bonuses[$state] = ($bonuses[$state] ?? 0) + $bonus;
                 }
                 $risks = [...$risks, ...$this->riskRules->forItem($instance->effect_rules ?? [], $instance->quality, $instance->name)];
+            }
+
+            $statGains = null;
+            if (isset($option['statGains'])) {
+                $remaining = [];
+                foreach ($option['statGains'] as $name => $gain) {
+                    $stat = PetStat::from($name);
+                    $remaining[$name] = $pet->getAttribute($stat->potentialColumn()) - $pet->getAttribute($name);
+                }
+                $statGains = $this->trainingRules->gains($option['statGains'], $qualities['sports'], $pet->statePercentages(null), $remaining);
+                if (array_sum($statGains) === 0) {
+                    throw new PetUnavailable('Your dog has reached the potential for this training.');
+                }
             }
 
             $pet->save();
@@ -166,6 +185,8 @@ final class StartPetCare
                 'granted_effects' => $grantedEffects,
                 'incidents' => $incidents === [] ? null : $incidents,
                 'status_recovery' => $recovery,
+                'stat_gains' => $statGains,
+                'training_name' => $option['trainingName'] ?? null,
                 'ends_at' => $started->endsAt,
                 'available_at' => $started->endsAt->addSeconds($option['cooldown']),
             ]);

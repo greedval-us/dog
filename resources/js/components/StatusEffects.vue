@@ -53,8 +53,8 @@ const visible = computed(() =>
 );
 const text = (value: Record<string, string>) =>
     value[locale.value] ?? value.en ?? '';
-const minutes = (effect: StatusEffect) =>
-    Math.max(
+const effectDuration = (effect: StatusEffect) => {
+    const minutes = Math.max(
         1,
         Math.ceil(
             (props.preview
@@ -62,6 +62,14 @@ const minutes = (effect: StatusEffect) =>
                 : (effect.expires_at ?? 0) - now.value / 1000) / 60,
         ),
     );
+    if (minutes < 60) return t('{count} min', { count: number(minutes) });
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return (
+        t('{count} h', { count: number(hours) }) +
+        (rest ? ` ${t('{count} min', { count: number(rest) })}` : '')
+    );
+};
 const buffs = computed(() =>
     visible.value.filter((effect) => effect.kind === 'buff'),
 );
@@ -228,9 +236,9 @@ const filtered = computed(() =>
                 <small v-if="effect.duration_seconds">{{
                     t(
                         preview
-                            ? 'After completion · {count} min'
-                            : '{count} min left',
-                        { count: number(minutes(effect)) },
+                            ? 'After completion · {duration}'
+                            : '{duration} left',
+                        { duration: effectDuration(effect) },
                     )
                 }}</small>
                 <small v-else>{{ t('While the condition is met') }}</small>
