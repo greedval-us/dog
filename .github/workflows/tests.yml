@@ -10,9 +10,85 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  frontend:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Configure application
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Generate routes
+        run: php artisan wayfinder:generate --with-form --no-interaction
+
+      - name: Check formatting and lint
+        run: npm run check
+
+      - name: Check TypeScript
+        if: success() || failure()
+        run: npm run types:check
+
+      - name: Build frontend
+        if: success() || failure()
+        run: npm run build
+
+  server-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        command: ['lint:check', 'types:check']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Configure application
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Check server code
+        run: composer ${{ matrix.command }}
+
+  server-tests:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -47,15 +123,15 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
 
-      - name: Setup Application
-        run: composer setup
+      - name: Configure application
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
 
-      - name: Run CI Checks
+      - name: Run server tests
         env:
           DB_CONNECTION: ${{ matrix.database }}
           DB_HOST: 127.0.0.1
@@ -64,4 +140,4 @@ jobs:
           DB_USERNAME: dog_test
           DB_PASSWORD: testing
           DB_URL: ''
-        run: composer ci:check
+        run: composer test:run

@@ -45,9 +45,15 @@ class HandleInertiaRequests extends Middleware
             'locales' => config('localization.supported'),
             'auth' => [
                 'user' => $user instanceof User ? [
-                    ...$user->toArray(),
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'email_verified_at' => $user->email_verified_at?->toISOString(),
+                    'coins' => $user->coins,
+                    'gems' => $user->gems,
                     'avatarVersion' => $user->avatarVersion(),
-                ] : $user,
+                ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

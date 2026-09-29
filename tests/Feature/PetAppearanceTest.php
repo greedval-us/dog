@@ -212,7 +212,7 @@ test('the dashboard exposes only matching usable catalogue entries and never sto
     GameAsset::factory()->background()->create(['is_active' => false]);
     GameAsset::factory()->background()->create(['image_path' => 'appearance/missing.png']);
 
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->where('appearance.portraitId', $free->id)
         ->where('appearance.backgroundId', null)
         ->has('appearance.assets', 2)
@@ -224,7 +224,7 @@ test('the dashboard exposes only matching usable catalogue entries and never sto
         ->where('appearance.assets.1.prices', [['currency' => 'coins', 'amount' => 100], ['currency' => 'gems', 'amount' => 10]])
         ->missing('appearance.assets.0.image_path')
         ->missing('appearance.assets.0.icon_path')
-    );
+    ));
 });
 
 test('a dog transferred to another owner falls back to a free portrait without sharing purchases', function () {

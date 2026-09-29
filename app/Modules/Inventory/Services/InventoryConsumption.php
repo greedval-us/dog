@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
+/** Public cross-module operation for consuming inventory within a gameplay transaction. */
 final class InventoryConsumption
 {
     /**

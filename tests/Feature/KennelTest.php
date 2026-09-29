@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Dog;
+use App\Models\KennelPurchase;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Kennel\Actions\AdoptStarterPet;
@@ -10,6 +11,7 @@ use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Services\PlayerWallet;
 use Database\Seeders\DogSeeder;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
@@ -335,6 +337,87 @@ test('a failed paid pet insert rolls back the coins and allows retrying the same
     app(PurchaseKennelPet::class)->handle($user, $data);
     expect($user->fresh()->coins)->toBe(0);
     $this->assertDatabaseCount('pets', 1);
+});
+
+test('a purchase receipt survives pet changes and deletion and normalizes its token', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 500, 'starter_pet_claimed_at' => now()]);
+    $token = strtoupper((string) Str::uuid());
+    $action = app(PurchaseKennelPet::class);
+    $receipt = $action->handle($user, new PurchaseKennelPetData($dog->id, ' Luna ', 500, $token));
+    Pet::query()->findOrFail($receipt->pet_id)->update(['name' => 'Renamed', 'retired_at' => now()]);
+    $dog->update(['is_starter' => false]);
+    config(['doglive.kennel_price' => 700]);
+
+    $repeat = $action->handle($user, new PurchaseKennelPetData($dog->id, 'Luna', 500, strtolower($token)));
+    expect($repeat->id)->toBe($receipt->id);
+    expect($repeat->wasRecentlyCreated)->toBeFalse();
+    Pet::query()->findOrFail($receipt->pet_id)->delete();
+    expect($action->handle($user, new PurchaseKennelPetData($dog->id, 'Luna', 500, $token))->id)->toBe($receipt->id);
+    $this->assertDatabaseHas('kennel_purchases', ['id' => $receipt->id, 'pet_id' => $receipt->pet_id, 'pet_name' => 'Luna', 'token' => strtolower($token)]);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseCount('pets', 0);
+    expect($user->fresh()->coins)->toBe(0);
+});
+
+test('reusing a dog purchase token with different parameters is rejected', function (string $field) {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $otherBreed = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['locale' => 'en', 'coins' => 1000, 'pet_slots' => 2, 'starter_pet_claimed_at' => now()]);
+    $payload = ['dog_id' => $dog->id, 'name' => 'Luna', 'expected_price' => 500, 'adoption_token' => (string) Str::uuid()];
+    $this->actingAs($user)->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
+    $payload[$field] = match ($field) {
+        'dog_id' => $otherBreed->id, 'name' => 'Other', 'expected_price' => 501
+    };
+
+    $this->post(route('kennel.purchase'), $payload)->assertSessionHasErrors(['adoption' => 'The token was already used for a different dog purchase.']);
+    $this->assertDatabaseCount('pets', 1);
+    $this->assertDatabaseCount('kennel_purchases', 1);
+    expect($user->fresh()->coins)->toBe(500);
+})->with(['dog_id', 'name', 'expected_price']);
+
+test('a replay returns the original dog and explains that no second charge occurred', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['locale' => 'en', 'coins' => 500, 'starter_pet_claimed_at' => now()]);
+    $payload = ['dog_id' => $dog->id, 'name' => 'Luna', 'expected_price' => 500, 'adoption_token' => (string) Str::uuid()];
+    $this->actingAs($user)->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
+    $pet = $user->pets()->sole();
+    $dog->update(['is_starter' => false]);
+
+    $this->post(route('kennel.purchase'), $payload)->assertRedirect(route('dashboard', ['pet' => $pet->id]));
+    $this->followingRedirects()->post(route('kennel.purchase'), $payload)->assertInertia(fn (Assert $page) => $page
+        ->hasFlash('toast.message', 'This dog purchase was already completed. You have not been charged again.'));
+    $pet->delete();
+    $this->post(route('kennel.purchase'), $payload)->assertRedirect(route('dashboard'));
+    $this->assertDatabaseCount('currency_transactions', 1);
+});
+
+test('legacy payments without receipts never issue another dog or claim a successful replay', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 1000, 'starter_pet_claimed_at' => now()]);
+    $token = strtoupper((string) Str::uuid());
+    app(PlayerWallet::class)->change($user, 'coins', -500, 'kennel:'.$token, 'kennel_purchase');
+
+    expect(fn () => app(PurchaseKennelPet::class)->handle($user, new PurchaseKennelPetData($dog->id, 'Luna', 500, strtolower($token))))
+        ->toThrow(AdoptionUnavailable::class, 'This purchase was already paid for, but its receipt is unavailable. Check your dogs before making a new purchase.');
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    expect($user->fresh()->coins)->toBe(500);
+});
+
+test('receipt insert failure rolls back the whole purchase', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 500, 'starter_pet_claimed_at' => now()]);
+    Event::listen('eloquent.creating: '.KennelPurchase::class, function (): void {
+        throw new RuntimeException('Receipt unavailable');
+    });
+
+    expect(fn () => app(PurchaseKennelPet::class)->handle($user, new PurchaseKennelPetData($dog->id, 'Luna', 500, (string) Str::uuid())))
+        ->toThrow(RuntimeException::class, 'Receipt unavailable');
+    $this->assertDatabaseCount('pets', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseCount('kennel_purchases', 0);
+    expect($user->fresh()->coins)->toBe(500);
 });
 
 test('guests cannot purchase dogs', function () {

@@ -2,10 +2,8 @@
 
 namespace App\Modules\Pets\Queries;
 
-use App\Models\InventoryItem;
 use App\Models\PetCareAction;
 use App\Models\User;
-use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
@@ -18,7 +16,6 @@ final class GetPetCare
     public function __construct(
         private PetCareRules $rules,
         private PetStatusRules $statuses,
-        private ItemEffectRules $riskRules,
         private PetStateCalculator $states,
         private GetPetStatuses $getStatuses,
         private GetCareStatusEffects $careStatuses,
@@ -33,11 +30,6 @@ final class GetPetCare
         $options = $this->rules->options($pet->size);
         $status = $this->getStatuses->handle($pet, $at);
         $modifiers = $status->modifiers;
-        $items = $user->inventoryItems()
-            ->select(['id', 'user_id', 'item_id', 'name', 'quality', 'bonuses', 'effect_rules', 'remaining_uses'])
-            ->with(['item:id,item_category_id,code', 'item.category:id,code'])->where('remaining_uses', '>', 0)
-            ->whereHas('item.category', fn ($query) => $query->whereIn('code', ['food', 'collars', 'leashes', 'toys', 'care', 'clothing', 'sports']))
-            ->oldest('id')->get();
         $cooldowns = PetCareAction::query()->where('pet_id', $petId)->where('available_at', '>', $at)
             ->select('group')->selectRaw('MAX(available_at) as available_at')->groupBy('group')
             ->pluck('available_at', 'group')->map(fn (CarbonImmutable $availableAt): string => $availableAt->toIso8601String());
@@ -76,21 +68,6 @@ final class GetPetCare
             'busy' => $pet->isBusy(),
             'cooldowns' => $cooldowns,
             'options' => $variants,
-            'items' => $items->map(function (InventoryItem $item) use ($locale): array {
-                $outcomes = $this->riskRules->forItem($item->effect_rules ?? [], $item->quality, $item->name);
-
-                return [
-                    'id' => $item->id,
-                    'category' => $item->item->category->code,
-                    'name' => $item->name[$locale] ?? $item->name['en'] ?? $item->item->code,
-                    'quality' => $item->quality,
-                    'bonus' => $this->rules->qualityBonus($item->item->category->code, $item->quality),
-                    'bonuses' => $item->bonuses ?? [],
-                    'grantedEffects' => $this->riskRules->guaranteed($outcomes),
-                    'risks' => $this->riskRules->uncertain($outcomes),
-                    'remainingUses' => $item->remaining_uses,
-                ];
-            })->all(),
             'active' => $active === null ? null : [
                 'token' => $active->token,
                 'label' => $options[$active->variant]['label'],

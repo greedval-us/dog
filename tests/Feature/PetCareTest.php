@@ -13,7 +13,6 @@ use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -164,7 +163,7 @@ test('both pieces of walking equipment disappear on their last use', function ()
 test('inventory and activity changes roll back when saving the care receipt fails', function () {
     $pet = Pet::factory()->create(['energy' => 50]);
     $toy = careItem($pet->user, 'toys', 1);
-    DB::statement("CREATE TRIGGER reject_care BEFORE INSERT ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated care failure'); END");
+    $this->rejectCareWrites('reject_care', 'INSERT');
 
     expect(fn () => app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid()))
         ->toThrow(QueryException::class);
@@ -257,13 +256,12 @@ test('dashboard displays owned supplies active action and persistent cooldown wi
     InventoryItem::factory()->create();
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
     $this->travel(301)->seconds();
-    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
-        ->has('care.options', 10)->has('care.items', 1)
-        ->where('care.items.0.id', $toy->id)
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->has('care.options', 10)->missing('care.items')
         ->where('care.active.token', $care->token)
         ->where('care.cooldowns.sleep', $care->available_at->toIso8601String())
         ->where('care.busy', true)
-    );
+    ));
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity' => PetActivity::Sleep->value]);
 });
 
@@ -319,11 +317,11 @@ test('failure while saving completion rolls back the effect and keeps the activi
     $pet = Pet::factory()->create(['energy' => 40]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
     $this->travel(300)->seconds();
-    DB::statement("CREATE TRIGGER reject_care_completion BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated completion failure'); END");
+    $this->rejectCareWrites('reject_care_completion', 'UPDATE');
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 40, 'activity_token' => $care->activity_token]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
-    DB::statement('DROP TRIGGER reject_care_completion');
+    $this->allowCareWrites('reject_care_completion');
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 65.4167, 'activity' => null]);
 });
@@ -352,11 +350,12 @@ test('configured care balance controls the preview costs timing and saved result
     ]);
     $pet = Pet::factory()->create(['energy' => 50, 'mood' => 0, 'mood_max' => 100]);
     $toy = careItem($pet->user, 'toys', 3, 8);
-    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->where('care.options.5.duration', 45)->where('care.options.5.cooldown', 90)
         ->where('care.options.5.energy', 7)->where('care.options.5.uses.toys', 2)
-        ->where('care.options.5.effects.mood', 12)->where('care.items.0.bonus.mood', 9)
-    );
+        ->where('care.options.5.effects.mood', 12)
+    ));
+    $this->getJson(route('care-items', ['category' => 'toys', 'uses' => 2]))->assertJsonPath('items.0.bonus.mood', 9);
     $token = (string) Str::uuid();
     $payload = ['variant' => 'toy', 'items' => ['toys' => $toy->id], 'token' => $token];
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
@@ -405,9 +404,9 @@ test('configured feeding percentages are used for each dog size', function (stri
 test('configured minimum needs agree in the preview and action validation', function () {
     config(['pet_care.minimum_needs.walk.satiety' => 40]);
     $pet = Pet::factory()->create(['satiety' => 30, 'satiety_max' => 100]);
-    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->where('care.options.3.reason', 'Feed your dog and offer water before active play or a walk.')
-    );
+    ));
     $this->post(route('pets.care.store', $pet), [
         'variant' => 'home', 'items' => [], 'token' => (string) Str::uuid(),
     ])->assertSessionHasErrors('care');
@@ -478,11 +477,11 @@ test('sleep variants restore different percentages and enforce their own shared 
     $this->travel($duration)->seconds();
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => $restored, 'activity' => null]);
-    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->where('pet.states.energy', $percentage)
         ->where('care.options.8.effects.energy', 25)->where('care.options.8.cooldown', 1800)
         ->where('care.options.9.effects.energy', 70)->where('care.options.9.cooldown', 3600)
-    );
+    ));
     $this->travel($cooldown - 1)->seconds();
     $payload = ['variant' => 'nap', 'items' => [], 'token' => (string) Str::uuid()];
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasErrors('care');

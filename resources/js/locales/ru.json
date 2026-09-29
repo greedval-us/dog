@@ -512,5 +512,9 @@
     "No active debuffs": "Сейчас нет дебафов",
     "No active effects": "Сейчас нет активных эффектов",
     "Effects appear here as you care for your dog.": "Здесь появятся эффекты от ухода и состояния твоей собаки.",
-    "Timed effects disappear automatically when they expire.": "Временные эффекты исчезнут, когда закончится их действие."
+    "Timed effects disappear automatically when they expire.": "Временные эффекты исчезнут, когда закончится их действие.",
+    "Loading...": "Загрузка…",
+    "Could not load data. Please retry.": "Не удалось загрузить данные. Попробуй ещё раз.",
+    "Load more": "Показать ещё",
+    "Retry": "Повторить"
 }

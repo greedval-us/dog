@@ -8,6 +8,7 @@ use App\Modules\Players\Exceptions\InsufficientFunds;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
+/** Public cross-module operation for balance changes and their durable ledger entries. */
 final class PlayerWallet
 {
     /**

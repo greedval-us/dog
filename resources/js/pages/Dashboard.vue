@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePoll } from '@inertiajs/vue3';
+import { Deferred, Head, Link, router, usePoll } from '@inertiajs/vue3';
 import { ArrowRight } from '@lucide/vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
@@ -20,9 +20,9 @@ import type { PetCare } from '@/types/pet-care';
 defineProps<{
     pet: PlayerPet | null;
     canClaimStarterPet: boolean;
-    appearance: PetAppearance | null;
+    appearance?: PetAppearance | null;
     slots: PetSlot[];
-    care: PetCare | null;
+    care?: PetCare | null;
 }>();
 const { t } = useI18n();
 
@@ -59,37 +59,83 @@ usePoll(60_000, { only: ['pet', 'care'] });
                 ></Button>
             </EmptyState>
         </template>
-        <div v-else-if="appearance" class="pet-dossier">
-            <img
-                v-if="appearance.backgroundId"
-                class="pet-profile-scene"
-                :src="
-                    image.url({
-                        asset: appearance.backgroundId,
-                        variant: 'image',
-                    })
-                "
-                alt=""
-                aria-hidden="true"
-                width="1672"
-                height="941"
-            />
-            <div class="pet-stage">
-                <PetHero :pet="pet" :appearance="appearance" :care="care" />
-                <aside
-                    class="pet-sidebar"
-                    :aria-label="t('Wellbeing and care')"
-                >
-                    <PetCondition :states="pet.states" />
-                    <PetQuickActions
-                        v-if="care"
-                        :key="pet.id"
+        <Deferred v-else data="appearance">
+            <template #fallback
+                ><div class="dashboard-loading" role="status">
+                    {{ t('Loading...') }}
+                </div></template
+            >
+            <template #rescue="{ reloading }"
+                ><div role="alert">
+                    <p>{{ t('Could not load data. Please retry.') }}</p>
+                    <Button
+                        :disabled="reloading"
+                        @click="router.reload({ only: ['appearance'] })"
+                        >{{ t('Retry') }}</Button
+                    >
+                </div></template
+            >
+            <div v-if="appearance && pet" class="pet-dossier">
+                <img
+                    v-if="appearance.backgroundId"
+                    class="pet-profile-scene"
+                    :src="
+                        image.url({
+                            asset: appearance.backgroundId,
+                            variant: 'image',
+                        })
+                    "
+                    alt=""
+                    aria-hidden="true"
+                    width="1672"
+                    height="941"
+                />
+                <div class="pet-stage">
+                    <PetHero
                         :pet="pet"
-                        :care="care"
+                        :appearance="appearance"
+                        :care="care ?? null"
                     />
-                </aside>
+                    <aside
+                        class="pet-sidebar"
+                        :aria-label="t('Wellbeing and care')"
+                    >
+                        <PetCondition :states="pet.states" />
+                        <Deferred data="care">
+                            <template #fallback
+                                ><div class="dashboard-loading" role="status">
+                                    {{ t('Loading...') }}
+                                </div></template
+                            >
+                            <template #rescue="{ reloading }"
+                                ><div role="alert">
+                                    <p>
+                                        {{
+                                            t(
+                                                'Could not load data. Please retry.',
+                                            )
+                                        }}
+                                    </p>
+                                    <Button
+                                        :disabled="reloading"
+                                        @click="
+                                            router.reload({ only: ['care'] })
+                                        "
+                                        >{{ t('Retry') }}</Button
+                                    >
+                                </div></template
+                            >
+                            <PetQuickActions
+                                v-if="care"
+                                :key="pet.id"
+                                :pet="pet"
+                                :care="care"
+                            />
+                        </Deferred>
+                    </aside>
+                </div>
+                <PetDetails :key="pet.id" :pet="pet" :care="care ?? null" />
             </div>
-            <PetDetails :key="pet.id" :pet="pet" :care="care" />
-        </div>
+        </Deferred>
     </div>
 </template>

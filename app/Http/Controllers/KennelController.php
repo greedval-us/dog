@@ -67,7 +67,7 @@ class KennelController extends Controller
         abort_unless($user instanceof User, 403);
 
         try {
-            $pet = $purchase->handle($user, $request->toData());
+            $receipt = $purchase->handle($user, $request->toData());
         } catch (AdoptionUnavailable $exception) {
             throw ValidationException::withMessages(['adoption' => __($exception->getMessage())]);
         } catch (StarterBreedUnavailable) {
@@ -76,7 +76,11 @@ class KennelController extends Controller
             ]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Your new dog is home!')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __($receipt->wasRecentlyCreated
+            ? 'Your new dog is home!'
+            : 'This dog purchase was already completed. You have not been charged again.')]);
+
+        $pet = $user->pets()->active()->find($receipt->pet_id);
 
         return to_route('dashboard', $pet === null ? [] : ['pet' => $pet->id]);
     }

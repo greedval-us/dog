@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class PurchaseKennelPetRequest extends FormRequest
 {
@@ -26,7 +25,7 @@ class PurchaseKennelPetRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'dog_id' => ['required', 'integer', Rule::exists('dog', 'id')->where('is_starter', true)],
+            'dog_id' => ['required', 'integer', 'min:1'],
             'name' => ['required', 'string', 'max:64'],
             'expected_price' => ['required', 'integer', 'min:1'],
             'adoption_token' => ['required', 'uuid'],

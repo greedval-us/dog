@@ -19,14 +19,16 @@ class DashboardController extends Controller
         abort_unless($user instanceof User, 403);
 
         $request->validate(['pet' => ['sometimes', 'integer', 'min:1']]);
-        $pet = $getPrimaryPet->handle($user, app()->getLocale(), $request->has('pet') ? $request->integer('pet') : null);
+        $petId = $request->has('pet')
+            ? $user->pets()->findOrFail($request->integer('pet'), ['id'])->id
+            : $user->pets()->active()->oldest('id')->value('id');
 
         return Inertia::render('Dashboard', [
-            'canClaimStarterPet' => $user->canClaimStarterPet(),
-            'slots' => $getSlots->handle($user),
-            'pet' => $pet?->toArray(),
-            'care' => $pet === null ? null : $getCare->handle($user, $pet->id, app()->getLocale()),
-            'appearance' => $pet === null ? null : $getAppearance->handle($user, $pet->id, app()->getLocale())->toArray(),
+            'canClaimStarterPet' => fn () => $user->canClaimStarterPet(),
+            'slots' => fn () => $getSlots->handle($user),
+            'pet' => fn () => $petId === null ? null : $getPrimaryPet->handle($user, app()->getLocale(), $petId)?->toArray(),
+            'care' => Inertia::defer(fn () => $petId === null ? null : $getCare->handle($user, $petId, app()->getLocale()), 'care', rescue: true),
+            'appearance' => Inertia::defer(fn () => $petId === null ? null : $getAppearance->handle($user, $petId, app()->getLocale())->toArray(), 'appearance', rescue: true),
         ]);
     }
 }

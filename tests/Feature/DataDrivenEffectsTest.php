@@ -70,8 +70,8 @@ test('random buffs and guaranteed debuffs use the same item rules and notify the
     $token = (string) Str::uuid();
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), ['variant' => 'toy', 'items' => ['toys' => $instance->id], 'token' => $token])->assertSessionHasNoErrors();
     $this->travel(180)->seconds();
-    $this->followingRedirects()->post(route('pets.care.complete', $pet), ['token' => $token])->assertInertia(fn (Assert $page) => $page
-        ->hasFlash('toast.type', $toast)->where('care.'.$kind.'s.0.code', $effect->code)->where('care.recentIncidents.0.incidents.0.effect.code', $effect->code));
+    $this->followingRedirects()->post(route('pets.care.complete', $pet), ['token' => $token])->assertInertia(fn (Assert $initial) => $initial->hasFlash('toast.type', $toast)->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->where('care.'.$kind.'s.0.code', $effect->code)->where('care.recentIncidents.0.incidents.0.effect.code', $effect->code)));
     expect($engine->calls)->toBe($chance === 100 ? 0 : 1);
     expect($pet->fresh()->getAttribute($kind === 'buff' ? 'debuffs' : 'buffs'))->toBe([]);
 })->with(['random buff' => ['buff', 25, 'success'], 'certain debuff' => ['debuff', 100, 'warning']]);
@@ -97,14 +97,14 @@ test('database conditions support buffs and comparison boundaries without code s
     StatusEffect::factory()->create(['kind' => 'buff', 'condition_state' => 'health', 'condition_operator' => $operator,
         'condition_threshold' => 50, 'duration_seconds' => null, 'modifiers' => ['mood_gain_percent' => 30]]);
     $pet = Pet::factory()->create(['health' => 50, 'health_max' => 100]);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->has('care.buffs', $active ? 1 : 0));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->has('care.buffs', $active ? 1 : 0)));
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
     expect($care->effects['mood'])->toEqual($active ? 13 : 10);
     $this->travelTo($care->ends_at);
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     $pet->update(['health' => $operator === 'gte' ? 49 : 51]);
     if ($active) {
-        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->has('care.buffs', 0));
+        $this->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->has('care.buffs', 0)));
     }
 })->with(['lt' => ['lt', false], 'lte' => ['lte', true], 'gt' => ['gt', false], 'gte' => ['gte', true]]);
 

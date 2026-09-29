@@ -13,7 +13,6 @@ use App\Modules\Pets\Actions\StartPetCare;
 use Database\Seeders\ItemEffectRuleSeeder;
 use Database\Seeders\StatusEffectSeeder;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Random\Engine;
@@ -60,13 +59,12 @@ test('food risk decreases with inventory quality and the roll respects the exact
     $pet = Pet::factory()->create(['satiety' => 30, 'satiety_max' => 100]);
     $food = riskItem($pet, 'food', $quality);
     $engine = useRiskDraw($draw);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(function (Assert $page) use ($chance) {
-        if ($chance === 0) {
-            $page->has('care.items.0.risks', 0);
-        } else {
-            $page->where('care.items.0.risks.0.chance', $chance);
-        }
-    });
+    $response = $this->actingAs($pet->user)->getJson(route('care-items', ['category' => 'food']));
+    if ($chance === 0) {
+        $response->assertJsonCount(0, 'items.0.risks');
+    } else {
+        $response->assertJsonPath('items.0.risks.0.chance', $chance);
+    }
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], (string) Str::uuid());
 
     expect($care->incidents !== null)->toBe($incident);
@@ -91,16 +89,16 @@ test('poisoning is saved once hidden until completion and reported with its orig
     $payload = ['variant' => 'meal', 'items' => ['food' => $food->id], 'token' => $token];
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
-    $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->has('care.recentIncidents', 0)->missing('care.active.incidents')->has('care.debuffs', 0));
+    $this->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->has('care.recentIncidents', 0)->missing('care.active.incidents')->has('care.debuffs', 0)));
     $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasErrors('care');
     StatusEffect::query()->where('code', 'poisoning')->update(['duration_seconds' => 1]);
     $this->travel(30)->seconds();
-    $this->followingRedirects()->post(route('pets.care.complete', $pet), ['token' => $token])->assertInertia(fn (Assert $page) => $page
-        ->hasFlash('toast.type', 'warning')
+    $this->followingRedirects()->post(route('pets.care.complete', $pet), ['token' => $token])->assertInertia(fn (Assert $initial) => $initial->hasFlash('toast.type', 'warning')->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+
         ->where('care.recentIncidents.0.incidents.0.effect.code', 'poisoning')
         ->where('care.recentIncidents.0.incidents.0.item_name.en', 'Old item')
-        ->where('care.debuffs.0.expires_at', now()->addMinutes(30)->timestamp));
+        ->where('care.debuffs.0.expires_at', now()->addMinutes(30)->timestamp)));
     $snapshot = $pet->fresh()->debuffs;
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $token);
     app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], $token);
@@ -143,9 +141,9 @@ test('timed debuffs affect later care persist through recovery and disappear at 
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 8]);
     expect($pet->fresh()->debuffs[0]['expires_at'])->toBe($expiresAt);
     $this->travel(1680)->seconds();
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->has('care.debuffs', 1)->where('care.debuffs.0.code', 'low_spirits')
-        ->has('care.recentIncidents', 1)->where('care.options.4.energy', 6));
+        ->has('care.recentIncidents', 1)->where('care.options.4.energy', 6)));
 });
 
 test('late automatic completion retains the event history without reviving an expired debuff', function () {
@@ -155,7 +153,7 @@ test('late automatic completion retains the event history without reviving an ex
     app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], (string) Str::uuid());
     $this->travel(1830)->seconds();
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), ['variant' => 'attention', 'items' => [], 'token' => (string) Str::uuid()])->assertSessionHasNoErrors();
-    $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->has('care.debuffs', 0)->has('care.recentIncidents', 1));
+    $this->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->has('care.debuffs', 0)->has('care.recentIncidents', 1)));
 });
 
 test('a failed completion rolls back the incident effect and can be retried without rerolling', function () {
@@ -164,11 +162,11 @@ test('a failed completion rolls back the incident effect and can be retried with
     $engine = useRiskDraw(0);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'meal', ['food' => $food->id], (string) Str::uuid());
     $this->travel(30)->seconds();
-    DB::statement("CREATE TRIGGER reject_incident BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Failure'); END");
+    $this->rejectCareWrites('reject_incident', 'UPDATE');
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
     expect($pet->fresh()->debuffs)->toBe([]);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'satiety' => 30, 'activity_token' => $care->activity_token]);
-    DB::statement('DROP TRIGGER reject_incident');
+    $this->allowCareWrites('reject_incident');
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     expect($pet->fresh()->debuffs[0]['code'])->toBe('poisoning');
     expect($engine->calls)->toBe(1);
@@ -196,7 +194,7 @@ test('incident history belongs only to the current owners selected pet', functio
     foreach ([$second, $foreign] as $pet) {
         PetCareAction::factory()->create(['user_id' => $pet->user_id, 'pet_id' => $pet->id, 'incidents' => [$incident], 'completed_at' => now()]);
     }
-    $this->actingAs($owner)->get(route('dashboard', ['pet' => $first->id]))->assertInertia(fn (Assert $page) => $page->has('care.recentIncidents', 0));
+    $this->actingAs($owner)->get(route('dashboard', ['pet' => $first->id]))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->has('care.recentIncidents', 0)));
 });
 
 test('shop and inventory warnings use their own quality values', function () {

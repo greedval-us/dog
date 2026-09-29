@@ -4,7 +4,6 @@ use App\Models\Pet;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\StartPetCare;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -41,8 +40,8 @@ test('care preview and start use regenerated energy and persist elapsed time onc
         'mood' => 100, 'mood_max' => 100, 'cleanliness' => 100, 'cleanliness_max' => 100,
     ]);
     $token = (string) Str::uuid();
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('care.options.4.reason', null));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->where('care.options.4.reason', null)));
 
     $payload = ['variant' => 'attention', 'items' => [], 'token' => $token];
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
@@ -54,9 +53,9 @@ test('care preview and start use regenerated energy and persist elapsed time onc
 
 test('care preview rejects activity based on decayed needs and leaves the snapshot untouched', function () {
     $pet = Pet::factory()->create(['state_updated_at' => now()->subHours(2), 'satiety' => 15, 'satiety_max' => 100]);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
         ->where('pet.states.satiety', 5)
-        ->where('care.options.4.reason', 'Feed your dog and offer water before active play or a walk.'));
+        ->where('care.options.4.reason', 'Feed your dog and offer water before active play or a walk.')));
 
     $this->post(route('pets.care.store', $pet), ['variant' => 'attention', 'items' => [], 'token' => (string) Str::uuid()])->assertSessionHasErrors('care');
 
@@ -83,7 +82,7 @@ test('failed completion rolls back decay together with the care effect', functio
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'water', [], (string) Str::uuid());
     $savedAt = $pet->fresh()->state_updated_at;
     $this->travel(2)->hours();
-    DB::statement("CREATE TRIGGER reject_decay_completion BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END");
+    $this->rejectCareWrites('reject_decay_completion', 'UPDATE');
 
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
 

@@ -14,7 +14,6 @@ use Database\Seeders\ItemEffectRuleSeeder;
 use Database\Seeders\ShopItemSeeder;
 use Database\Seeders\StatusEffectSeeder;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -76,8 +75,8 @@ test('free care previews and snapshots its buff and repeating completion cannot 
     $this->seed(StatusEffectSeeder::class);
     $pet = Pet::factory()->create(['mood' => 50]);
     $token = (string) Str::uuid();
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('care.options.4.grantedEffects.0.code', 'companionship'));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->where('care.options.4.grantedEffects.0.code', 'companionship')));
 
     $this->post(route('pets.care.store', $pet), ['variant' => 'attention', 'items' => [], 'token' => $token])->assertSessionHasNoErrors();
     StatusEffect::query()->where('code', 'companionship')->update(['duration_seconds' => 1, 'is_active' => false]);
@@ -110,8 +109,8 @@ test('water relieves poisoning even at full hydration and recovery is applied on
     $poison = StatusEffect::query()->where('code', 'poisoning')->firstOrFail();
     $expires = now()->addSeconds(1800)->timestamp;
     $pet = Pet::factory()->create(['debuffs' => [[...$poison->snapshot(), 'expires_at' => $expires]]]);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('care.options.1.reason', null)->where('care.options.1.statusRecovery.poisoning', 300));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->where('care.options.1.reason', null)->where('care.options.1.statusRecovery.poisoning', 300)));
 
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'water', [], (string) Str::uuid());
     $poison->update(['recovery_actions' => ['water' => 1800]]);
@@ -129,12 +128,12 @@ test('failed completion rolls back recovery and its retry applies the reduction 
     $pet = Pet::factory()->create(['hydration' => 50, 'debuffs' => [[...$effect->snapshot(), 'expires_at' => $expires]]]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'water', [], (string) Str::uuid());
     $this->travelTo($care->ends_at);
-    DB::statement("CREATE TRIGGER reject_recovery BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Failure'); END");
+    $this->rejectCareWrites('reject_recovery', 'UPDATE');
 
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
     expect($pet->fresh()->debuffs[0]['expires_at'])->toBe($expires);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'hydration' => 50, 'activity_token' => $care->activity_token]);
-    DB::statement('DROP TRIGGER reject_recovery');
+    $this->allowCareWrites('reject_recovery');
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
     expect($pet->fresh()->debuffs[0]['expires_at'])->toBe($expires - 300);
 });

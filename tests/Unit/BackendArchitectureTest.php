@@ -1,8 +1,15 @@
 <?php
 
+use App\Modules\Inventory\Services\InventoryConsumption;
+use App\Modules\Players\Services\PlayerWallet;
+
 $moduleDirectories = glob(dirname(__DIR__, 2).'/app/Modules/*', GLOB_ONLYDIR);
 $modules = array_map(fn (string $directory): string => 'App\\Modules\\'.basename($directory), $moduleDirectories);
 $layers = [];
+$publicOperations = [
+    PlayerWallet::class,
+    InventoryConsumption::class,
+];
 
 foreach (['Actions', 'Queries', 'DTO', 'Enums', 'Calculators', 'Generators', 'Services'] as $layer) {
     $layers[$layer] = array_map(
@@ -60,6 +67,20 @@ foreach ($modules as $module) {
     foreach (array_diff($modules, [$module]) as $otherModule) {
         foreach (['Actions', 'Queries', 'Generators'] as $layer) {
             $otherOperations[] = $otherModule.'\\'.$layer;
+        }
+
+        $serviceDirectory = dirname(__DIR__, 2).'/'.str_replace('\\', '/', str_replace('App\\', 'app\\', $otherModule)).'/Services';
+        if (is_dir($serviceDirectory)) {
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($serviceDirectory, FilesystemIterator::SKIP_DOTS)) as $file) {
+                if ($file->getExtension() !== 'php') {
+                    continue;
+                }
+                $relative = substr($file->getPathname(), strlen($serviceDirectory) + 1, -4);
+                $service = $otherModule.'\\Services\\'.str_replace('/', '\\', $relative);
+                if (! in_array($service, $publicOperations, true)) {
+                    $otherOperations[] = $service;
+                }
+            }
         }
     }
 

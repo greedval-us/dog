@@ -512,5 +512,9 @@
     "No active debuffs": "No active debuffs",
     "No active effects": "No active effects",
     "Effects appear here as you care for your dog.": "Effects from care and your dog's condition will appear here.",
-    "Timed effects disappear automatically when they expire.": "Timed effects disappear automatically when they expire."
+    "Timed effects disappear automatically when they expire.": "Timed effects disappear automatically when they expire.",
+    "Loading...": "Loading...",
+    "Could not load data. Please retry.": "Could not load data. Please retry.",
+    "Load more": "Load more",
+    "Retry": "Retry"
 }

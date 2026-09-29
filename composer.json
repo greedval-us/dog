@@ -96,6 +96,14 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "ci:server": [
+            "Composer\\Config::disableProcessTimeout",
+            "@test"
+        ],
+        "test:run": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test --compact"
         ]
     },
     "extra": {

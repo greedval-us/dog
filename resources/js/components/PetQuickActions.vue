@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, useHttp } from '@inertiajs/vue3';
 import {
     Brush,
     CircleDot,
@@ -30,6 +30,7 @@ import {
 import { useI18n } from '@/composables/useI18n';
 import { stateLabels } from '@/lib/petLabels';
 import { store, complete } from '@/routes/pets/care';
+import { careItems } from '@/routes';
 import { index as shop } from '@/routes/shop';
 import type { DogState, PlayerPet } from '@/types/pet';
 import type {
@@ -37,6 +38,7 @@ import type {
     PetCare,
     ItemRisk,
     StatusEffect,
+    CareItem,
 } from '@/types/pet-care';
 
 const props = defineProps<{ pet: PlayerPet; care: PetCare }>();
@@ -50,6 +52,14 @@ const eventDate = (value: string) =>
     }).format(new Date(value));
 const id = useId();
 const open = ref(false);
+const items = ref<CareItem[]>([]);
+const itemCursors = ref<Record<string, string | null>>({});
+const itemsError = ref(false);
+const itemRequest = useHttp<
+    Record<string, never>,
+    { items: CareItem[]; nextCursor: string | null }
+>({});
+let itemsGeneration = 0;
 const group = ref<CareGroup>('feed');
 const now = ref(Date.parse(props.care.serverNow));
 const mounted = ref(false);
@@ -67,6 +77,8 @@ onMounted(() => {
 onUnmounted(() => {
     clearInterval(clock);
     finish.cancel();
+    itemsGeneration++;
+    itemRequest.cancel();
 });
 watch(
     () => props.care.serverNow,
@@ -120,7 +132,7 @@ const itemsFor = (
     category: string,
     uses = selected.value?.uses[category] ?? 1,
 ) =>
-    props.care.items.filter(
+    items.value.filter(
         (item) => item.category === category && item.remainingUses >= uses,
     );
 const secondsLeft = (date?: string) =>
@@ -161,9 +173,7 @@ const liveModifiers = computed(() => {
     return result;
 });
 const selectedItems = computed(() =>
-    props.care.items.filter((item) =>
-        Object.values(form.items).includes(item.id),
-    ),
+    items.value.filter((item) => Object.values(form.items).includes(item.id)),
 );
 const grantedEffects = computed(() => {
     const combined = new Map<string, StatusEffect>(
@@ -300,6 +310,8 @@ const unavailable = computed(
     () =>
         props.care.blocked ||
         props.care.busy ||
+        itemRequest.processing ||
+        itemsError.value ||
         cooldown.value > 0 ||
         !!selectedReason.value ||
         missingItems.value,
@@ -331,24 +343,62 @@ function chooseVariant(variant: string) {
     form.variant = variant;
     form.items = {};
     form.clearErrors();
-    const option = props.care.options.find((entry) => entry.id === variant);
-    for (const category of option?.requirements ?? []) {
-        const first = itemsFor(category, option?.uses[category])[0];
-        if (first) form.items[category] = first.id;
+    void loadItems();
+}
+
+async function loadItems(category?: string) {
+    const generation = ++itemsGeneration;
+    itemRequest.cancel();
+    itemsError.value = false;
+    const option = selected.value;
+    if (!option) return;
+    if (!category) {
+        items.value = [];
+        itemCursors.value = {};
+    }
+    try {
+        for (const key of category
+            ? [category]
+            : [...option.requirements, ...option.optional]) {
+            const response = await itemRequest.get(
+                careItems.url({
+                    query: {
+                        category: key,
+                        uses: option.uses[key] ?? 1,
+                        cursor: category ? itemCursors.value[key] : undefined,
+                    },
+                }),
+            );
+            if (generation !== itemsGeneration) return;
+            const known = new Set(items.value.map((item) => item.id));
+            items.value.push(
+                ...response.items.filter((item) => !known.has(item.id)),
+            );
+            itemCursors.value[key] = response.nextCursor;
+            if (
+                option.requirements.includes(key) &&
+                !form.items[key] &&
+                response.items[0]
+            ) {
+                form.items[key] = response.items[0].id;
+            }
+        }
+    } catch {
+        if (generation === itemsGeneration) itemsError.value = true;
     }
 }
+
+watch(open, (value) => {
+    if (!value) {
+        itemsGeneration++;
+        itemRequest.cancel();
+    }
+});
 
 function choose(value: CareGroup) {
     group.value = value;
     const first =
-        options.value.find(
-            (option) =>
-                !option.reason &&
-                option.requirements.every(
-                    (category) =>
-                        itemsFor(category, option.uses[category]).length > 0,
-                ),
-        ) ?? options.value[0];
+        options.value.find((option) => !option.reason) ?? options.value[0];
     if (first) chooseVariant(first.id);
     form.token = props.care.token;
     open.value = true;
@@ -363,6 +413,7 @@ function start() {
         ),
     })).post(store.url(props.pet.id), {
         preserveScroll: true,
+        only: ['pet', 'care'],
         onSuccess: () => {
             open.value = false;
         },
@@ -383,6 +434,7 @@ function finishActivity() {
     finish.token = token;
     finish.post(complete.url(props.pet.id), {
         preserveScroll: true,
+        only: ['pet', 'care'],
         onFinish: () => {
             completionFailed.value = props.care.active?.token === token;
         },
@@ -560,6 +612,26 @@ function finishActivity() {
                             class="pet-care-supplies"
                             :aria-label="t('Supplies')"
                         >
+                            <p
+                                v-if="itemRequest.processing"
+                                class="dashboard-loading"
+                                role="status"
+                            >
+                                {{ t('Loading...') }}
+                            </p>
+                            <div v-if="itemsError" role="alert">
+                                <p>
+                                    {{
+                                        t('Could not load data. Please retry.')
+                                    }}
+                                </p>
+                                <Button
+                                    type="button"
+                                    :disabled="itemRequest.processing"
+                                    @click="loadItems()"
+                                    >{{ t('Retry') }}</Button
+                                >
+                            </div>
                             <div
                                 v-for="category in [
                                     ...selected.requirements,
@@ -619,11 +691,28 @@ function finishActivity() {
                                         }}
                                     </option>
                                 </select>
-                                <p v-else class="pet-care-missing">
+                                <p
+                                    v-else-if="
+                                        !itemRequest.processing && !itemsError
+                                    "
+                                    class="pet-care-missing"
+                                >
                                     {{
                                         t('No suitable item in your inventory.')
                                     }}
                                 </p>
+                                <Button
+                                    v-if="itemCursors[category]"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="
+                                        itemRequest.processing ||
+                                        form.processing
+                                    "
+                                    @click="loadItems(category)"
+                                    >{{ t('Load more') }}</Button
+                                >
                             </div>
                             <ItemBonuses
                                 v-for="item in selectedItems"
@@ -632,7 +721,11 @@ function finishActivity() {
                                 :effects="[]"
                             />
                             <div
-                                v-if="missingItems"
+                                v-if="
+                                    missingItems &&
+                                    !itemRequest.processing &&
+                                    !itemsError
+                                "
                                 class="pet-care-supply-help"
                             >
                                 <p>

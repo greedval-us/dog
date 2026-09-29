@@ -1,6 +1,25 @@
 @import 'tailwindcss';
-
 @import 'tw-animate-css';
+
+.dashboard-loading {
+    min-height: 4rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: var(--surface-soft);
+    animation: dashboard-loading-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes dashboard-loading-pulse {
+    to {
+        opacity: 0.45;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-loading {
+        animation: none;
+    }
+}
 
 /* Shop */
 .shop-page,

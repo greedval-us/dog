@@ -1,8 +1,14 @@
 <?php
 
+use App\Models\Dog;
 use App\Models\GameAsset;
+use App\Models\InventoryItem;
+use App\Models\Item;
+use App\Models\ItemCategory;
 use App\Models\Pet;
+use App\Models\PetCareAction;
 use App\Models\User;
+use App\Modules\Pets\Actions\StartPetCare;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -54,6 +60,95 @@ function waitForDatabaseLocks(array $names): void
 
     throw new RuntimeException('Concurrent workers did not reach the expected row locks.');
 }
+
+/**
+ * @param  list<array<string, mixed>>  $operations
+ * @return list<string>
+ */
+function runDatabaseRace(User $user, array $operations): array
+{
+    $workers = [];
+    $names = [];
+    DB::beginTransaction();
+
+    try {
+        User::query()->lockForUpdate()->findOrFail($user->id);
+        foreach ($operations as $operation) {
+            $names[] = $name = 'dog-test-'.Str::uuid();
+            $workers[] = startDatabaseWorker(['name' => $name, 'user_id' => $user->id, 'at' => now()->toISOString(), ...$operation]);
+        }
+        waitForDatabaseLocks($names);
+        DB::commit();
+
+        $results = [];
+        foreach ($workers as $worker) {
+            $worker->wait();
+            expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput().$worker->getOutput());
+            $results[] = trim($worker->getOutput());
+        }
+        sort($results);
+
+        return $results;
+    } finally {
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
+        foreach ($workers as $worker) {
+            $worker->stop();
+        }
+    }
+}
+
+test('simultaneous care starts consume energy and the last item once', function (string $race) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 50, 'mood' => 20]);
+    $toy = InventoryItem::factory()->for($pet->user)->for(Item::factory()->for(
+        ItemCategory::factory()->state(['code' => 'toys']), 'category'
+    ))->create(['remaining_uses' => 1]);
+    $operation = ['action' => 'care-start', 'pet_id' => $pet->id, 'variant' => 'toy', 'items' => ['toys' => $toy->id], 'token' => (string) Str::uuid()];
+    $second = $operation;
+    if ($race !== 'same token') {
+        $second['token'] = (string) Str::uuid();
+    }
+    if ($race === 'shared item') {
+        $second['pet_id'] = Pet::factory()->for($pet->user)->create(['energy' => 50, 'mood' => 20])->id;
+    }
+
+    expect(runDatabaseRace($pet->user, [$operation, $second]))->toBe($race === 'same token' ? ['ok', 'ok'] : ['ok', 'unavailable']);
+    $this->assertModelMissing($toy);
+    $this->assertDatabaseCount('item_usages', 1);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+    $winner = PetCareAction::query()->sole();
+    $this->assertDatabaseHas('pets', ['id' => $winner->pet_id, 'energy' => 40, 'activity_token' => $winner->activity_token]);
+    if ($race === 'shared item') {
+        $loser = $winner->pet_id === $pet->id ? $second['pet_id'] : $pet->id;
+        $this->assertDatabaseHas('pets', ['id' => $loser, 'energy' => 50, 'activity' => null]);
+    }
+})->with(['same token', 'different tokens', 'shared item']);
+
+test('simultaneous care completions apply the saved result once', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['energy' => 50, 'mood' => 20, 'mood_max' => 100]);
+    $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
+    $this->travelTo($care->ends_at);
+    $operation = ['action' => 'care-complete', 'pet_id' => $pet->id, 'token' => $care->token];
+
+    expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['applied', 'replayed']);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 29.9333, 'activity' => null]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => now()->toDateTimeString()]);
+});
+
+test('simultaneous kennel retries return one durable purchase', function () {
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 1000, 'pet_slots' => 2, 'starter_pet_claimed_at' => now()]);
+    $operation = ['action' => 'kennel', 'dog_id' => $dog->id, 'token' => (string) Str::uuid()];
+
+    expect(runDatabaseRace($user, [$operation, $operation]))->toBe(['ok', 'ok']);
+    $this->assertDatabaseCount('pets', 1);
+    $this->assertDatabaseCount('kennel_purchases', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 500]);
+});
 
 test('simultaneous requests buy one slot and debit the player once', function () {
     $user = User::factory()->create(['coins' => 100]);

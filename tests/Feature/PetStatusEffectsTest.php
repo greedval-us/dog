@@ -15,7 +15,6 @@ use App\Modules\Pets\Queries\GetPetStatuses;
 use Database\Seeders\ShopItemSeeder;
 use Database\Seeders\StatusEffectSeeder;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Random\Engine;
@@ -83,7 +82,7 @@ test('item bonuses and timed buffs are saved at start and awarded only once afte
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 25, 'energy' => 40]);
     expect($pet->fresh()->buffs)->toHaveCount(1);
     expect($pet->fresh()->buffs[0])->toMatchArray(['expires_at' => now()->addSeconds(1800)->timestamp, 'modifiers' => ['energy_cost_percent' => -10]]);
-    $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->where('care.buffs.0.code', 'comfort'));
+    $this->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->where('care.buffs.0.code', 'comfort')));
     $this->assertDatabaseCount('item_usages', 1);
 });
 
@@ -124,8 +123,8 @@ test('low needs show persistent debuffs and recovering the need removes them', f
     $this->seed(StatusEffectSeeder::class);
     $pet = Pet::factory()->create([$state => 15, $state.'_max' => 100]);
     $items = $variant === 'meal' ? ['food' => statusItem($pet, 'food')->id] : [];
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('care.debuffs.0.code', $code)->where('care.debuffs.0.expires_at', null));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page
+        ->where('care.debuffs.0.code', $code)->where('care.debuffs.0.expires_at', null)));
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, $variant, $items, (string) Str::uuid());
     expect($pet->fresh()->debuffs[0]['code'])->toBe($code);
     $this->travelTo($care->ends_at);
@@ -137,7 +136,7 @@ test('debuffs change the displayed and charged energy and mood gain', function (
     $this->seed(StatusEffectSeeder::class);
     $pet = Pet::factory()->create(['energy' => 50, 'mood' => 0, 'mood_max' => 100, 'satiety' => 15, 'satiety_max' => 100,
         'hydration' => 15, 'hydration_max' => 100, 'cleanliness' => 15, 'cleanliness_max' => 100]);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->where('care.options.4.energy', 9));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->where('care.options.4.energy', 9)));
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 41]);
     $this->travel(120)->seconds();
@@ -172,7 +171,7 @@ test('a failed completion rolls back buffs as well as state changes', function (
     $toy = statusItem($pet, 'toys', ['effect_codes' => [$effect->code]]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'toy', ['toys' => $toy->id], (string) Str::uuid());
     $this->travel(180)->seconds();
-    DB::statement("CREATE TRIGGER reject_status_completion BEFORE UPDATE ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Failure'); END");
+    $this->rejectCareWrites('reject_status_completion', 'UPDATE');
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toThrow(QueryException::class);
     expect($pet->fresh()->buffs)->toBe([]);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 0, 'activity_token' => $care->activity_token]);
@@ -209,7 +208,7 @@ test('the need threshold is inclusive for recovery and dashboard reads do not sa
     $this->seed(StatusEffectSeeder::class);
     $pet = Pet::factory()->create(['satiety' => 20, 'satiety_max' => 100, 'hydration' => 20, 'hydration_max' => 100,
         'cleanliness' => 20, 'cleanliness_max' => 100]);
-    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page->has('care.debuffs', 0));
+    $this->actingAs($pet->user)->get(route('dashboard'))->assertInertia(fn (Assert $initial) => $initial->reloadOnly(['pet', 'care', 'appearance'], fn (Assert $page) => $page->has('care.debuffs', 0)));
     expect($pet->fresh()->debuffs)->toBeNull();
 });
 

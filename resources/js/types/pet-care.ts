@@ -64,7 +64,6 @@ export type PetCare = {
     busy: boolean;
     cooldowns: Partial<Record<CareGroup, string>>;
     options: CareOption[];
-    items: CareItem[];
     active: null | {
         token: string;
         label: string;

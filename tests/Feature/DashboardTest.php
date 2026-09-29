@@ -5,10 +5,38 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Services\PetActivityManager;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutVite();
+});
+
+test('dashboard defers care and appearance and polling skips slots and inventory', function () {
+    $pet = Pet::factory()->create();
+    $this->actingAs($pet->user);
+    DB::enableQueryLog();
+
+    $initial = $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->where('pet.id', $pet->id)->has('slots')->missing('care')->missing('appearance')
+    );
+    $initialQueries = implode(' ', array_column(DB::getQueryLog(), 'query'));
+    expect($initialQueries)->not->toContain('pet_care_actions', 'inventory_items', 'game_assets', 'status_effects');
+    DB::flushQueryLog();
+
+    $this->get(route('dashboard'), [
+        'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'Dashboard', 'X-Inertia-Partial-Data' => 'pet,care',
+        'X-Inertia-Version' => $initial->viewData('page')['version'],
+    ])->assertOk()->assertJsonPath('props.pet.id', $pet->id)->assertJsonCount(10, 'props.care.options')
+        ->assertJsonMissingPath('props.care.items')->assertJsonMissingPath('props.appearance')
+        ->assertJsonMissingPath('props.slots')->assertJsonMissingPath('props.canClaimStarterPet');
+    $pollQueries = implode(' ', array_column(DB::getQueryLog(), 'query'));
+    DB::disableQueryLog();
+    expect($pollQueries)->not->toContain('inventory_items', 'game_assets', 'pet_slots');
+
+    $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->loadDeferredProps('appearance', fn (Assert $deferred) => $deferred->has('appearance')->missing('care'))
+    );
 });
 
 test('the dashboard shows stored energy and the pets own maximum after spending energy', function (float $initial, int|float $remaining, int|float $percentage) {
