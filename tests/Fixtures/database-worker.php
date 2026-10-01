@@ -6,10 +6,14 @@ use App\Modules\Appearance\DTO\PurchaseAssetData;
 use App\Modules\Appearance\Enums\AssetCurrency;
 use App\Modules\Kennel\Actions\PurchaseKennelPet;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Actions\CompletePetCare;
+use App\Modules\Pets\Actions\GenerateDogWorkBoard;
 use App\Modules\Pets\Actions\PurchasePetSlot;
+use App\Modules\Pets\Actions\StartDogWork;
 use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Pets\DTO\PurchasePetSlotData;
+use App\Modules\Pets\DTO\StartDogWorkData;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
@@ -46,6 +50,9 @@ try {
         'appearance' => app(PurchasePetAsset::class)->handle($user, $input['pet_id'], new PurchaseAssetData($input['asset_id'], 100, AssetCurrency::Coins)),
         'care-start' => app(StartPetCare::class)->handle($user, $input['pet_id'], $input['variant'], $input['items'], $input['token']),
         'care-complete' => app(CompletePetCare::class)->handle($user, $input['pet_id'], $input['token']),
+        'dog-work-board' => app(GenerateDogWorkBoard::class)->handle(),
+        'dog-work-start' => app(StartDogWork::class)->handle($user, $input['pet_id'], new StartDogWorkData($input['offer_id'], $input['token'])),
+        'dog-work-complete' => app(CompleteDogWork::class)->handle($user, $input['token']),
         'kennel' => app(PurchaseKennelPet::class)->handle($user, new PurchaseKennelPetData($input['dog_id'], 'Luna', 500, $input['token'])),
     };
     echo $input['action'] === 'care-complete' ? ($result ? 'applied' : 'replayed') : 'ok';

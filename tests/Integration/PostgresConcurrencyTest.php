@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\Dog;
+use App\Models\DogWorkBoard;
+use App\Models\DogWorkOffer;
+use App\Models\DogWorkShift;
+use App\Models\DogWorkType;
 use App\Models\GameAsset;
 use App\Models\InventoryItem;
 use App\Models\Item;
@@ -245,4 +249,101 @@ test('purchasing a popular background does not wait for another catalogue reader
     $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 0]);
     $this->assertDatabaseCount('asset_unlocks', 1);
     $this->assertDatabaseCount('currency_transactions', 1);
+});
+
+test('simultaneous different players compete for one global dog work place', function () {
+    $this->freezeSecond();
+    $offer = DogWorkOffer::factory()->create(['daily_limit' => 1]);
+    $pets = [];
+    foreach (range(1, 2) as $index) {
+        $pet = Pet::factory()->create(['intelligence' => 100, 'obedience' => 100, 'energy' => 100]);
+        $pet->skills()->attach($offer->required_skill_id, ['level' => $offer->required_skill_level]);
+        $pets[] = $pet;
+    }
+    $workers = [];
+    $names = [];
+    DB::beginTransaction();
+    try {
+        DogWorkOffer::query()->lockForUpdate()->findOrFail($offer->id);
+        foreach ($pets as $pet) {
+            $names[] = $name = 'dog-test-'.Str::uuid();
+            $workers[] = startDatabaseWorker(['name' => $name, 'user_id' => $pet->user_id, 'at' => now()->toISOString(),
+                'action' => 'dog-work-start', 'pet_id' => $pet->id, 'offer_id' => $offer->id, 'token' => (string) Str::uuid()]);
+        }
+        waitForDatabaseLocks($names);
+        DB::commit();
+        $results = [];
+        foreach ($workers as $worker) {
+            $worker->wait();
+            expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput().$worker->getOutput());
+            $results[] = trim($worker->getOutput());
+        }
+        sort($results);
+        expect($results)->toBe(['ok', 'unavailable']);
+    } finally {
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
+        foreach ($workers as $worker) {
+            $worker->stop();
+        }
+    }
+    $this->assertDatabaseCount('dog_work_shifts', 1);
+    expect($offer->refresh()->reserved_count)->toBe(1);
+    $winner = DogWorkShift::query()->sole();
+    $loser = $pets[0]->id === $winner->pet_id ? $pets[1] : $pets[0];
+    $this->assertDatabaseHas('pets', ['id' => $loser->id, 'energy' => 100, 'activity' => null]);
+});
+
+test('simultaneous board generators publish one daily selection', function () {
+    $this->freezeSecond();
+    DogWorkType::factory()->count(8)->create();
+    $board = DogWorkBoard::factory()->create(['generated_at' => null]);
+    $user = User::factory()->create();
+    $workers = [];
+    $names = [];
+    DB::beginTransaction();
+    try {
+        DogWorkBoard::query()->lockForUpdate()->findOrFail($board->id);
+        foreach (range(1, 2) as $index) {
+            $names[] = $name = 'dog-test-'.Str::uuid();
+            $workers[] = startDatabaseWorker(['name' => $name, 'user_id' => $user->id, 'at' => now()->toISOString(), 'action' => 'dog-work-board']);
+        }
+        waitForDatabaseLocks($names);
+        DB::commit();
+        foreach ($workers as $worker) {
+            $worker->wait();
+            expect($worker->isSuccessful())->toBeTrue($worker->getErrorOutput().$worker->getOutput());
+            expect(trim($worker->getOutput()))->toBe('ok');
+        }
+    } finally {
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
+        foreach ($workers as $worker) {
+            $worker->stop();
+        }
+    }
+    $this->assertDatabaseCount('dog_work_boards', 1);
+    expect($board->offers()->count())->toBe(6);
+    expect($board->refresh()->generated_at)->not->toBeNull();
+});
+
+test('simultaneous dog work retries reserve and reward only once', function () {
+    $this->freezeSecond();
+    $offer = DogWorkOffer::factory()->create(['gems_reward' => 1]);
+    $pet = Pet::factory()->create(['intelligence' => 100, 'obedience' => 100, 'energy' => 100]);
+    $pet->skills()->attach($offer->required_skill_id, ['level' => $offer->required_skill_level]);
+    $operation = ['action' => 'dog-work-start', 'pet_id' => $pet->id, 'offer_id' => $offer->id, 'token' => (string) Str::uuid()];
+    expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['ok', 'ok']);
+    expect($offer->refresh()->reserved_count)->toBe(1);
+    $shift = DogWorkShift::query()->sole();
+    $coins = $pet->user->coins;
+    $gems = $pet->user->gems;
+    $this->travelTo($shift->ends_at);
+    $finish = ['action' => 'dog-work-complete', 'token' => $shift->token];
+    expect(runDatabaseRace($pet->user, [$finish, $finish]))->toBe(['ok', 'ok']);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => $coins + 150, 'gems' => $gems + 1]);
+    $this->assertDatabaseCount('currency_transactions', 2);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity' => null]);
 });

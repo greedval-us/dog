@@ -5,6 +5,7 @@ use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\CareItemController;
 use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DogWorkController;
 use App\Http\Controllers\GameImageController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KennelController;
@@ -31,6 +32,9 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('care-items', CareItemController::class)->name('care-items');
+    Route::get('dog-work', [DogWorkController::class, 'index'])->name('dog-work.index');
+    Route::post('dog-work', [DogWorkController::class, 'store'])->middleware('throttle:15,1')->name('dog-work.store');
+    Route::post('dog-work/complete', [DogWorkController::class, 'complete'])->middleware('throttle:15,1')->name('dog-work.complete');
     Route::post('daily-work', [DailyWorkController::class, 'store'])->middleware('throttle:15,1')->name('daily-work.store');
     Route::post('pets/{pet}/care', [PetCareController::class, 'store'])->middleware('throttle:30,1')->name('pets.care.store');
     Route::post('pets/{pet}/care/complete', [PetCareController::class, 'complete'])->middleware('throttle:30,1')->name('pets.care.complete');

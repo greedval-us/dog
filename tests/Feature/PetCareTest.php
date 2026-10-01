@@ -174,6 +174,7 @@ test('inventory and activity changes roll back when saving the care receipt fail
 });
 
 test('pet state and account restrictions reject care without writes', function (array $attributes, string $variant, bool $blocked) {
+    $this->freezeSecond();
     $pet = Pet::factory()->create($attributes);
 
     if ($blocked) {

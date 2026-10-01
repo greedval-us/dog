@@ -36,6 +36,7 @@ import { stateLabels, statLabels } from '@/lib/petLabels';
 import { store, complete } from '@/routes/pets/care';
 import { careItems } from '@/routes';
 import { index as shop } from '@/routes/shop';
+import { index as dogWork } from '@/routes/dog-work';
 import type { DogState, DogStat, PlayerPet } from '@/types/pet';
 import type {
     CareGroup,
@@ -624,6 +625,14 @@ function finishActivity() {
             </Button>
             <InputError :message="finishError" />
         </div>
+        <p v-else-if="care.working" class="pet-care-notice">
+            {{ t('Your dog is working.') }}
+            <Link
+                :href="dogWork({ query: { pet: pet.id } })"
+                class="text-link"
+                >{{ t('Open the job board') }}</Link
+            >
+        </p>
         <p v-else-if="care.busy" class="pet-care-notice">
             {{ t('Your dog is busy with another activity.') }}
         </p>

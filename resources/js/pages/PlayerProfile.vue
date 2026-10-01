@@ -13,6 +13,7 @@ import { dashboard } from '@/routes';
 import { image } from '@/routes/assets';
 import { index as kennel } from '@/routes/kennel';
 import { index as inventory } from '@/routes/inventory';
+import { index as dogWork } from '@/routes/dog-work';
 import type { DailyWork, PlayerDog, PlayerProfile } from '@/types/player';
 
 defineProps<{
@@ -51,6 +52,13 @@ const { t, number } = useI18n();
             </template>
             <template v-if="isOwner && dailyWork" #daily-work>
                 <PlayerDailyWork :work="dailyWork" />
+                <Button as-child variant="secondary">
+                    <Link :href="dogWork()"
+                        ><PawPrint aria-hidden="true" />{{
+                            t('Work with a dog')
+                        }}</Link
+                    >
+                </Button>
             </template>
         </PlayerCard>
         <SurfaceCard class="player-dogs">

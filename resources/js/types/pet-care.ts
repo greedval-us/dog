@@ -71,6 +71,7 @@ export type PetCare = {
     serverNow: string;
     blocked: boolean;
     busy: boolean;
+    working: boolean;
     cooldowns: Partial<Record<CareGroup, string>>;
     options: CareOption[];
     active: null | {

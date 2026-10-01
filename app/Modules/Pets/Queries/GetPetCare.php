@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pets\Queries;
 
+use App\Models\DogWorkShift;
 use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetCareRules;
@@ -82,6 +83,8 @@ final class GetPetCare
                 ])->all(),
             'blocked' => $user->status !== PlayerStatus::Active || $pet->retired_at !== null,
             'busy' => $pet->isBusy(),
+            'working' => DogWorkShift::query()->where('pet_id', $petId)->where('user_id', $user->id)
+                ->where('activity_token', $pet->activity_token)->whereNull('completed_at')->exists(),
             'cooldowns' => $cooldowns,
             'options' => $variants,
             'active' => $active === null ? null : [

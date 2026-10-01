@@ -12,4 +12,5 @@ enum PetActivity: string
     case Play = 'play';
     case Groom = 'groom';
     case Sleep = 'sleep';
+    case Work = 'work';
 }

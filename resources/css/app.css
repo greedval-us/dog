@@ -1,6 +1,150 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+.dog-work-page,
+.dog-work-intro,
+.dog-work-active {
+    display: grid;
+    gap: 24px;
+    min-width: 0;
+}
+.dog-work-intro > [data-slot='card-content'] {
+    display: grid;
+    gap: 14px;
+}
+.dog-work-intro-heading,
+.dog-work-shift,
+.dog-work-job-footer,
+.dog-work-details dd,
+.dog-work-timer,
+.dog-work-shift .text-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dog-work-intro h2,
+.dog-work-shift h3 {
+    font-weight: 700;
+}
+.dog-work-intro p,
+.dog-work-reason,
+.dog-work-details dt {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.dog-work-select {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+}
+.dog-work-select:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.dog-work-select:disabled {
+    opacity: 0.6;
+}
+.dog-work-empty {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+}
+.dog-work-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+.dog-work-job {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.dog-work-job > [data-slot='card-content'] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 18px;
+}
+.dog-work-details {
+    display: grid;
+    gap: 12px;
+}
+.dog-work-details > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+}
+.dog-work-details dt {
+    flex-shrink: 0;
+}
+.dog-work-details dd {
+    justify-content: flex-end;
+    text-align: right;
+    font-size: 14px;
+    min-width: 0;
+}
+.dog-work-details svg {
+    flex-shrink: 0;
+}
+.dog-work-job-footer {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-top: auto;
+}
+.dog-work-shift {
+    flex-wrap: wrap;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+}
+.dog-work-shift:first-child {
+    padding-top: 0;
+}
+.dog-work-shift:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+.dog-work-shift > div:first-child {
+    flex: 1;
+    min-width: 180px;
+    overflow-wrap: anywhere;
+}
+.dog-work-shift-action {
+    margin-left: auto;
+}
+.dog-work-timer {
+    font-variant-numeric: tabular-nums;
+}
+.dog-work-shift .text-link {
+    margin-top: 6px;
+    font-size: 13px;
+}
+@media (max-width: 650px) {
+    .dog-work-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .dog-work-shift-action {
+        width: 100%;
+        margin-left: 0;
+    }
+    .dog-work-job-footer > button,
+    .dog-work-shift-action > button {
+        width: 100%;
+    }
+    .dog-work-details > div:first-child {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    .dog-work-details > div:first-child dd {
+        text-align: left;
+    }
+}
+
 .dashboard-loading {
     min-height: 4rem;
     padding: 1rem;
