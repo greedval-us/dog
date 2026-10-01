@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Modules\Appearance\Queries\GetPetAppearance;
 use App\Modules\Pets\Queries\GetPetCare;
+use App\Modules\Pets\Queries\GetPetSkills;
 use App\Modules\Pets\Queries\GetPetSlots;
 use App\Modules\Pets\Queries\GetPrimaryPet;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare): Response
+    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare, GetPetSkills $getSkills): Response
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
@@ -28,6 +29,7 @@ class DashboardController extends Controller
             'slots' => fn () => $getSlots->handle($user),
             'pet' => fn () => $petId === null ? null : $getPrimaryPet->handle($user, app()->getLocale(), $petId)?->toArray(),
             'care' => Inertia::defer(fn () => $petId === null ? null : $getCare->handle($user, $petId, app()->getLocale()), 'care', rescue: true),
+            'skills' => Inertia::defer(fn () => $petId === null ? null : $getSkills->handle($user, $petId, app()->getLocale()), 'skills', rescue: true),
             'appearance' => Inertia::defer(fn () => $petId === null ? null : $getAppearance->handle($user, $petId, app()->getLocale())->toArray(), 'appearance', rescue: true),
         ]);
     }

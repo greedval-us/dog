@@ -11,6 +11,7 @@ use App\Http\Controllers\KennelController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PetAppearanceController;
 use App\Http\Controllers\PetCareController;
+use App\Http\Controllers\PetSkillController;
 use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
@@ -33,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('daily-work', [DailyWorkController::class, 'store'])->middleware('throttle:15,1')->name('daily-work.store');
     Route::post('pets/{pet}/care', [PetCareController::class, 'store'])->middleware('throttle:30,1')->name('pets.care.store');
     Route::post('pets/{pet}/care/complete', [PetCareController::class, 'complete'])->middleware('throttle:30,1')->name('pets.care.complete');
+    Route::post('pets/{pet}/skills', [PetSkillController::class, 'store'])->middleware('throttle:15,1')->name('pets.skills.store');
     Route::get('shop', [ShopController::class, 'index'])->name('shop.index');
     Route::get('inventory', InventoryController::class)->name('inventory.index');
     Route::post('shop/purchases', [ShopController::class, 'store'])->middleware('throttle:15,1')->name('shop.store');

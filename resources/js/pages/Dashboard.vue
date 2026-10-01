@@ -16,6 +16,7 @@ import type { PetAppearance } from '@/types/appearance';
 import { index as kennel } from '@/routes/kennel';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
+import type { PetSkills } from '@/types/pet-skill';
 
 defineProps<{
     pet: PlayerPet | null;
@@ -23,10 +24,11 @@ defineProps<{
     appearance?: PetAppearance | null;
     slots: PetSlot[];
     care?: PetCare | null;
+    skills?: PetSkills | null;
 }>();
 const { t } = useI18n();
 
-usePoll(60_000, { only: ['pet', 'care'] });
+usePoll(60_000, { only: ['pet', 'care', 'skills'] });
 </script>
 
 <template>
@@ -134,7 +136,12 @@ usePoll(60_000, { only: ['pet', 'care'] });
                         </Deferred>
                     </aside>
                 </div>
-                <PetDetails :key="pet.id" :pet="pet" :care="care ?? null" />
+                <PetDetails
+                    :key="pet.id"
+                    :pet="pet"
+                    :care="care ?? null"
+                    :skills="skills ?? null"
+                />
             </div>
         </Deferred>
     </div>

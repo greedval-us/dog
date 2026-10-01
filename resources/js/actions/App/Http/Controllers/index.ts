@@ -4,6 +4,7 @@ import DashboardController from './DashboardController'
 import CareItemController from './CareItemController'
 import DailyWorkController from './DailyWorkController'
 import PetCareController from './PetCareController'
+import PetSkillController from './PetSkillController'
 import ShopController from './ShopController'
 import InventoryController from './InventoryController'
 import PetSlotController from './PetSlotController'
@@ -21,6 +22,7 @@ DashboardController: Object.assign(DashboardController, DashboardController),
 CareItemController: Object.assign(CareItemController, CareItemController),
 DailyWorkController: Object.assign(DailyWorkController, DailyWorkController),
 PetCareController: Object.assign(PetCareController, PetCareController),
+PetSkillController: Object.assign(PetSkillController, PetSkillController),
 ShopController: Object.assign(ShopController, ShopController),
 InventoryController: Object.assign(InventoryController, InventoryController),
 PetSlotController: Object.assign(PetSlotController, PetSlotController),

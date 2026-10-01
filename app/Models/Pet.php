@@ -146,10 +146,11 @@ class Pet extends Model
         return $this->belongsToMany(CharacterTrait::class)->withTimestamps()->orderByPivot('id');
     }
 
-    /** @return BelongsToMany<Skill, $this> */
+    /** @return BelongsToMany<Skill, $this, PetSkill> */
     public function skills(): BelongsToMany
     {
-        return $this->belongsToMany(Skill::class)->withPivot(['level', 'experience'])->withTimestamps();
+        return $this->belongsToMany(Skill::class)->using(PetSkill::class)
+            ->withPivot(['level', 'experience', 'last_trained_at', 'cooldown_until'])->withTimestamps();
     }
 
     /** @return HasMany<PetDisease, $this> */

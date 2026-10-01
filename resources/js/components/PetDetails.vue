@@ -13,6 +13,7 @@ import DogStats from '@/components/DogStats.vue';
 import PetFeaturePlaceholder from '@/components/PetFeaturePlaceholder.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
+import PetSkills from '@/components/PetSkills.vue';
 import { Deferred, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -20,8 +21,13 @@ import StatusEffects from '@/components/StatusEffects.vue';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
+import type { PetSkills as PetSkillsData } from '@/types/pet-skill';
 
-defineProps<{ pet: PlayerPet; care: PetCare | null }>();
+defineProps<{
+    pet: PlayerPet;
+    care: PetCare | null;
+    skills: PetSkillsData | null;
+}>();
 const { t } = useI18n();
 const tabs = [
     { value: 'overview', label: 'Overview', icon: PawPrint },
@@ -30,8 +36,6 @@ const tabs = [
         value: 'skills',
         label: 'Skills',
         icon: Sparkles,
-        description:
-            'Commands, learned skills and training progress will appear here.',
     },
     {
         value: 'equipment',
@@ -127,6 +131,31 @@ const tabs = [
                     :pet="pet"
                     :care="care"
                     training-only
+                />
+            </Deferred>
+        </TabsContent>
+        <TabsContent value="skills" class="pet-tab-panel">
+            <Deferred data="skills">
+                <template #fallback
+                    ><div class="dashboard-loading" role="status">
+                        {{ t('Loading...') }}
+                    </div></template
+                >
+                <template #rescue="{ reloading }"
+                    ><div role="alert">
+                        <p>{{ t('Could not load data. Please retry.') }}</p>
+                        <Button
+                            :disabled="reloading"
+                            @click="router.reload({ only: ['pet', 'skills'] })"
+                            >{{ t('Retry') }}</Button
+                        >
+                    </div></template
+                >
+                <PetSkills
+                    v-if="skills"
+                    :key="pet.id"
+                    :pet="pet"
+                    :data="skills"
                 />
             </Deferred>
         </TabsContent>

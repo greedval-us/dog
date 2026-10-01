@@ -2224,6 +2224,170 @@
     outline-offset: 3px;
     border-radius: 16px;
 }
+.pet-skills {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+.pet-skills-intro p,
+.pet-skill-description,
+.pet-skill-reason,
+.pet-skill-inactive {
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+}
+.pet-skills-intro p + p {
+    margin-top: 7px;
+}
+.pet-skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+    gap: 14px;
+}
+.pet-skill-card {
+    min-width: 0;
+}
+.pet-skill-card [data-slot='card-content'] {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.pet-skill-description {
+    margin-top: 10px;
+}
+.pet-skill-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+.pet-skill-heading > div {
+    flex: 1;
+    min-width: 0;
+}
+.pet-skill-heading h3 {
+    font-size: 16px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.pet-skill-heading > div > span {
+    color: var(--muted-foreground);
+    font-size: 11px;
+}
+.pet-skill-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    color: var(--primary);
+}
+.pet-skill-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 7px;
+    border-radius: 7px;
+    background: var(--surface-soft);
+    color: var(--muted-foreground);
+    font-size: 10px;
+}
+.pet-skill-status.is-active {
+    background: var(--success-surface);
+    color: var(--success);
+}
+.pet-skill-levels {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    margin: 14px 0;
+}
+.pet-skill-levels button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    min-height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.pet-skill-levels button.is-learned {
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+}
+.pet-skill-levels button[aria-pressed='true'] {
+    border-color: var(--primary);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+.pet-skill-levels button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+.pet-skill-requirements h4 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.pet-skill-requirements dl {
+    display: grid;
+    gap: 6px;
+}
+.pet-skill-requirements dl > div,
+.pet-skill-requirements dd,
+.pet-skill-requirements > p,
+.pet-skill-cooldown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.pet-skill-requirements dl > div {
+    justify-content: space-between;
+}
+.pet-skill-requirements dt {
+    color: var(--muted-foreground);
+}
+.pet-skill-requirements dd {
+    white-space: nowrap;
+    color: var(--success);
+}
+.pet-skill-requirements dd.is-low {
+    color: var(--destructive);
+}
+.pet-skill-requirements > p {
+    margin-top: 10px;
+}
+.pet-skill-inactive {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--danger-surface);
+}
+.pet-skill-inactive > span {
+    display: block;
+}
+.pet-skill-footer {
+    display: grid;
+    gap: 9px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.pet-skill-footer button {
+    white-space: normal;
+    height: auto;
+    min-height: 38px;
+    overflow-wrap: anywhere;
+}
+.pet-skill-error {
+    color: var(--destructive);
+    overflow-wrap: anywhere;
+}
 .pet-overview-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
