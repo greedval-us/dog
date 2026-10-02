@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\MoonShine\Resources\MoonShineUser;
 
-use MoonShine\Laravel\Models\MoonshineUser;
-use MoonShine\Laravel\Resources\ModelResource;
 use App\MoonShine\Resources\MoonShineUser\Pages\MoonShineUserFormPage;
 use App\MoonShine\Resources\MoonShineUser\Pages\MoonShineUserIndexPage;
+use App\MoonShine\Traits\AuditsAdminChanges;
+use MoonShine\Laravel\Models\MoonshineUser;
+use MoonShine\Laravel\Resources\ModelResource;
 use MoonShine\MenuManager\Attributes\Group;
 use MoonShine\MenuManager\Attributes\Order;
 use MoonShine\Support\Attributes\Icon;
@@ -22,6 +23,8 @@ use MoonShine\Support\ListOf;
 #[Order(0)]
 class MoonShineUserResource extends ModelResource
 {
+    use AuditsAdminChanges;
+
     protected string $model = MoonshineUser::class;
 
     protected string $column = 'name';
@@ -32,12 +35,12 @@ class MoonShineUserResource extends ModelResource
 
     public function getTitle(): string
     {
-        return __('moonshine::ui.resource.admins_title');
+        return __('admin.resources.staff');
     }
 
     protected function activeActions(): ListOf
     {
-        return parent::activeActions()->except(Action::VIEW);
+        return parent::activeActions()->except(Action::VIEW, Action::DELETE, Action::MASS_DELETE);
     }
 
     protected function pages(): array

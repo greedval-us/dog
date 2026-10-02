@@ -22,6 +22,7 @@ declare module '@inertiajs/core' {
             locales: Record<'ru' | 'en', string>;
             auth: Auth;
             sidebarOpen: boolean;
+            systemNotificationUnreadCount: number;
             [key: string]: unknown;
         };
     }

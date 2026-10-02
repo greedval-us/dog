@@ -87,7 +87,7 @@ class User extends Authenticatable implements HasLocalePreference
 
     public function preferredLocale(): string
     {
-        return $this->locale;
+        return $this->locale ?? config('localization.default', 'ru');
     }
 
     public function avatarVersion(): ?string

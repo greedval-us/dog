@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\MoonShine\Resources\MoonShineUser\Pages;
 
+use App\MoonShine\Enums\StaffRole;
 use App\MoonShine\Resources\MoonShineUser\MoonShineUserResource;
 use App\MoonShine\Resources\MoonShineUserRole\MoonShineUserRoleResource;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -16,13 +17,13 @@ use MoonShine\Contracts\UI\FieldContract;
 use MoonShine\Laravel\Fields\Relationships\BelongsTo;
 use MoonShine\Laravel\Models\MoonshineUser;
 use MoonShine\Laravel\Models\MoonshineUserRole;
+use MoonShine\Laravel\MoonShineAuth;
 use MoonShine\Laravel\Pages\Crud\FormPage;
 use MoonShine\UI\Components\Collapse;
 use MoonShine\UI\Components\Layout\Box;
 use MoonShine\UI\Components\Layout\Flex;
 use MoonShine\UI\Components\Tabs;
 use MoonShine\UI\Components\Tabs\Tab;
-use MoonShine\UI\Fields\Date;
 use MoonShine\UI\Fields\Email;
 use MoonShine\UI\Fields\ID;
 use MoonShine\UI\Fields\Image;
@@ -49,11 +50,10 @@ final class MoonShineUserFormPage extends FormPage
                         BelongsTo::make(
                             __('moonshine::ui.resource.role'),
                             'moonshineUserRole',
-                            formatted: static fn (MoonshineUserRole $model) => $model->name,
+                            formatted: static fn (MoonshineUserRole $model): string => StaffRole::tryFrom((string) $model->getAttribute('code'))?->label() ?? $model->name,
                             resource: MoonShineUserRoleResource::class,
                         )
-                            ->creatable()
-                            ->valuesQuery(static fn (Builder $q) => $q->select(['id', 'name'])),
+                            ->valuesQuery(static fn (Builder $q) => $q->whereIn('code', array_column(StaffRole::cases(), 'value'))->select(['id', 'name', 'code'])),
 
                         Flex::make([
                             Text::make(__('moonshine::ui.resource.name'), 'name')
@@ -68,9 +68,6 @@ final class MoonShineUserFormPage extends FormPage
                             ->dir(moonshineConfig()->getUserAvatarsDir())
                             ->allowedExtensions(['jpg', 'png', 'jpeg', 'gif']),
 
-                        Date::make(__('moonshine::ui.resource.created_at'), 'created_at')
-                            ->format('d.m.Y')
-                            ->default(now()->toDateTimeString()),
                     ])->icon('user-circle'),
 
                     Tab::make(__('moonshine::ui.resource.password'), [
@@ -92,17 +89,27 @@ final class MoonShineUserFormPage extends FormPage
     /** @return array<string, string|array<string|\Stringable|\Illuminate\Contracts\Validation\Rule|ValidationRule>> */
     protected function rules(DataWrapperContract $item): array
     {
+        $allowedRoleIds = MoonshineUserRole::query()->whereIn('code', array_column(StaffRole::cases(), 'value'))->pluck('id')->all();
+        if ((int) $item->getKey() === (int) MoonShineAuth::getGuard()->id()) {
+            $allowedRoleIds = [$item->getOriginal()->moonshine_user_role_id];
+        }
+
         return [
-            'name' => 'required',
-            'moonshine_user_role_id' => 'required',
+            'name' => ['required', 'string', 'max:255'],
+            'moonshine_user_role_id' => [
+                'required', 'integer',
+                Rule::in($allowedRoleIds),
+                Rule::exists(MoonshineUserRole::class, 'id')->whereIn('code', array_column(StaffRole::cases(), 'value')),
+            ],
             'email' => [
                 'sometimes',
                 'bail',
                 'required',
                 'email',
+                'max:190',
                 Rule::unique($item->getOriginal()::class)->ignoreModel($item->getOriginal()),
             ],
-            'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,gif'],
+            'avatar' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,gif', 'max:2048'],
             'password' => [
                 ...$item->getKey() !== null ? ['sometimes', 'nullable'] : ['required'],
                 PasswordRule::defaults(),

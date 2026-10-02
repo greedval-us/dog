@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 
@@ -20,6 +21,11 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+
+    $notification = $user->notifications()->sole();
+    expect($notification->type)->toBe(SystemNotification::class);
+    expect($notification->data['kind'])->toBe('login');
+    expect($notification->data['message']['en'])->toContain('127.0.0.1');
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {
@@ -51,6 +57,7 @@ test('users can not authenticate with invalid password', function () {
     ]);
 
     $this->assertGuest();
+    expect($user->notifications()->count())->toBe(0);
 });
 
 test('users can logout', function () {

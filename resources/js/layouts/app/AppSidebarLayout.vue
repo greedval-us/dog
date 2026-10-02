@@ -7,6 +7,7 @@ import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
 import DogLiveNavigation from '@/components/DogLiveNavigation.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import SystemNotifications from '@/components/SystemNotifications.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,10 @@ const { t, number } = useI18n();
                     <strong>{{ user.username }}</strong></span
                 >
                 <div class="account-controls">
-                    <LanguageSwitcher />
+                    <div class="header-tools">
+                        <LanguageSwitcher />
+                        <SystemNotifications />
+                    </div>
                     <div class="wallet" :aria-label="t('Player balance')">
                         <span
                             :title="

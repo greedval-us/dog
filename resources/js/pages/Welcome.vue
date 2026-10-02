@@ -5,6 +5,7 @@ import { ArrowRight, Heart, PawPrint, Sprout } from '@lucide/vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import SystemNotifications from '@/components/SystemNotifications.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard, login, register } from '@/routes';
 const page = usePage();
@@ -36,6 +37,7 @@ const { t } = useI18n();
             <DogLiveBrand />
             <nav class="public-navigation" :aria-label="t('Account')">
                 <LanguageSwitcher />
+                <SystemNotifications v-if="page.props.auth.user" />
                 <Button v-if="page.props.auth.user" as-child
                     ><Link :href="dashboard()"
                         >{{ t('My dog') }} <ArrowRight /></Link></Button

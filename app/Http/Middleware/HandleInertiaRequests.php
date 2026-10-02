@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,6 +44,9 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'locale' => app()->getLocale(),
             'locales' => config('localization.supported'),
+            'systemNotificationUnreadCount' => fn (): int => $user instanceof User
+                ? $user->unreadNotifications()->where('type', SystemNotification::class)->count()
+                : 0,
             'auth' => [
                 'user' => $user instanceof User ? [
                     'id' => $user->id,

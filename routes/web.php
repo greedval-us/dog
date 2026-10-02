@@ -17,6 +17,7 @@ use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\SystemNotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -24,6 +25,10 @@ Route::inertia('/', 'Welcome')->name('home');
 Route::post('locale', [LocaleController::class, 'update'])->name('locale.update');
 
 Route::middleware('auth')->group(function () {
+    Route::get('notifications', [SystemNotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('notifications/read-all', [SystemNotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::patch('notifications/{notification}', [SystemNotificationController::class, 'update'])
+        ->whereUuid('notification')->name('notifications.update');
     Route::get('media/players/{user:username}/avatar', [PlayerAvatarController::class, 'show'])->name('players.avatar.show');
     Route::post('settings/avatar', [PlayerAvatarController::class, 'store'])->middleware('throttle:10,1')->name('players.avatar.store');
     Route::delete('settings/avatar', [PlayerAvatarController::class, 'destroy'])->middleware('throttle:10,1')->name('players.avatar.destroy');

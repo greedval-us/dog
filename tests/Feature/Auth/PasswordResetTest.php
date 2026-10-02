@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
@@ -62,6 +63,8 @@ test('password can be reset with valid token', function () {
 
         return true;
     });
+
+    Notification::assertSentTo($user, SystemNotification::class, fn (SystemNotification $notification): bool => $notification->toDatabase($user)['kind'] === 'password_reset');
 });
 
 test('password cannot be reset with invalid token', function () {
@@ -75,4 +78,5 @@ test('password cannot be reset with invalid token', function () {
     ]);
 
     $response->assertSessionHasErrors('email');
+    expect($user->notifications()->count())->toBe(0);
 });

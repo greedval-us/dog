@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\MoonShine\Resources\MoonShineUser\Pages;
 
+use App\MoonShine\Enums\StaffRole;
+use App\MoonShine\Resources\MoonShineUser\MoonShineUserResource;
+use App\MoonShine\Resources\MoonShineUserRole\MoonShineUserRoleResource;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use MoonShine\Contracts\UI\ComponentContract;
 use MoonShine\Contracts\UI\FieldContract;
 use MoonShine\Laravel\Fields\Relationships\BelongsTo;
 use MoonShine\Laravel\Models\MoonshineUserRole;
 use MoonShine\Laravel\Pages\Crud\IndexPage;
-use App\MoonShine\Resources\MoonShineUser\MoonShineUserResource;
-use App\MoonShine\Resources\MoonShineUserRole\MoonShineUserRoleResource;
 use MoonShine\Support\Enums\Color;
 use MoonShine\UI\Components\Table\TableBuilder;
 use MoonShine\UI\Fields\Date;
@@ -36,9 +37,9 @@ final class MoonShineUserIndexPage extends IndexPage
             BelongsTo::make(
                 __('moonshine::ui.resource.role'),
                 'moonshineUserRole',
-                formatted: static fn (MoonshineUserRole $model) => $model->name,
+                formatted: static fn (MoonshineUserRole $model): string => StaffRole::tryFrom((string) $model->getAttribute('code'))?->label() ?? $model->name,
                 resource: MoonShineUserRoleResource::class,
-            )->badge(Color::PURPLE),
+            )->badge(Color::BLUE),
 
             Text::make(__('moonshine::ui.resource.name'), 'name'),
 
@@ -47,7 +48,7 @@ final class MoonShineUserIndexPage extends IndexPage
             ): string => $raw ?? ''),
 
             Date::make(__('moonshine::ui.resource.created_at'), 'created_at')
-                ->format("d.m.Y")
+                ->format('d.m.Y')
                 ->sortable(),
 
             Email::make(__('moonshine::ui.resource.email'), 'email')
@@ -61,9 +62,9 @@ final class MoonShineUserIndexPage extends IndexPage
             BelongsTo::make(
                 __('moonshine::ui.resource.role'),
                 'moonshineUserRole',
-                formatted: static fn (MoonshineUserRole $model) => $model->name,
+                formatted: static fn (MoonshineUserRole $model): string => StaffRole::tryFrom((string) $model->getAttribute('code'))?->label() ?? $model->name,
                 resource: MoonShineUserRoleResource::class,
-            )->valuesQuery(static fn (Builder $q) => $q->select(['id', 'name'])),
+            )->valuesQuery(static fn (Builder $q) => $q->whereIn('code', array_column(StaffRole::cases(), 'value'))->select(['id', 'name', 'code'])),
 
             Email::make('E-mail', 'email'),
         ];
@@ -71,8 +72,6 @@ final class MoonShineUserIndexPage extends IndexPage
 
     /**
      * @param  TableBuilder  $component
-     *
-     * @return TableBuilder
      */
     protected function modifyListComponent(ComponentContract $component): TableBuilder
     {

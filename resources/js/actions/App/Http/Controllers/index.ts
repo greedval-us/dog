@@ -1,4 +1,5 @@
 import LocaleController from './LocaleController'
+import SystemNotificationController from './SystemNotificationController'
 import PlayerAvatarController from './PlayerAvatarController'
 import DashboardController from './DashboardController'
 import CareItemController from './CareItemController'
@@ -18,6 +19,7 @@ import GameImageController from './GameImageController'
 import Settings from './Settings'
 const Controllers = {
     LocaleController: Object.assign(LocaleController, LocaleController),
+SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
 PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarController),
 DashboardController: Object.assign(DashboardController, DashboardController),
 CareItemController: Object.assign(CareItemController, CareItemController),
