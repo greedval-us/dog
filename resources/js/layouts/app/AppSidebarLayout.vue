@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Link, usePage } from '@inertiajs/vue3';
-import { ChevronDown, Coins, Gem, Menu, X } from '@lucide/vue';
+import { ChevronDown, Coins, Gem, Heart, Menu, X } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
@@ -37,6 +37,11 @@ const { t, number } = useI18n();
             <DogLiveBrand />
             <DogLiveNavigation />
             <div class="sidebar-story">
+                <Heart
+                    class="sidebar-story-icon"
+                    :size="25"
+                    aria-hidden="true"
+                />
                 <span class="section-kicker">{{
                     t('Together every day')
                 }}</span>
@@ -62,7 +67,11 @@ const { t, number } = useI18n();
                                     amount: formatNumber(user.coins),
                                 })
                             "
-                            ><Coins class="coin-icon" :size="20" /><b>{{
+                            ><Coins
+                                class="coin-icon"
+                                :size="20"
+                                aria-hidden="true"
+                            /><b :key="user.coins" class="wallet-amount">{{
                                 formatNumber(user.coins)
                             }}</b></span
                         >
@@ -72,7 +81,11 @@ const { t, number } = useI18n();
                                     amount: formatNumber(user.gems),
                                 })
                             "
-                            ><Gem class="gem-icon" :size="20" /><b>{{
+                            ><Gem
+                                class="gem-icon"
+                                :size="20"
+                                aria-hidden="true"
+                            /><b :key="user.gems" class="wallet-amount">{{
                                 formatNumber(user.gems)
                             }}</b></span
                         >
@@ -115,11 +128,13 @@ const { t, number } = useI18n();
                     /></Button>
                 </div>
             </header>
-            <DogLiveNavigation
-                v-if="menuOpen"
-                id="mobile-navigation"
-                class="mobile-navigation"
-            />
+            <Transition name="mobile-menu">
+                <DogLiveNavigation
+                    v-if="menuOpen"
+                    id="mobile-navigation"
+                    class="mobile-navigation"
+                />
+            </Transition>
             <main id="main-content" class="doglive-content" tabindex="-1">
                 <slot />
             </main>

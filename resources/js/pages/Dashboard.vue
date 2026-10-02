@@ -63,10 +63,19 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
         </template>
         <Deferred v-else data="appearance">
             <template #fallback
-                ><div class="dashboard-loading" role="status">
-                    {{ t('Loading...') }}
-                </div></template
-            >
+                ><div
+                    class="dashboard-loading dashboard-scene-skeleton"
+                    role="status"
+                >
+                    <span class="sr-only">{{ t('Loading...') }}</span>
+                    <div
+                        class="dashboard-skeleton-portrait"
+                        aria-hidden="true"
+                    ></div>
+                    <div class="dashboard-skeleton-metrics" aria-hidden="true">
+                        <span v-for="index in 7" :key="index"></span>
+                    </div></div
+            ></template>
             <template #rescue="{ reloading }"
                 ><div role="alert">
                     <p>{{ t('Could not load data. Please retry.') }}</p>
@@ -103,39 +112,34 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
                         :aria-label="t('Wellbeing and care')"
                     >
                         <PetCondition :states="pet.states" />
-                        <Deferred data="care">
-                            <template #fallback
-                                ><div class="dashboard-loading" role="status">
-                                    {{ t('Loading...') }}
-                                </div></template
-                            >
-                            <template #rescue="{ reloading }"
-                                ><div role="alert">
-                                    <p>
-                                        {{
-                                            t(
-                                                'Could not load data. Please retry.',
-                                            )
-                                        }}
-                                    </p>
-                                    <Button
-                                        :disabled="reloading"
-                                        @click="
-                                            router.reload({ only: ['care'] })
-                                        "
-                                        >{{ t('Retry') }}</Button
-                                    >
-                                </div></template
-                            >
-                            <PetQuickActions
-                                v-if="care"
-                                :key="pet.id"
-                                :pet="pet"
-                                :care="care"
-                            />
-                        </Deferred>
                     </aside>
                 </div>
+                <Deferred data="care">
+                    <template #fallback
+                        ><div class="dashboard-loading" role="status">
+                            {{ t('Loading...') }}
+                        </div></template
+                    >
+                    <template #rescue="{ reloading }"
+                        ><div role="alert">
+                            <p>
+                                {{ t('Could not load data. Please retry.') }}
+                            </p>
+                            <Button
+                                :disabled="reloading"
+                                @click="router.reload({ only: ['care'] })"
+                                >{{ t('Retry') }}</Button
+                            >
+                        </div></template
+                    >
+                    <PetQuickActions
+                        v-if="care"
+                        :key="pet.id"
+                        class="pet-care-dashboard"
+                        :pet="pet"
+                        :care="care"
+                    />
+                </Deferred>
                 <PetDetails
                     :key="pet.id"
                     :pet="pet"

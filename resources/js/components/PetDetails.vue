@@ -79,9 +79,9 @@ const tabs = [
                 <span
                     v-if="'description' in tab"
                     class="pet-tab-planned"
-                    :aria-label="t('Soon')"
                     :title="t('Soon')"
-                ></span>
+                    >{{ t('Soon') }}</span
+                >
             </TabsTrigger>
         </TabsList>
         <TabsContent value="overview" class="pet-tab-panel"

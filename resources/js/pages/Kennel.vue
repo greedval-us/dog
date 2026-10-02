@@ -10,7 +10,8 @@ import {
     PawPrint,
     Shuffle,
 } from '@lucide/vue';
-import { computed, useTemplateRef } from 'vue';
+import { computed, useId, useTemplateRef } from 'vue';
+import ActionHint from '@/components/ActionHint.vue';
 import BreedArtwork from '@/components/BreedArtwork.vue';
 import DogStats from '@/components/DogStats.vue';
 import FormField from '@/components/FormField.vue';
@@ -21,8 +22,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/composables/useI18n';
 import { sizeLabels } from '@/lib/petLabels';
+import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { dashboard, petScene } from '@/routes';
 import { purchase, store } from '@/routes/kennel';
+import { show as player } from '@/routes/players';
 import type { StarterBreed } from '@/types/pet';
 
 const props = defineProps<{
@@ -34,6 +37,7 @@ const props = defineProps<{
 }>();
 const { t, number } = useI18n();
 const page = usePage();
+const id = useId();
 const form = useForm({
     dog_id: props.breeds[0]?.id ?? (null as number | null),
     name: '',
@@ -49,9 +53,26 @@ const affordable = computed(
         props.canClaimStarterPet ||
         Number(page.props.auth.user.coins) >= props.price,
 );
+const actionReason = computed(() => {
+    if (props.freeSlots < 1)
+        return t(
+            'You need a free dog slot. Unlock a place on the My dog page.',
+        );
+    if (!affordable.value)
+        return t('You need {amount} more coins.', {
+            amount: number(
+                purchaseShortfall(
+                    props.price,
+                    Number(page.props.auth.user.coins),
+                ),
+            ),
+        });
+    if (!selectedBreed.value) return t('Choose a breed to continue.');
+    return null;
+});
 const adoptionForm = useTemplateRef<HTMLFormElement>('adoptionForm');
 function submit() {
-    if (form.processing || !affordable.value || props.freeSlots < 1) return;
+    if (form.processing || actionReason.value) return;
     form.transform(({ dog_id, name, expected_price, adoption_token }) =>
         props.canClaimStarterPet
             ? { dog_id, name }
@@ -199,26 +220,17 @@ function submit() {
                                 })
                             }}</span
                         >
-                        <p
-                            v-if="freeSlots < 1"
-                            class="kennel-notice"
-                            role="status"
+                        <ActionHint
+                            :id="id + '-adoption-reason'"
+                            :message="actionReason"
                         >
-                            {{
-                                t(
-                                    'You need a free dog slot. Unlock a place on the My dog page.',
-                                )
-                            }}
-                        </p>
-                        <p
-                            v-else-if="!affordable"
-                            class="kennel-notice"
-                            role="status"
-                        >
-                            {{
-                                t('You do not have enough coins for this dog.')
-                            }}
-                        </p>
+                            <Link
+                                v-if="freeSlots > 0 && !affordable"
+                                :href="player(page.props.auth.user.username)"
+                                class="text-link"
+                                >{{ t('Earn coins at daily work') }}</Link
+                            >
+                        </ActionHint>
                         <InputError
                             :message="
                                 form.errors.adoption ||
@@ -236,7 +248,13 @@ function submit() {
                         <Button
                             v-else
                             type="submit"
-                            :disabled="form.processing || !affordable"
+                            :disabled="form.processing || Boolean(actionReason)"
+                            :aria-describedby="
+                                actionReason
+                                    ? id + '-adoption-reason'
+                                    : undefined
+                            "
+                            :aria-busy="form.processing"
                             data-test="adopt-kennel-pet"
                         >
                             {{

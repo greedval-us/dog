@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { Check, Coins, Gem, LockKeyhole, PawPrint, Plus } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
+import ActionHint from '@/components/ActionHint.vue';
 import InputError from '@/components/InputError.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
+import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
 import { store } from '@/routes/pet-slots';
@@ -25,7 +27,8 @@ const props = defineProps<{
     selectedPortraitId: number | null;
     canClaimStarterPet: boolean;
 }>();
-const { t } = useI18n();
+const { t, number } = useI18n();
+const id = useId();
 const page = usePage();
 const open = ref(false);
 const selected = ref<PetSlot | null>(null);
@@ -38,8 +41,19 @@ const unlocked = computed(
     () => props.slots.filter((slot) => slot.unlocked).length,
 );
 const price = computed(() => selected.value?.[form.currency] ?? 0);
-const affordable = computed(
-    () => Number(page.props.auth.user[form.currency]) >= price.value,
+const shortfall = computed(() =>
+    purchaseShortfall(price.value, Number(page.props.auth.user[form.currency])),
+);
+const affordable = computed(() => shortfall.value === 0);
+const fundsMessage = computed(() =>
+    shortfall.value > 0
+        ? t(
+              form.currency === 'gems'
+                  ? 'You need {amount} more gems.'
+                  : 'You need {amount} more coins.',
+              { amount: number(shortfall.value) },
+          )
+        : null,
 );
 
 function choose(slot: PetSlot) {
@@ -51,7 +65,8 @@ function choose(slot: PetSlot) {
 }
 
 function purchase() {
-    if (!selected.value || form.processing) return;
+    if (!selected.value?.purchasable || !affordable.value || form.processing)
+        return;
     form.expected_price = price.value;
     form.post(store.url(), {
         preserveScroll: true,
@@ -187,6 +202,14 @@ function purchase() {
                 </button>
             </div>
         </div>
+        <p
+            v-if="slots.some((slot) => !slot.unlocked && !slot.purchasable)"
+            class="pet-slots-hint"
+        >
+            <LockKeyhole :size="12" aria-hidden="true" />{{
+                t('Open the previous slot first')
+            }}
+        </p>
         <Dialog v-model:open="open">
             <DialogContent class="pet-slot-dialog">
                 <span class="pet-slot-dialog-emblem"
@@ -243,9 +266,10 @@ function purchase() {
                             </label>
                         </div>
                     </fieldset>
-                    <p v-if="!affordable" class="field-hint" role="status">
-                        {{ t('Not enough currency for this slot') }}
-                    </p>
+                    <ActionHint
+                        :id="id + '-slot-reason'"
+                        :message="fundsMessage"
+                    />
                     <InputError
                         :message="
                             form.errors.slot ||
@@ -265,6 +289,10 @@ function purchase() {
                         <Button
                             type="submit"
                             :disabled="form.processing || !affordable"
+                            :aria-describedby="
+                                fundsMessage ? id + '-slot-reason' : undefined
+                            "
+                            :aria-busy="form.processing"
                             >{{
                                 t(
                                     form.processing

@@ -85,6 +85,7 @@ function buy() {
     if (
         !offer ||
         purchasing.value ||
+        (offer.stock !== null && offer.stock < 1) ||
         Number(page.props.auth.user.coins) < offer.price
     )
         return;

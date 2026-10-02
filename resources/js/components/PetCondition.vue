@@ -28,7 +28,11 @@ const metrics = [
 </script>
 
 <template>
-    <SurfaceCard :title="t('Wellbeing')" class="pet-condition">
+    <SurfaceCard
+        :title="t('Wellbeing')"
+        :description="t('Small steps to a happy dog.')"
+        class="pet-condition"
+    >
         <div class="pet-metrics">
             <PetMetric
                 v-for="metric in metrics"
@@ -37,6 +41,7 @@ const metrics = [
                 :value="states[metric.key]"
                 :icon="metric.icon"
                 :tone="metric.tone"
+                warn-when-low
             />
         </div>
     </SurfaceCard>

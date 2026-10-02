@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { Check, Coins, Gem, Image, LockKeyhole, Plus } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
+import ActionHint from '@/components/ActionHint.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
+import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { purchase, update } from '@/routes/pets/appearance';
 import type {
     AppearanceAsset,
@@ -24,7 +26,9 @@ import type {
 } from '@/types/appearance';
 
 const props = defineProps<{ petId: number; appearance: PetAppearance }>();
-const { t } = useI18n();
+const { t, number } = useI18n();
+const page = usePage();
+const id = useId();
 const open = ref(false);
 const kind = ref<AssetKind>('portrait');
 const selectedId = ref<number | null>(null);
@@ -69,6 +73,29 @@ const appliedId = computed(() =>
         ? props.appearance.portraitId
         : props.appearance.backgroundId,
 );
+const shortfall = computed(() =>
+    selectedPrice.value
+        ? purchaseShortfall(
+              selectedPrice.value.amount,
+              Number(page.props.auth.user[selectedPrice.value.currency]),
+          )
+        : 0,
+);
+const actionReason = computed(() => {
+    if (!selected.value) return t('Choose an appearance to continue.');
+    if (selected.value.id === appliedId.value)
+        return t('This appearance is already in use.');
+    if (!selected.value.unlocked && !selectedPrice.value)
+        return t('This appearance is currently unavailable.');
+    if (!selected.value.unlocked && shortfall.value > 0)
+        return t(
+            currency.value === 'gems'
+                ? 'You need {amount} more gems.'
+                : 'You need {amount} more coins.',
+            { amount: number(shortfall.value) },
+        );
+    return null;
+});
 
 function showCatalogue(assetKind: AssetKind) {
     kind.value = assetKind;
@@ -82,6 +109,15 @@ function showCatalogue(assetKind: AssetKind) {
 
 function apply(asset: AppearanceAsset, price?: AssetPrice) {
     if (form.processing || (!asset.unlocked && !price)) return;
+    if (
+        price &&
+        !asset.unlocked &&
+        purchaseShortfall(
+            price.amount,
+            Number(page.props.auth.user[price.currency]),
+        ) > 0
+    )
+        return;
     form.clearErrors();
     form.asset_id = asset.id;
     form.expected_price = price?.amount ?? null;
@@ -98,7 +134,7 @@ function apply(asset: AppearanceAsset, price?: AssetPrice) {
 
 function priceLabel(price: AssetPrice) {
     return t(price.currency === 'gems' ? '{amount} gems' : '{amount} coins', {
-        amount: price.amount,
+        amount: number(price.amount),
     });
 }
 </script>
@@ -263,6 +299,11 @@ function priceLabel(price: AssetPrice) {
                     "
                     role="alert"
                 />
+                <ActionHint
+                    :id="id + '-appearance-reason'"
+                    :message="actionReason"
+                    :tone="selected?.id === appliedId ? 'info' : 'warning'"
+                />
                 <DialogFooter class="appearance-footer">
                     <p class="field-hint">
                         {{
@@ -273,12 +314,11 @@ function priceLabel(price: AssetPrice) {
                     </p>
                     <Button
                         type="button"
-                        :disabled="
-                            !selected ||
-                            (!selected.unlocked && !selectedPrice) ||
-                            selected.id === appliedId ||
-                            form.processing
+                        :disabled="Boolean(actionReason) || form.processing"
+                        :aria-describedby="
+                            actionReason ? id + '-appearance-reason' : undefined
                         "
+                        :aria-busy="form.processing"
                         @click="selected && apply(selected, selectedPrice)"
                     >
                         <template v-if="form.processing">{{

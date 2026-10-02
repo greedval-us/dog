@@ -141,7 +141,7 @@ const events = [
                     <span
                         >{{ t(event.label)
                         }}<small>{{
-                            t('No scheduled events yet')
+                            t('This feature is in development.')
                         }}</small></span
                     >
                     <Button

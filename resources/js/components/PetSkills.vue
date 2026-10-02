@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { Check, Clock, Coins, GraduationCap, Sparkles } from '@lucide/vue';
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, useId } from 'vue';
+import ActionHint from '@/components/ActionHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -12,6 +13,7 @@ import type { PetSkill, PetSkills } from '@/types/pet-skill';
 
 const props = defineProps<{ pet: PlayerPet; data: PetSkills }>();
 const { t, number, locale } = useI18n();
+const id = useId();
 const selectedLevels = reactive<Record<number, number>>({});
 const pendingSkill = ref<number | null>(null);
 const form = useForm({ skill_id: 0, level: 1, expected_price: 0, token: '' });
@@ -266,12 +268,19 @@ function train(skill: PetSkill) {
                             })
                         }}
                     </p>
-                    <p v-if="skill.reason" class="pet-skill-reason">
-                        {{ t(skill.reason) }}
-                    </p>
+                    <ActionHint
+                        :id="id + '-skill-' + skill.id"
+                        :message="skill.reason ? t(skill.reason) : null"
+                    />
                     <Button
                         v-if="nextLesson(skill)"
                         :disabled="!skill.canTrain || form.processing"
+                        :aria-describedby="
+                            skill.reason ? id + '-skill-' + skill.id : undefined
+                        "
+                        :aria-busy="
+                            pendingSkill === skill.id && form.processing
+                        "
                         @click="train(skill)"
                     >
                         <GraduationCap :size="17" aria-hidden="true" />

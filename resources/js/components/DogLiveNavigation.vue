@@ -2,6 +2,7 @@
 import { useI18n } from '@/composables/useI18n';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Backpack,
     BriefcaseBusiness,
     House,
     PawPrint,
@@ -14,6 +15,7 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
 import { index as shop } from '@/routes/shop';
+import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
 import { edit } from '@/routes/profile';
 import { show as playerProfile } from '@/routes/players';
@@ -30,6 +32,7 @@ const items = computed(() => [
     { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
     { label: 'Shop', icon: ShoppingBag, href: shop(), settings: false },
+    { label: 'Inventory', icon: Backpack, href: inventory(), settings: false },
     {
         label: 'Work with a dog',
         icon: BriefcaseBusiness,
@@ -55,7 +58,10 @@ const { t } = useI18n();
             :class="{ active: isActive(item) }"
             :aria-current="isActive(item) ? 'page' : undefined"
             :aria-label="t(item.label)"
-            ><component :is="item.icon" /><span>{{ t(item.label) }}</span></Link
+            :title="t(item.label)"
+            ><component :is="item.icon" aria-hidden="true" /><span>{{
+                t(item.label)
+            }}</span></Link
         >
     </nav>
 </template>

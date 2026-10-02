@@ -16,9 +16,11 @@ import {
     ChevronRight,
     Heart,
     Droplets,
+    HandHeart,
 } from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 import ItemBonuses from '@/components/ItemBonuses.vue';
+import ActionHint from '@/components/ActionHint.vue';
 import ItemRisks from '@/components/ItemRisks.vue';
 import StatusEffects from '@/components/StatusEffects.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -33,9 +35,11 @@ import {
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
 import { stateLabels, statLabels } from '@/lib/petLabels';
+import { careEnergyCost, careOptionReason } from '@/lib/petCareAvailability';
 import { store, complete } from '@/routes/pets/care';
 import { careItems } from '@/routes';
 import { index as shop } from '@/routes/shop';
+import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
 import type { DogState, DogStat, PlayerPet } from '@/types/pet';
 import type {
@@ -44,6 +48,7 @@ import type {
     ItemRisk,
     StatusEffect,
     CareItem,
+    CareOption,
 } from '@/types/pet-care';
 
 const props = withDefaults(
@@ -244,26 +249,21 @@ const risks = computed(() => {
     }
     return [...combined.values()];
 });
-const energyCost = computed(() => {
-    const base = selected.value?.baseEnergy ?? 0;
-    return base === 0
-        ? 0
-        : Math.max(
-              1,
-              Math.ceil(
-                  (base * (100 + liveModifiers.value.energy_cost_percent)) /
-                      100,
-              ),
-          );
-});
-const selectedReason = computed(() => {
-    const reason = selected.value?.reason;
-    if (reason && reason !== 'Not enough energy. Let your dog rest first.')
-        return reason;
-    return props.pet.energy.value < energyCost.value
-        ? 'Not enough energy. Let your dog rest first.'
-        : null;
-});
+const energyCost = computed(() =>
+    careEnergyCost(
+        selected.value?.baseEnergy ?? 0,
+        liveModifiers.value.energy_cost_percent,
+    ),
+);
+const optionReason = (option: CareOption) =>
+    careOptionReason(
+        option,
+        props.pet.energy.value,
+        liveModifiers.value.energy_cost_percent,
+    );
+const selectedReason = computed(() =>
+    selected.value ? optionReason(selected.value) : null,
+);
 const energyCostPercentage = computed(() =>
     props.pet.energy.maximum > 0
         ? (energyCost.value / props.pet.energy.maximum) * 100
@@ -331,16 +331,6 @@ const progress = computed(() => {
         ? 100
         : Math.max(0, Math.min(100, (elapsed / total) * 100));
 });
-const unavailable = computed(
-    () =>
-        props.care.blocked ||
-        props.care.busy ||
-        itemRequest.processing ||
-        itemsError.value ||
-        cooldown.value > 0 ||
-        !!selectedReason.value ||
-        missingItems.value,
-);
 const readyToFinish = computed(
     () =>
         props.care.active !== null &&
@@ -353,6 +343,75 @@ const busyMessage = computed(() => {
         ? 'Applying the activity result...'
         : 'Your dog is busy with another activity.';
 });
+function groupReason(value: CareGroup, option?: CareOption): string | null {
+    if (props.care.blocked)
+        return t('Care is unavailable for this dog or account.');
+    if (props.care.working) return t('Your dog is working.');
+    if (props.care.busy) return t(busyMessage.value);
+    const remaining = secondsLeft(props.care.cooldowns[value]);
+    if (remaining)
+        return t('Available in {time}', { time: countdown(remaining) });
+    if (option) return optionReason(option) ? t(optionReason(option)!) : null;
+    const variants = props.care.options.filter((item) => item.group === value);
+    if (!variants.length) return t('No options are available yet.');
+    return variants.every((item) => optionReason(item))
+        ? t(optionReason(variants[0])!)
+        : null;
+}
+const startReason = computed(() => {
+    if (!selected.value) return t('No options are available yet.');
+    if (props.care.blocked)
+        return t('Care is unavailable for this dog or account.');
+    if (props.care.working) return t('Your dog is working.');
+    if (props.care.busy) return t(busyMessage.value);
+    if (cooldown.value)
+        return t('Available in {time}', { time: countdown(cooldown.value) });
+    if (selectedReason.value) return t(selectedReason.value);
+    if (itemRequest.processing) return t('Loading supplies...');
+    if (itemsError.value) return t('Could not load data. Please retry.');
+    if (missingItems.value) {
+        const missing =
+            selected.value?.requirements.filter(
+                (category) =>
+                    !itemsFor(category).some(
+                        (item) => item.id === form.items[category],
+                    ),
+            ) ?? [];
+        return t(
+            'Required supplies: {items}. Choose an item or visit the shop.',
+            {
+                items: missing
+                    .map((category) => t(categories[category]))
+                    .join(', '),
+            },
+        );
+    }
+    return null;
+});
+const unavailable = computed(() => startReason.value !== null);
+const actionHints = computed(() => {
+    if (props.care.blocked || props.care.busy || props.care.working) return [];
+    const hints = new Map<string, string[]>();
+    for (const action of actions) {
+        const reason = groupReason(action.group);
+        if (!reason || secondsLeft(props.care.cooldowns[action.group]))
+            continue;
+        const labels = hints.get(reason) ?? [];
+        labels.push(t(action.label));
+        hints.set(reason, labels);
+    }
+    return [...hints].map(([reason, labels]) => ({
+        reason,
+        message: labels.join(' · ') + ': ' + reason,
+    }));
+});
+function actionStatus(value: CareGroup): string {
+    if (props.care.blocked) return t('Unavailable');
+    if (props.care.busy || props.care.working) return t('Busy');
+    const remaining = secondsLeft(props.care.cooldowns[value]);
+    if (remaining) return t('Rest · {time}', { time: countdown(remaining) });
+    return groupReason(value) ? t('Check requirements') : t('Choose options');
+}
 
 watch(
     () =>
@@ -426,7 +485,9 @@ watch(open, (value) => {
 function choose(value: CareGroup, variant?: string) {
     group.value = value;
     const first =
-        options.value.find((option) => !option.reason) ?? options.value[0];
+        options.value.find((option) => !optionReason(option)) ??
+        options.value[0];
+    form.variant = '';
     if (first) chooseVariant(variant ?? first.id);
     form.token = props.care.token;
     open.value = true;
@@ -476,6 +537,27 @@ function finishActivity() {
         class="pet-care"
         :title="t(trainingOnly ? 'Training' : 'Quick actions')"
     >
+        <template v-if="!trainingOnly" #header>
+            <div class="pet-care-title-row">
+                <div class="pet-care-title">
+                    <span class="pet-care-title-icon"
+                        ><HandHeart :size="22" aria-hidden="true"
+                    /></span>
+                    <div>
+                        <h2>{{ t('Time together') }}</h2>
+                        <p>
+                            {{
+                                t('Choose a little adventure for your friend.')
+                            }}
+                        </p>
+                    </div>
+                </div>
+                <Link :href="inventory()" class="pet-care-inventory"
+                    ><Package :size="16" aria-hidden="true" />{{ t('Inventory')
+                    }}<ChevronRight :size="14" aria-hidden="true"
+                /></Link>
+            </div>
+        </template>
         <div v-if="trainingOnly" class="pet-training-readiness">
             <span>{{ t('To start') }}</span>
             <span
@@ -538,6 +620,11 @@ function finishActivity() {
                 variant="plain"
                 class="pet-training-option"
                 :disabled="care.blocked"
+                :aria-describedby="
+                    groupReason('training', option)
+                        ? id + '-training-' + option.id
+                        : undefined
+                "
                 @click="choose('training', option.id)"
             >
                 <span class="pet-training-option-heading"
@@ -567,6 +654,12 @@ function finishActivity() {
                         }}</span
                     ></span
                 >
+                <span
+                    v-if="groupReason('training', option)"
+                    :id="id + '-training-' + option.id"
+                    class="pet-action-reason"
+                    >{{ groupReason('training', option) }}</span
+                >
             </Button>
             <p v-if="!trainingOptions.length" class="pet-feature-note">
                 {{ t('No training sessions are available yet.') }}
@@ -578,23 +671,57 @@ function finishActivity() {
                 :key="action.group"
                 type="button"
                 variant="plain"
-                class="pet-care-action"
-                :class="'pet-tone-' + action.tone"
+                class="pet-care-action-cell pet-care-action"
+                :class="[
+                    'pet-tone-' + action.tone,
+                    { 'has-restriction': Boolean(groupReason(action.group)) },
+                ]"
                 :disabled="care.blocked"
+                :aria-label="t(action.label)"
+                :aria-describedby="id + '-action-' + action.group"
                 @click="choose(action.group)"
             >
-                <span
+                <span class="pet-care-action-icon"
                     ><component :is="action.icon" :size="24" aria-hidden="true"
                 /></span>
-                {{ t(action.label) }}
-                <small v-if="secondsLeft(care.cooldowns[action.group])">{{
-                    countdown(secondsLeft(care.cooldowns[action.group]))
-                }}</small>
+                <span class="pet-care-action-copy">
+                    <strong>{{ t(action.label) }}</strong>
+                    <span
+                        :id="id + '-action-' + action.group"
+                        class="pet-action-reason"
+                    >
+                        {{ actionStatus(action.group) }}
+                        <span
+                            v-if="groupReason(action.group)"
+                            class="sr-only"
+                            >{{ groupReason(action.group) }}</span
+                        >
+                    </span>
+                </span>
+                <ChevronRight
+                    class="pet-care-action-arrow"
+                    :size="15"
+                    aria-hidden="true"
+                />
             </Button>
+        </div>
+        <div
+            v-if="!trainingOnly && actionHints.length"
+            class="pet-action-hints"
+        >
+            <ActionHint
+                v-for="hint in actionHints"
+                :key="hint.reason"
+                :message="hint.message"
+            />
         </div>
         <div v-if="care.active" class="pet-care-progress">
             <div class="pet-care-progress-heading">
-                <strong>{{ t(care.active.label) }}</strong>
+                <strong
+                    ><Clock3 :size="17" aria-hidden="true" />{{
+                        t(care.active.label)
+                    }}</strong
+                >
                 <span>{{
                     secondsLeft(care.active.endsAt)
                         ? countdown(secondsLeft(care.active.endsAt))
@@ -722,6 +849,7 @@ function finishActivity() {
                             </span>
                         </label>
                     </fieldset>
+                    <ActionHint v-if="!selected" :message="startReason" />
                     <template v-if="selected">
                         <section
                             v-if="
@@ -992,28 +1120,27 @@ function finishActivity() {
                                 )
                             }}
                         </p>
-                        <div
-                            v-if="care.busy || cooldown || selectedReason"
-                            class="pet-care-warning"
-                            role="status"
+                        <ActionHint
+                            :id="id + '-start-reason'"
+                            :message="startReason"
                         >
-                            <Clock3
-                                v-if="cooldown"
-                                :size="16"
-                                aria-hidden="true"
-                            />
-                            <p>
-                                {{
-                                    care.busy
-                                        ? t(busyMessage)
-                                        : cooldown
-                                          ? t('Available in {time}', {
-                                                time: countdown(cooldown),
-                                            })
-                                          : t(selectedReason ?? '')
-                                }}
-                            </p>
-                        </div>
+                            <Link
+                                v-if="
+                                    missingItems &&
+                                    !itemRequest.processing &&
+                                    !itemsError
+                                "
+                                :href="shop()"
+                                class="text-link"
+                                >{{ t('Visit the shop') }}</Link
+                            >
+                            <Link
+                                v-else-if="care.working"
+                                :href="dogWork({ query: { pet: pet.id } })"
+                                class="text-link"
+                                >{{ t('Open the job board') }}</Link
+                            >
+                        </ActionHint>
                         <Button
                             v-if="readyToFinish && completionFailed"
                             type="button"
@@ -1033,6 +1160,12 @@ function finishActivity() {
                             <Button
                                 type="submit"
                                 :disabled="unavailable || form.processing"
+                                :aria-describedby="
+                                    startReason
+                                        ? id + '-start-reason'
+                                        : undefined
+                                "
+                                :aria-busy="form.processing"
                                 >{{
                                     form.processing
                                         ? t('Starting...')

@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { Check, Coins, Package, ShoppingBag } from '@lucide/vue';
-import { computed, nextTick, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, useId, useTemplateRef, watch } from 'vue';
+import ActionHint from '@/components/ActionHint.vue';
 import InputError from '@/components/InputError.vue';
 import ItemCharacteristics from '@/components/ItemCharacteristics.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { purchaseShortfall } from '@/lib/purchaseAvailability';
+import { show as player } from '@/routes/players';
 import type { ShopOffer } from '@/types/shop';
 
 const props = defineProps<{
@@ -18,8 +21,20 @@ const props = defineProps<{
 const emit = defineEmits<{ buy: [] }>();
 const { t, number } = useI18n();
 const page = usePage();
+const id = useId();
 const balance = computed(() => Number(page.props.auth.user.coins));
-const affordable = computed(() => balance.value >= props.offer.price);
+const shortfall = computed(() =>
+    purchaseShortfall(props.offer.price, balance.value),
+);
+const actionReason = computed(() =>
+    props.offer.stock !== null && props.offer.stock < 1
+        ? t('This item is out of stock. Choose another item.')
+        : shortfall.value > 0
+          ? t('You need {amount} more coins.', {
+                amount: number(shortfall.value),
+            })
+          : null,
+);
 const errorSummary = useTemplateRef<HTMLDivElement>('errorSummary');
 watch(
     () => props.error,
@@ -76,20 +91,27 @@ watch(
             <Button
                 type="submit"
                 class="shop-buy-button"
-                :disabled="processing || !affordable"
+                :disabled="processing || Boolean(actionReason)"
                 :aria-busy="processing"
+                :aria-describedby="
+                    actionReason ? id + '-purchase-reason' : undefined
+                "
             >
                 <ShoppingBag :size="18" aria-hidden="true" />{{
                     processing ? t('Purchasing…') : t('Buy item')
                 }}
             </Button>
-            <p v-if="!affordable" class="shop-funds-message">
-                {{
-                    t('You need {amount} more coins.', {
-                        amount: number(offer.price - balance),
-                    })
-                }}
-            </p>
+            <ActionHint :id="id + '-purchase-reason'" :message="actionReason">
+                <Link
+                    v-if="
+                        shortfall > 0 &&
+                        (offer.stock === null || offer.stock > 0)
+                    "
+                    :href="player(page.props.auth.user.username)"
+                    class="text-link"
+                    >{{ t('Earn coins at daily work') }}</Link
+                >
+            </ActionHint>
             <p v-if="purchased" class="shop-success" role="status">
                 <Check :size="17" aria-hidden="true" />{{
                     t('Added to your inventory')

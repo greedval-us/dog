@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useId } from 'vue';
 import {
     CalendarDays,
     ChevronRight,
@@ -24,6 +25,7 @@ defineProps<{
     care?: PetCare | null;
 }>();
 const { t, locale } = useI18n();
+const id = useId();
 const date = (value: string) =>
     new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
@@ -59,6 +61,7 @@ const date = (value: string) =>
                     size="icon"
                     class="pet-glass-button"
                     disabled
+                    :aria-describedby="id + '-planned'"
                     :aria-label="t('Rename — coming soon')"
                     :title="t('Rename — coming soon')"
                     ><Pencil :size="18"
@@ -92,6 +95,7 @@ const date = (value: string) =>
                     type="button"
                     class="pet-glass-button"
                     disabled
+                    :aria-describedby="id + '-planned'"
                     :title="t('Favorites — coming soon')"
                     ><Heart :size="17" />{{ t('Add to favorites') }}</Button
                 >
@@ -101,21 +105,24 @@ const date = (value: string) =>
                     type="button"
                     class="pet-glass-button"
                     disabled
+                    :aria-describedby="id + '-planned'"
                     :aria-label="t('More actions — coming soon')"
                     :title="t('More actions — coming soon')"
                     ><Ellipsis
                 /></Button>
             </div>
-            <p class="pet-hero-quote">
-                {{ t('Good dogs make the world a kinder place.') }}
-                <Heart :size="20" />
-            </p>
         </header>
+        <p :id="id + '-planned'" class="pet-planned-note">
+            {{ t('Renaming, favorites and more actions are coming soon.') }}
+        </p>
         <figure class="pet-hero-portrait">
-            <GameAssetArtwork
-                :asset-id="appearance.portraitId"
-                :alt="t('Illustration of {breed}', { breed: pet.breed })"
-            />
+            <Transition name="pet-portrait" mode="out-in">
+                <GameAssetArtwork
+                    :key="appearance.portraitId ?? 'placeholder'"
+                    :asset-id="appearance.portraitId"
+                    :alt="t('Illustration of {breed}', { breed: pet.breed })"
+                />
+            </Transition>
         </figure>
         <PetAppearanceControls :pet-id="pet.id" :appearance="appearance" />
     </section>
