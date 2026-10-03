@@ -9,6 +9,8 @@ use App\Models\StatusEffect;
 use App\Models\Training;
 use App\Models\User;
 use App\Modules\Pets\Actions\CompletePetCare;
+use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetCare;
 use Database\Seeders\TrainingSeeder;
 use Illuminate\Database\QueryException;
@@ -201,4 +203,28 @@ test('failed training completion rolls back attribute gains and can be retried',
     $this->allowCareWrites('reject_training_completion');
     $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'speed' => PetCareAction::query()->sole()->stat_gains['speed'], 'activity' => null]);
+});
+
+test('refused training rolls back expired care completion and its rewards', function () {
+    $this->freezeSecond();
+    $training = Training::factory()->create();
+    $pet = Pet::factory()->create([
+        'energy' => 0, 'energy_max' => 100, 'satiety' => 100, 'satiety_max' => 100,
+        'hydration' => 100, 'hydration_max' => 100,
+        'speed' => 100, 'speed_potential' => 100, 'endurance' => 100, 'endurance_potential' => 100,
+    ]);
+    $item = trainingEquipment($pet->user);
+    $rest = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+
+    expect(fn () => app(StartPetCare::class)->handle($pet->user, $pet->id, 'training:'.$training->id,
+        ['sports' => $item->id], (string) Str::uuid()))
+        ->toThrow(PetUnavailable::class, 'Your dog has reached the potential for this training.');
+
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 0, 'activity_token' => $rest->activity_token]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $rest->id, 'completed_at' => null, 'experience_awarded' => null]);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0']);
+    $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'remaining_uses' => 5]);
+    $this->assertDatabaseCount('pet_care_actions', 1);
+    $this->assertDatabaseCount('item_usages', 0);
 });

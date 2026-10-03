@@ -5,11 +5,18 @@ namespace App\Modules\Pets\Services;
 use App\Models\Pet;
 use App\Models\PetHistoryEntry;
 use App\Models\PetHistoryEvent;
+use App\Modules\Pets\DTO\PetHistoryChange;
 use Carbon\CarbonImmutable;
 
+/**
+ * @phpstan-import-type Change from PetHistoryChange
+ * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ *
+ * @phpstan-type Details array{stage?: 'started'|'completed', name?: array<string, string>|null, diseaseName?: array<string, string>|null, level?: int, experienceAwarded?: int, durationSeconds?: int, coins?: int, gems?: int, changes?: list<Change>, items?: list<array{category: string, name: array<string, string>|null, uses: int}>, confirmedAt?: string, statusRecovery?: array<string, int>, awardedEffects?: list<Effect>, automatic?: bool}
+ */
 final class PetHistoryRecorder
 {
-    /** @param array<string, mixed> $details */
+    /** @param Details $details */
     public function record(Pet $pet, string $code, string $sourceKey, CarbonImmutable $occurredAt, array $details = []): ?PetHistoryEntry
     {
         if ($occurredAt->lessThan(now()->subDays(30))) {

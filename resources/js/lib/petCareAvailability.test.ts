@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { careEnergyCost, careOptionReason } from './petCareAvailability';
 
 describe('care action feedback', () => {
-    const option = { baseEnergy: 10, reason: null };
+    const option = { baseEnergy: 10, reason: null, reasonCode: null };
     const energyReason = 'Not enough energy. Let your dog rest first.';
 
     it('allows an action when energy exactly covers the current cost', () => {
@@ -15,7 +15,11 @@ describe('care action feedback', () => {
 
     it('removes stale energy feedback when a modifier lowers the cost', () => {
         expect(
-            careOptionReason({ ...option, reason: energyReason }, 7, -30),
+            careOptionReason(
+                { ...option, reason: 'Energy feedback', reasonCode: 'energy' },
+                7,
+                -30,
+            ),
         ).toBeNull();
     });
 
@@ -27,12 +31,22 @@ describe('care action feedback', () => {
     it('preserves a server restriction even when energy is sufficient', () => {
         const reason =
             'Feed your dog and offer water before active play or a walk.';
-        expect(careOptionReason({ ...option, reason }, 100, -50)).toBe(reason);
+        expect(
+            careOptionReason(
+                { ...option, reason, reasonCode: 'active_needs' },
+                100,
+                -50,
+            ),
+        ).toBe(reason);
     });
 
     it('keeps free care available without energy even with a penalty', () => {
         expect(
-            careOptionReason({ baseEnergy: 0, reason: energyReason }, 0, 50),
+            careOptionReason(
+                { baseEnergy: 0, reason: energyReason, reasonCode: 'energy' },
+                0,
+                50,
+            ),
         ).toBeNull();
     });
 

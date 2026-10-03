@@ -7,12 +7,14 @@ export function careEnergyCost(baseEnergy: number, modifier: number): number {
 }
 
 export function careOptionReason(
-    option: Pick<CareOption, 'baseEnergy' | 'reason'>,
+    option: Pick<CareOption, 'baseEnergy' | 'reason' | 'reasonCode'>,
     energy: number,
     modifier: number,
 ): string | null {
     const energyReason = 'Not enough energy. Let your dog rest first.';
-    if (option.reason && option.reason !== energyReason) return option.reason;
+    if (option.reasonCode !== null && option.reasonCode !== 'energy') {
+        return option.reason;
+    }
 
     return energy < careEnergyCost(option.baseEnergy, modifier)
         ? energyReason

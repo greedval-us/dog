@@ -9,11 +9,19 @@ use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Calculators\TrainingRules;
+use App\Modules\Pets\Enums\CareRefusal;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-import-type Effect from PetStatusRules
+ * @phpstan-import-type Risk from \App\Modules\Pets\Calculators\ItemEffectRules
+ *
+ * @phpstan-type OptionView array{id: string, group: string, label: string, duration: int, cooldown: int, energy: int, requirements: list<string>, optional: list<string>, uses: array<string, int>, effects: array<string, int>, statGains?: array<string, int>, trainingName?: array<string, string>, risks?: list<Risk>, baseEnergy: int, grantedEffects: list<Effect>, statusRecovery: array<string, int>, gainsByQuality: array<int, array<string, int>>, reasonCode: string|null, reason: string|null}
+ * @phpstan-type CareView array{token: string, serverNow: string, buffs: list<Effect>, debuffs: list<Effect>, modifierKeys: list<string>, recentIncidents: list<array{id: int, occurredAt: string, incidents: list<Risk>|null}>, blocked: bool, busy: bool, working: bool, cooldowns: \Illuminate\Support\Collection<string, string>, options: list<OptionView>, active: array{token: string, label: string, startedAt: string, endsAt: string, effects: array<string, int|float>, statGains: array<string, int>|null}|null}
+ */
 final class GetPetCare
 {
     public function __construct(
@@ -26,7 +34,7 @@ final class GetPetCare
         private TrainingRules $trainingRules,
     ) {}
 
-    /** @return array<string, mixed> */
+    /** @return CareView */
     public function handle(User $user, int $petId, string $locale): array
     {
         $pet = $user->pets()->findOrFail($petId);
@@ -45,28 +53,30 @@ final class GetPetCare
         $careEffects = $this->careStatuses->handle();
 
         foreach ($options as $id => $option) {
-            $baseEnergy = $option['energy'];
+            $baseEnergy = $option->energy;
             $recovery = $this->statuses->recovery($status->debuffs, $id);
-            $option['energy'] = $this->statuses->energyCost($baseEnergy, $modifiers['energy_cost_percent']);
+            $option = $option->withEnergy($this->statuses->energyCost($baseEnergy, $modifiers['energy_cost_percent']));
             $gainsByQuality = [];
-            if (isset($option['statGains'])) {
+            if ($option->statGains !== null) {
                 $remaining = [];
-                foreach ($option['statGains'] as $name => $gain) {
+                foreach ($option->statGains as $name => $gain) {
                     $remaining[$name] = $pet->getAttribute(PetStat::from($name)->potentialColumn()) - $pet->getAttribute($name);
                 }
                 foreach (range(1, 10) as $quality) {
-                    $gainsByQuality[$quality] = $this->trainingRules->gains($option['statGains'], $quality, $pet->statePercentages(null), $remaining);
+                    $gainsByQuality[$quality] = $this->trainingRules->gains($option->statGains, $quality, $pet->statePercentages(null), $remaining);
                 }
             }
+            $reason = $this->rules->unavailableCode($option, $pet->statePercentages(null), $pet->energy, $recovery !== [])
+                ?? ($gainsByQuality !== [] && array_sum($gainsByQuality[10]) === 0 ? CareRefusal::TrainingPotential : null);
             $variants[] = [
                 'id' => $id,
-                ...$option,
+                ...$option->toArray(),
                 'baseEnergy' => $baseEnergy,
                 'grantedEffects' => $careEffects[$id] ?? [],
                 'statusRecovery' => $recovery,
                 'gainsByQuality' => $gainsByQuality,
-                'reason' => $this->rules->unavailableReason($option, $pet->statePercentages(null), $pet->energy, $recovery !== [])
-                    ?? ($gainsByQuality !== [] && array_sum($gainsByQuality[10]) === 0 ? 'Your dog has reached the potential for this training.' : null),
+                'reasonCode' => $reason?->value,
+                'reason' => $reason?->message(),
             ];
         }
 
@@ -76,11 +86,11 @@ final class GetPetCare
             'buffs' => $status->buffs,
             'modifierKeys' => $this->statuses->modifierKeys(),
             'debuffs' => $status->debuffs,
-            'recentIncidents' => PetCareAction::query()->where('user_id', $user->id)->where('pet_id', $petId)
+            'recentIncidents' => array_values(PetCareAction::query()->where('user_id', $user->id)->where('pet_id', $petId)
                 ->whereNotNull('completed_at')->whereNotNull('incidents')->latest('completed_at')->latest('id')->limit(3)->get()
                 ->map(fn (PetCareAction $care): array => [
                     'id' => $care->id, 'occurredAt' => $care->ends_at->toIso8601String(), 'incidents' => $care->incidents,
-                ])->all(),
+                ])->all()),
             'blocked' => $user->status !== PlayerStatus::Active || ! $pet->isActive(),
             'busy' => $pet->isBusy(),
             'working' => DogWorkShift::query()->where('pet_id', $petId)->where('user_id', $user->id)
@@ -89,7 +99,7 @@ final class GetPetCare
             'options' => $variants,
             'active' => $active === null ? null : [
                 'token' => $active->token,
-                'label' => $active->training_name[$locale] ?? $active->training_name['en'] ?? $options[$active->variant]['label'] ?? 'Training',
+                'label' => $active->training_name[$locale] ?? $active->training_name['en'] ?? $options[$active->variant]->label ?? 'Training',
                 'startedAt' => $active->created_at->toIso8601String(),
                 'endsAt' => $active->ends_at->toIso8601String(),
                 'effects' => $active->effects,

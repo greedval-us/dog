@@ -8,14 +8,14 @@ use App\Models\PetThoughtState;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetThoughtRules;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 final class RecordPetThought
 {
-    public function __construct(private PetDecayCalculator $decay, private PetThoughtRules $rules, private PetLifecycle $lifecycle) {}
+    public function __construct(private PetDecayCalculator $decay, private PetThoughtRules $rules, private PetLifecycleSynchronization $lifecycle) {}
 
     public function handle(User $user, int $petId, ?CarbonImmutable $at = null): ?PetHistoryEntry
     {

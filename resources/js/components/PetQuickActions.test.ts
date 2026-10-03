@@ -74,6 +74,7 @@ async function renderActions(
                               ? '2026-10-03T10:00:00Z'
                               : '2026-10-03T10:02:00Z',
                       effects: {},
+                      statGains: null,
                   },
     };
     const panels = defineComponent({

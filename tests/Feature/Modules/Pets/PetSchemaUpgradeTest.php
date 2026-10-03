@@ -5,12 +5,20 @@ use App\Models\Pet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/** @param array<string, mixed> $attributes */
+function legacyPet(array $attributes = []): Pet
+{
+    $pet = Pet::factory()->make($attributes);
+    $pet->setRawAttributes(array_intersect_key($pet->getAttributes(), array_flip(Schema::getColumnListing('pets'))));
+    $pet->save();
+
+    return $pet;
+}
+
 test('upgrading existing pets preserves traits activity timestamps and trained values', function () {
-    $pet = Pet::factory()->create(['strength' => 17, 'state_updated_at' => '2026-09-24 12:00:00']);
-    $tracking = require database_path('migrations/2026_09_25_120209_add_activity_tracking_to_pets_table.php');
+    $tracking = $this->prepareLegacySchema('2026_09_25_120209_add_activity_tracking_to_pets_table');
+    $pet = legacyPet(['strength' => 17, 'state_updated_at' => '2026-09-24 12:00:00']);
     $catalogues = require database_path('migrations/2026_09_25_120210_create_pet_catalogues_and_relationships.php');
-    $catalogues->down();
-    $tracking->down();
     DB::table('pets')->where('id', $pet->id)->update([
         'traits' => json_encode(['friendly', 'custom_trait', 'friendly']),
         'activity' => 'training', 'activity_started_at' => '2026-09-25 12:00:00',
@@ -37,9 +45,8 @@ test('upgrading existing pets preserves traits activity timestamps and trained v
 });
 
 test('invalid legacy traits stop the migration before removing or replacing data', function (string $json) {
-    $pet = Pet::factory()->create();
-    $catalogues = require database_path('migrations/2026_09_25_120210_create_pet_catalogues_and_relationships.php');
-    $catalogues->down();
+    $catalogues = $this->prepareLegacySchema('2026_09_25_120210_create_pet_catalogues_and_relationships');
+    $pet = legacyPet();
     DB::table('pets')->where('id', $pet->id)->update(['traits' => $json]);
 
     expect(fn () => $catalogues->up())->toThrow(RuntimeException::class);
@@ -50,9 +57,8 @@ test('invalid legacy traits stop the migration before removing or replacing data
 })->with(['object' => '{"friendly": true}', 'non-string code' => '[false]']);
 
 test('pets without traits retain an empty collection after migration', function (?string $json) {
-    $pet = Pet::factory()->create();
-    $catalogues = require database_path('migrations/2026_09_25_120210_create_pet_catalogues_and_relationships.php');
-    $catalogues->down();
+    $catalogues = $this->prepareLegacySchema('2026_09_25_120210_create_pet_catalogues_and_relationships');
+    $pet = legacyPet();
     DB::table('pets')->where('id', $pet->id)->update(['traits' => $json]);
 
     $catalogues->up();
@@ -61,26 +67,19 @@ test('pets without traits retain an empty collection after migration', function 
 })->with(['sql null' => null, 'json null' => 'null', 'empty array' => '[]']);
 
 test('appearance migration preserves pets with empty legacy photo lists', function (?string $photos) {
-    $pet = Pet::factory()->create(['strength' => 17]);
-    $indexes = require database_path('migrations/2026_09_26_072820_add_game_lookup_indexes.php');
-    $migration = require database_path('migrations/2026_09_25_150513_add_appearance_assets_to_pets.php');
-    $indexes->down();
-    $migration->down();
+    $migration = $this->prepareLegacySchema('2026_09_25_150513_add_appearance_assets_to_pets');
+    $pet = legacyPet(['strength' => 17]);
     DB::table('pets')->where('id', $pet->id)->update(['photos' => $photos]);
 
     $migration->up();
-    $indexes->up();
 
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'strength' => 17]);
     expect(Schema::hasColumn('pets', 'photos'))->toBeFalse();
 })->with(['sql null' => null, 'json null' => 'null', 'empty array' => '[]']);
 
 test('appearance migration refuses to discard existing photos', function () {
-    $pet = Pet::factory()->create();
-    $indexes = require database_path('migrations/2026_09_26_072820_add_game_lookup_indexes.php');
-    $migration = require database_path('migrations/2026_09_25_150513_add_appearance_assets_to_pets.php');
-    $indexes->down();
-    $migration->down();
+    $migration = $this->prepareLegacySchema('2026_09_25_150513_add_appearance_assets_to_pets');
+    $pet = legacyPet();
     DB::table('pets')->where('id', $pet->id)->update(['photos' => '["legacy.png"]']);
 
     expect(fn () => $migration->up())->toThrow(RuntimeException::class);
@@ -89,12 +88,13 @@ test('appearance migration refuses to discard existing photos', function () {
 });
 
 test('standardizing energy updates existing dogs without refilling spent energy or resetting state clocks', function (int $maximum, float $energy, float $expected) {
+    $migration = $this->prepareLegacySchema('2026_09_26_080015_standardize_dog_energy_capacity');
     $dog = Dog::factory()->create(['energy_max' => $maximum, 'health_max' => 120]);
-    $pet = Pet::factory()->for($dog)->create([
+    $pet = legacyPet([
+        'dog_id' => $dog->id,
         'energy_max' => $maximum, 'energy' => $energy, 'satiety' => 42,
         'state_updated_at' => '2026-09-25 12:00:00', 'stats_updated_at' => '2026-09-25 11:00:00',
     ]);
-    $migration = require database_path('migrations/2026_09_26_080015_standardize_dog_energy_capacity.php');
 
     $migration->up();
 

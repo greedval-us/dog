@@ -7,13 +7,14 @@ use App\Models\User;
 use App\Models\VeterinaryVisit;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\VeterinaryRules;
+use App\Modules\Pets\DTO\PetHistoryChange;
 use App\Modules\Pets\DTO\PurchaseVeterinaryServiceData;
 use App\Modules\Pets\Enums\VeterinaryService;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetLastVeterinaryVisit;
 use App\Modules\Pets\Queries\GetVeterinaryServices;
 use App\Modules\Pets\Services\PetHistoryRecorder;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Pets\Services\VeterinaryCare;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
@@ -33,7 +34,7 @@ final class PurchaseVeterinaryService
         private PetDecayCalculator $decay,
         private PetHistoryRecorder $history,
         private PlayerProgress $progress,
-        private PetLifecycle $lifecycle,
+        private PetLifecycleSynchronization $lifecycle,
     ) {}
 
     public function handle(User $user, PurchaseVeterinaryServiceData $data): VeterinaryVisit
@@ -121,10 +122,7 @@ final class PurchaseVeterinaryService
             $this->history->record($pet, 'veterinary.'.$data->service->value, 'veterinary:'.$visit->id.':completed', $at, [
                 'stage' => 'completed', 'diseaseName' => $visit->disease_name, 'durationSeconds' => 0, 'experienceAwarded' => $experienceAwarded,
                 'coins' => -$visit->price_paid,
-                'changes' => $healthAfter === $healthBefore ? [] : [[
-                    'metric' => 'health', 'before' => round($healthBefore, 4), 'after' => round($healthAfter, 4),
-                    'delta' => round($healthAfter - $healthBefore, 4), 'unit' => 'percent',
-                ]],
+                'changes' => $healthAfter === $healthBefore ? [] : [PetHistoryChange::percent('health', $healthBefore, $healthAfter)->toArray()],
             ]);
 
             return $visit;

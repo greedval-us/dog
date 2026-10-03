@@ -6,13 +6,13 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Exceptions\PetUnavailable;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 
 final class RetirePet
 {
-    public function __construct(private PetLifecycle $lifecycle, private PetDecayCalculator $decay) {}
+    public function __construct(private PetLifecycleSynchronization $lifecycle, private PetDecayCalculator $decay) {}
 
     public function handle(User $user, int $petId): Pet
     {

@@ -12,8 +12,7 @@ use Carbon\CarbonImmutable;
 test('progress migration preserves experience and restores lifetime statistics from completed legacy receipts', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-03 12:00:00', 'UTC'));
     config(['doglive.work_timezone' => 'Europe/Moscow']);
-    $migration = require database_path('migrations/2026_10_03_144445_add_player_progress_to_users_and_pet_receipts.php');
-    $migration->down();
+    $migration = $this->prepareLegacySchema('2026_10_03_144445_add_player_progress_to_users_and_pet_receipts');
     $owner = User::factory()->create([
         'experience' => '350', 'level' => 99, 'walks_count' => 7,
         'trainings_count' => 0, 'bio' => 'Люблю прогулки с собакой.',
@@ -86,8 +85,7 @@ test('progress migration preserves experience and restores lifetime statistics f
 });
 
 test('progress migration keeps old 64-bit experience exactly and permits larger totals afterwards', function () {
-    $migration = require database_path('migrations/2026_10_03_144445_add_player_progress_to_users_and_pet_receipts.php');
-    $migration->down();
+    $migration = $this->prepareLegacySchema('2026_10_03_144445_add_player_progress_to_users_and_pet_receipts');
     $owner = User::factory()->create(['experience' => '9223372036854775807', 'level' => 1]);
 
     $migration->up();

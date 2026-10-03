@@ -7,6 +7,8 @@ use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
+use App\Modules\Pets\DTO\PetHistoryChange;
+use App\Modules\Pets\Enums\CareRefusal;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
@@ -39,7 +41,7 @@ final class PetCareCompletion
             return false;
         }
         if ($care->ends_at->greaterThan($confirmedAt) || $pet->activity_token !== $care->activity_token) {
-            throw new PetUnavailable('This activity is not ready to finish.');
+            throw PetUnavailable::forCare(CareRefusal::NotReady);
         }
 
         $endedAt = $care->ends_at;
@@ -48,7 +50,7 @@ final class PetCareCompletion
             return false;
         }
         if (! $this->activities->complete($owner, $pet->id, $care->activity_token, $endedAt)) {
-            throw new PetUnavailable('This activity is not ready to finish.');
+            throw PetUnavailable::forCare(CareRefusal::NotReady);
         }
         $pet->clearActivity();
         $pet->last_activity_at = $endedAt;
@@ -61,19 +63,14 @@ final class PetCareCompletion
             $value = $before + $maximum * $percentage / 100;
             $pet->setAttribute($name, round(max(0, min($maximum, $value)), 4));
             $after = $pet->getAttribute($name);
-            $changes[] = [
-                'metric' => $name, 'before' => round($before / $maximum * 100, 4),
-                'after' => round($after / $maximum * 100, 4),
-                'delta' => round(($after - $before) / $maximum * 100, 4), 'unit' => 'percent',
-            ];
+            $changes[] = PetHistoryChange::percent($name, $before / $maximum * 100, $after / $maximum * 100)->toArray();
         }
         foreach ($care->stat_gains ?? [] as $name => $gain) {
             $stat = PetStat::from($name);
             $before = $pet->getAttribute($name);
             $pet->setAttribute($name, min($pet->getAttribute($stat->potentialColumn()), $before + $gain));
             $after = $pet->getAttribute($name);
-            $changes[] = ['metric' => $name, 'before' => (float) $before,
-                'after' => (float) $after, 'delta' => (float) ($after - $before), 'unit' => 'points'];
+            $changes[] = PetHistoryChange::points($name, $before, $after)->toArray();
         }
 
         $pet->debuffs = $this->statuses->recover($pet->debuffs ?? [], $care->status_recovery ?? [], $endedAt->getTimestamp());

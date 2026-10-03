@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Deferred, Head, Link, router, usePoll } from '@inertiajs/vue3';
 import { ArrowRight } from '@lucide/vue';
+import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
+import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
 import PetCondition from '@/components/PetCondition.vue';
@@ -61,92 +63,133 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
                 ></Button>
             </EmptyState>
         </template>
-        <Deferred v-else data="appearance">
-            <template #fallback
-                ><div
-                    class="dashboard-loading dashboard-scene-skeleton"
-                    role="status"
+        <div v-else class="pet-dossier">
+            <img
+                v-if="appearance?.backgroundId"
+                class="pet-profile-scene"
+                :src="
+                    image.url({
+                        asset: appearance.backgroundId,
+                        variant: 'image',
+                    })
+                "
+                alt=""
+                aria-hidden="true"
+                width="1672"
+                height="941"
+            />
+            <div class="pet-stage">
+                <PetHero :pet="pet" :care="care ?? null">
+                    <template #appearance>
+                        <Deferred data="appearance">
+                            <template #fallback>
+                                <figure class="pet-hero-portrait">
+                                    <div
+                                        class="dashboard-loading dashboard-skeleton-portrait"
+                                        role="status"
+                                    >
+                                        <span class="sr-only">{{
+                                            t('Loading...')
+                                        }}</span>
+                                    </div>
+                                </figure>
+                            </template>
+                            <template #rescue="{ reloading }">
+                                <figure class="pet-hero-portrait">
+                                    <GameAssetArtwork
+                                        :asset-id="null"
+                                        :alt="
+                                            t('Illustration of {breed}', {
+                                                breed: pet.breed,
+                                            })
+                                        "
+                                    />
+                                    <figcaption role="alert">
+                                        <p>
+                                            {{
+                                                t(
+                                                    'Could not load data. Please retry.',
+                                                )
+                                            }}
+                                        </p>
+                                        <Button
+                                            :disabled="reloading"
+                                            @click="
+                                                router.reload({
+                                                    only: ['appearance'],
+                                                })
+                                            "
+                                            >{{ t('Retry') }}</Button
+                                        >
+                                    </figcaption>
+                                </figure>
+                            </template>
+                            <figure class="pet-hero-portrait">
+                                <Transition name="pet-portrait" mode="out-in">
+                                    <GameAssetArtwork
+                                        :key="
+                                            appearance?.portraitId ??
+                                            'placeholder'
+                                        "
+                                        :asset-id="
+                                            appearance?.portraitId ?? null
+                                        "
+                                        :alt="
+                                            t('Illustration of {breed}', {
+                                                breed: pet.breed,
+                                            })
+                                        "
+                                    />
+                                </Transition>
+                            </figure>
+                            <PetAppearanceControls
+                                v-if="
+                                    appearance &&
+                                    pet.lifecycle.status === 'active'
+                                "
+                                :pet-id="pet.id"
+                                :appearance="appearance"
+                            />
+                        </Deferred>
+                    </template>
+                </PetHero>
+                <aside
+                    class="pet-sidebar"
+                    :aria-label="t('Wellbeing and care')"
                 >
-                    <span class="sr-only">{{ t('Loading...') }}</span>
-                    <div
-                        class="dashboard-skeleton-portrait"
-                        aria-hidden="true"
-                    ></div>
-                    <div class="dashboard-skeleton-metrics" aria-hidden="true">
-                        <span v-for="index in 7" :key="index"></span>
-                    </div></div
-            ></template>
-            <template #rescue="{ reloading }"
-                ><div role="alert">
-                    <p>{{ t('Could not load data. Please retry.') }}</p>
-                    <Button
-                        :disabled="reloading"
-                        @click="router.reload({ only: ['appearance'] })"
-                        >{{ t('Retry') }}</Button
-                    >
-                </div></template
-            >
-            <div v-if="appearance && pet" class="pet-dossier">
-                <img
-                    v-if="appearance.backgroundId"
-                    class="pet-profile-scene"
-                    :src="
-                        image.url({
-                            asset: appearance.backgroundId,
-                            variant: 'image',
-                        })
-                    "
-                    alt=""
-                    aria-hidden="true"
-                    width="1672"
-                    height="941"
-                />
-                <div class="pet-stage">
-                    <PetHero
-                        :pet="pet"
-                        :appearance="appearance"
-                        :care="care ?? null"
-                    />
-                    <aside
-                        class="pet-sidebar"
-                        :aria-label="t('Wellbeing and care')"
-                    >
-                        <PetCondition :states="pet.states" />
-                    </aside>
-                </div>
-                <Deferred data="care">
-                    <template #fallback
-                        ><div class="dashboard-loading" role="status">
-                            {{ t('Loading...') }}
-                        </div></template
-                    >
-                    <template #rescue="{ reloading }"
-                        ><div role="alert">
-                            <p>
-                                {{ t('Could not load data. Please retry.') }}
-                            </p>
-                            <Button
-                                :disabled="reloading"
-                                @click="router.reload({ only: ['care'] })"
-                                >{{ t('Retry') }}</Button
-                            >
-                        </div></template
-                    >
-                    <PetQuickActions
-                        v-if="care"
-                        :key="pet.id"
-                        class="pet-care-dashboard"
-                        :pet="pet"
-                        :care="care"
-                    />
-                </Deferred>
-                <PetDetails
-                    :key="pet.id"
-                    :pet="pet"
-                    :care="care ?? null"
-                    :skills="skills ?? null"
-                />
+                    <PetCondition :states="pet.states" />
+                </aside>
             </div>
-        </Deferred>
+            <Deferred data="care">
+                <template #fallback>
+                    <div class="dashboard-loading" role="status">
+                        {{ t('Loading...') }}
+                    </div>
+                </template>
+                <template #rescue="{ reloading }">
+                    <div role="alert">
+                        <p>{{ t('Could not load data. Please retry.') }}</p>
+                        <Button
+                            :disabled="reloading"
+                            @click="router.reload({ only: ['care'] })"
+                            >{{ t('Retry') }}</Button
+                        >
+                    </div>
+                </template>
+                <PetQuickActions
+                    v-if="care"
+                    :key="pet.id"
+                    class="pet-care-dashboard"
+                    :pet="pet"
+                    :care="care"
+                />
+            </Deferred>
+            <PetDetails
+                :key="pet.id"
+                :pet="pet"
+                :care="care ?? null"
+                :skills="skills ?? null"
+            />
+        </div>
     </div>
 </template>

@@ -9,11 +9,12 @@ use App\Models\Skill;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
+use App\Modules\Pets\DTO\PetHistoryChange;
 use App\Modules\Pets\DTO\TrainPetSkillData;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetHistoryRecorder;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerProgress;
@@ -25,7 +26,7 @@ final class TrainPetSkill
 {
     public function __construct(private PlayerWallet $wallet, private SkillRules $rules, private PetDecayCalculator $decay,
         private GetPetStatSnapshot $getAttributes, private PetHistoryRecorder $history, private PlayerProgress $progress,
-        private PetLifecycle $lifecycle) {}
+        private PetLifecycleSynchronization $lifecycle) {}
 
     public function handle(User $user, int $petId, TrainPetSkillData $data): PetSkillLesson
     {
@@ -121,8 +122,7 @@ final class TrainPetSkill
             $this->history->record($pet, 'skill_training', 'skill:'.$lesson->id.':completed', $at, [
                 'stage' => 'completed', 'name' => $skill->name, 'level' => $data->level, 'experienceAwarded' => $experienceAwarded,
                 'durationSeconds' => 0, 'coins' => -$lesson->price_paid,
-                'changes' => [['metric' => 'skill_level', 'before' => (float) $currentLevel,
-                    'after' => (float) $data->level, 'delta' => 1.0, 'unit' => 'points']],
+                'changes' => [PetHistoryChange::points('skill_level', $currentLevel, $data->level)->toArray()],
             ]);
 
             return $lesson;

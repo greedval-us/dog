@@ -4,9 +4,10 @@ namespace App\Modules\Pets\Actions;
 
 use App\Models\PetCareAction;
 use App\Models\User;
+use App\Modules\Pets\Enums\CareRefusal;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetCareCompletion;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ final class CompletePetCare
     public function __construct(
         private PetCareCompletion $completion,
         private PetStateSynchronizer $state,
-        private PetLifecycle $lifecycle,
+        private PetLifecycleSynchronization $lifecycle,
     ) {}
 
     public function handle(User $user, int $petId, string $token): bool
@@ -27,7 +28,7 @@ final class CompletePetCare
         return DB::transaction(function () use ($user, $petId, $token, $completedCareIds, &$thresholds): bool {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             if ($owner->status !== PlayerStatus::Active) {
-                throw new PetUnavailable('This player cannot care for pets.');
+                throw PetUnavailable::forCare(CareRefusal::PlayerBlocked);
             }
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
             $care = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $petId)

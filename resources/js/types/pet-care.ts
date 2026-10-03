@@ -1,11 +1,41 @@
 import type { DogState, DogStat } from '@/types/pet';
 
+export type CareCategory =
+    | 'food'
+    | 'collars'
+    | 'leashes'
+    | 'toys'
+    | 'care'
+    | 'clothing'
+    | 'sports';
+export type CareItemSelection = Partial<Record<CareCategory, number>>;
+export type CareModifier =
+    | 'energy_cost_percent'
+    | 'stats_decay_percent'
+    | `${DogState}_gain_percent`
+    | `${DogState}_loss_percent`
+    | `${Exclude<DogState, 'health' | 'energy'> | DogStat}_decay_percent`;
+export type CareModifiers = Partial<Record<CareModifier, number>>;
+export type CareRefusal =
+    | 'training_needs'
+    | 'energy'
+    | 'active_needs'
+    | 'need_full'
+    | 'training_potential'
+    | 'player_blocked'
+    | 'inactive'
+    | 'busy'
+    | 'cooldown'
+    | 'items_required'
+    | 'item_unavailable'
+    | 'not_ready';
+
 export type StatusEffect = {
     code: string;
     kind: 'buff' | 'debuff';
     name: Record<string, string>;
     description: Record<string, string>;
-    modifiers: Record<string, number>;
+    modifiers: CareModifiers;
     duration_seconds: number | null;
     condition_state: DogState | null;
     condition_threshold?: number | null;
@@ -13,6 +43,15 @@ export type StatusEffect = {
     expires_at?: number | null;
     recovery_actions?: Record<string, number>;
     disease_id?: number;
+    starts_at?: number;
+    conditions?: {
+        state: DogState;
+        operator: 'lt' | 'lte' | 'gt' | 'gte';
+        threshold: number;
+    }[];
+    condition_group?: string | null;
+    condition_priority?: number;
+    care_variants?: string[];
 };
 
 export type ItemRisk = {
@@ -31,7 +70,7 @@ export type CareGroup =
     | 'training';
 export type CareItem = {
     id: number;
-    category: string;
+    category: CareCategory;
     name: string;
     quality: number;
     bonuses: Partial<Record<DogState, number>>;
@@ -50,18 +89,20 @@ export type CareOption = {
     baseEnergy: number;
     grantedEffects: StatusEffect[];
     statusRecovery: Record<string, number>;
-    optional: string[];
-    requirements: string[];
-    uses: Record<string, number>;
+    optional: CareCategory[];
+    requirements: CareCategory[];
+    uses: Partial<Record<CareCategory, number>>;
     effects: Partial<Record<DogState, number>>;
     reason: string | null;
+    reasonCode: CareRefusal | null;
     statGains?: Partial<Record<DogStat, number>>;
+    trainingName?: Record<string, string>;
     gainsByQuality: Record<number, Partial<Record<DogStat, number>>>;
     risks?: ItemRisk[];
 };
 export type PetCare = {
     token: string;
-    modifierKeys: string[];
+    modifierKeys: CareModifier[];
     buffs: StatusEffect[];
     debuffs: StatusEffect[];
     recentIncidents: {
@@ -81,5 +122,6 @@ export type PetCare = {
         startedAt: string;
         endsAt: string;
         effects: Partial<Record<DogState, number>>;
+        statGains: Partial<Record<DogStat, number>> | null;
     };
 };

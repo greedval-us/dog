@@ -13,6 +13,7 @@ use App\Models\ItemCategory;
 use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\PetDisease;
+use App\Models\PetDiseaseCounter;
 use App\Models\PetHistoryEntry;
 use App\Models\PetHistoryEvent;
 use App\Models\User;
@@ -22,6 +23,8 @@ use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Random\Engine;
+use Random\Randomizer;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -30,6 +33,56 @@ uses(TestCase::class, DatabaseTruncation::class);
 beforeEach(function () {
     if (DB::getDriverName() !== 'pgsql') {
         $this->markTestSkipped('Row-lock tests require PostgreSQL.');
+    }
+});
+
+test('retrying a launch keeps the expired care disease draw and applies completion only once', function () {
+    $this->freezeSecond();
+    $engine = new class implements Engine
+    {
+        public int $draws = 0;
+
+        public function generate(): string
+        {
+            $this->draws++;
+
+            return pack('V', 0);
+        }
+    };
+    $this->app->instance(Randomizer::class, new Randomizer($engine));
+    $disease = Disease::factory()->create([
+        'is_active' => true,
+        'acquisition_rules' => ['group' => 'sleep', 'variants' => ['nap'], 'daily_min' => 2, 'daily_max' => 3],
+    ]);
+    $pet = Pet::factory()->create(['energy' => 0, 'energy_max' => 100, 'satiety' => 100, 'hydration' => 100]);
+    $rest = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+    $this->travel(300)->seconds();
+    DB::unprepared(<<<'SQL'
+        CREATE SEQUENCE care_retry_attempt;
+        CREATE FUNCTION retry_care_launch() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            IF nextval('care_retry_attempt') = 1 THEN
+                RAISE EXCEPTION 'deadlock detected: simulated care launch' USING ERRCODE = '40P01';
+            END IF;
+            RETURN NEW;
+        END;
+        $$;
+        CREATE TRIGGER retry_care_launch BEFORE INSERT ON pet_care_actions
+            FOR EACH ROW EXECUTE FUNCTION retry_care_launch();
+        SQL);
+
+    try {
+        $play = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
+
+        expect($engine->draws)->toBe(1);
+        expect(PetDiseaseCounter::query()->sole()->threshold)->toBe(2);
+        $this->assertDatabaseHas('pet_disease_counters', ['pet_id' => $pet->id, 'disease_id' => $disease->id, 'action_count' => 1]);
+        $this->assertDatabaseHas('pet_care_actions', ['id' => $rest->id, 'completed_at' => now()->toDateTimeString(), 'experience_awarded' => 10]);
+        $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity_token' => $play->activity_token, 'energy' => 19.4167]);
+        $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10']);
+        $this->assertDatabaseCount('pet_care_actions', 2);
+    } finally {
+        DB::unprepared('DROP TRIGGER IF EXISTS retry_care_launch ON pet_care_actions; DROP FUNCTION IF EXISTS retry_care_launch(); DROP SEQUENCE IF EXISTS care_retry_attempt');
     }
 });
 

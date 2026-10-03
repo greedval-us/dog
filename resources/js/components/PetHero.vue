@@ -20,7 +20,7 @@ import type { PetCare } from '@/types/pet-care';
 withDefaults(
     defineProps<{
         pet: PlayerPet;
-        appearance: PetAppearance;
+        appearance?: PetAppearance | null;
         care?: PetCare | null;
         readOnly?: boolean;
     }>(),
@@ -103,19 +103,25 @@ const date = (value: string) =>
                 :pet="pet"
             />
         </header>
-        <figure class="pet-hero-portrait">
-            <Transition name="pet-portrait" mode="out-in">
-                <GameAssetArtwork
-                    :key="appearance.portraitId ?? 'placeholder'"
-                    :asset-id="appearance.portraitId"
-                    :alt="t('Illustration of {breed}', { breed: pet.breed })"
-                />
-            </Transition>
-        </figure>
-        <PetAppearanceControls
-            v-if="!readOnly && pet.lifecycle.status === 'active'"
-            :pet-id="pet.id"
-            :appearance="appearance"
-        />
+        <slot name="appearance">
+            <figure class="pet-hero-portrait">
+                <Transition name="pet-portrait" mode="out-in">
+                    <GameAssetArtwork
+                        :key="appearance?.portraitId ?? 'placeholder'"
+                        :asset-id="appearance?.portraitId ?? null"
+                        :alt="
+                            t('Illustration of {breed}', { breed: pet.breed })
+                        "
+                    />
+                </Transition>
+            </figure>
+            <PetAppearanceControls
+                v-if="
+                    appearance && !readOnly && pet.lifecycle.status === 'active'
+                "
+                :pet-id="pet.id"
+                :appearance="appearance"
+            />
+        </slot>
     </section>
 </template>

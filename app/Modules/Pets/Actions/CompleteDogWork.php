@@ -9,7 +9,7 @@ use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
 final class CompleteDogWork
 {
     public function __construct(private PetActivityManager $activities, private PlayerWallet $wallet, private PetDecayCalculator $decay,
-        private PetHistoryRecorder $history, private PlayerProgress $progress, private PetLifecycle $lifecycle) {}
+        private PetHistoryRecorder $history, private PlayerProgress $progress, private PetLifecycleSynchronization $lifecycle) {}
 
     public function handle(User $user, string $token): DogWorkShift
     {

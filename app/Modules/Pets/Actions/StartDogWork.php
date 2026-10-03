@@ -10,13 +10,14 @@ use App\Models\User;
 use App\Modules\Pets\Calculators\DogWorkRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
+use App\Modules\Pets\DTO\PetHistoryChange;
 use App\Modules\Pets\DTO\StartDogWorkData;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
-use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,7 +26,7 @@ final class StartDogWork
 {
     public function __construct(private PetActivityManager $activities, private SkillRules $skills,
         private DogWorkRules $rules, private PetDecayCalculator $decay, private GetPetStatSnapshot $getAttributes,
-        private PetHistoryRecorder $history, private PetLifecycle $lifecycle) {}
+        private PetHistoryRecorder $history, private PetLifecycleSynchronization $lifecycle) {}
 
     public function handle(User $user, int $petId, StartDogWorkData $data): DogWorkShift
     {
@@ -108,11 +109,7 @@ final class StartDogWork
             $energyAfter = ($pet->energy - $offer->energy_cost) / $pet->energy_max * 100;
             $this->history->record($pet, 'work', 'work:'.$shift->id.':started', $activity->startedAt, [
                 'stage' => 'started', 'name' => $shift->name, 'durationSeconds' => $offer->duration_seconds,
-                'changes' => $offer->energy_cost === 0 ? [] : [[
-                    'metric' => 'energy', 'before' => round($energyBefore, 4),
-                    'after' => round($energyAfter, 4), 'delta' => round($energyAfter - $energyBefore, 4),
-                    'unit' => 'percent',
-                ]],
+                'changes' => $offer->energy_cost === 0 ? [] : [PetHistoryChange::percent('energy', $energyBefore, $energyAfter)->toArray()],
             ]);
 
             return $shift;
