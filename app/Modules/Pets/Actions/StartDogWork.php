@@ -16,6 +16,7 @@ use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ final class StartDogWork
 {
     public function __construct(private PetActivityManager $activities, private SkillRules $skills,
         private DogWorkRules $rules, private PetDecayCalculator $decay, private GetPetStatSnapshot $getAttributes,
-        private PetHistoryRecorder $history) {}
+        private PetHistoryRecorder $history, private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, int $petId, StartDogWorkData $data): DogWorkShift
     {
@@ -32,6 +33,7 @@ final class StartDogWork
         if ($petId < 1 || $data->offerId < 1 || ! Str::isUuid($token)) {
             throw new PetUnavailable('Invalid dog work request.');
         }
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $petId, $data, $token): DogWorkShift {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -48,6 +50,9 @@ final class StartDogWork
             }
 
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
+            if (! $pet->isActive() && $pet->retired_at === null) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $offer = DogWorkOffer::query()->with('board')->lockForUpdate()->find($data->offerId);
             if ($offer === null || $offer->board->work_date->toDateString() !== now(config('doglive.work_timezone'))->toDateString()
                 || ! $this->rules->valid($offer->required_skill_level, $offer->coins_reward, $offer->gems_reward,
@@ -75,6 +80,9 @@ final class StartDogWork
             }
             $at = now()->startOfSecond();
             $pet->advanceTo($at, $this->decay);
+            if (! $pet->isActive()) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $attributes = $this->getAttributes->handle($pet);
             if (! $this->skills->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null)) {
                 throw new PetUnavailable('Raise your dog’s attributes to reactivate this skill.');

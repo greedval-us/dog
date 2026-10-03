@@ -16,6 +16,13 @@ final class GetPetStatuses
     /** Project statuses from the supplied pet snapshot without changing or persisting it. */
     public function handle(Pet $pet, CarbonImmutable $at): PetStatusData
     {
+        if ($pet->archivedAt() !== null) {
+            $buffs = $pet->buffs ?? [];
+            $debuffs = $pet->debuffs ?? [];
+
+            return new PetStatusData($buffs, $debuffs, $this->rules->modifiers([...$buffs, ...$debuffs]));
+        }
+
         $catalogue = array_values(StatusEffect::query()->where('is_active', true)
             ->orderBy('id')->get()->map(fn (StatusEffect $effect): array => $effect->snapshot())->all());
         $percentages = $pet->statePercentages(precision: null);

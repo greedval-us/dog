@@ -11,6 +11,7 @@ use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\GenerateDogWorkBoard;
 use App\Modules\Pets\Actions\PurchasePetSlot;
 use App\Modules\Pets\Actions\PurchaseVeterinaryService;
+use App\Modules\Pets\Actions\RetirePet;
 use App\Modules\Pets\Actions\StartDogWork;
 use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Pets\DTO\PurchasePetSlotData;
@@ -53,6 +54,7 @@ try {
         'appearance' => app(PurchasePetAsset::class)->handle($user, $input['pet_id'], new PurchaseAssetData($input['asset_id'], 100, AssetCurrency::Coins)),
         'care-start' => app(StartPetCare::class)->handle($user, $input['pet_id'], $input['variant'], $input['items'], $input['token']),
         'care-complete' => app(CompletePetCare::class)->handle($user, $input['pet_id'], $input['token']),
+        'retire' => app(RetirePet::class)->handle($user, $input['pet_id']),
         'dog-work-board' => app(GenerateDogWorkBoard::class)->handle(),
         'dog-work-start' => app(StartDogWork::class)->handle($user, $input['pet_id'], new StartDogWorkData($input['offer_id'], $input['token'])),
         'dog-work-complete' => app(CompleteDogWork::class)->handle($user, $input['token']),

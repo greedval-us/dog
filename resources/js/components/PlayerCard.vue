@@ -4,7 +4,7 @@ import {
     CalendarDays,
     Crown,
     Dumbbell,
-    Footprints,
+    Heart,
     Leaf,
     PawPrint,
     Sparkles,
@@ -28,22 +28,98 @@ const joined = computed(() =>
           }).format(new Date(props.player.joinedAt + 'T12:00:00'))
         : null,
 );
-const statistics = computed(() => [
+const lastAction = computed(() =>
+    props.player.statistics.lastActionAt
+        ? new Intl.DateTimeFormat(locale.value, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+          }).format(new Date(props.player.statistics.lastActionAt))
+        : null,
+);
+const experienceFormatter = computed(() => new Intl.NumberFormat(locale.value));
+const experience = (value: string): string =>
+    experienceFormatter.value.format(BigInt(value));
+const progressPercent = computed(() =>
+    Math.max(0, Math.min(100, props.player.progress.percent)),
+);
+const progressText = computed(() =>
+    t('{current} / {required} XP', {
+        current: experience(props.player.progress.levelExperience),
+        required: experience(props.player.progress.requiredExperience),
+    }),
+);
+const highlights = computed(() => [
+    {
+        label: 'Actions completed',
+        value: props.player.statistics.actionsCount,
+        icon: Heart,
+    },
+    {
+        label: 'Days with dog activities',
+        value: props.player.statistics.activeDays,
+        icon: CalendarDays,
+    },
     { label: 'Dogs in care', value: props.player.dogsCount, icon: PawPrint },
     {
         label: 'Wins',
         value: props.player.exhibitionWins + props.player.competitionWins,
         icon: Trophy,
     },
+]);
+const statisticGroups = computed(() => [
     {
-        label: 'Training sessions completed',
-        value: props.player.trainingsCount,
-        icon: Dumbbell,
+        label: 'Care together',
+        icon: Heart,
+        entries: [
+            {
+                label: 'Feedings completed',
+                value: props.player.statistics.feedingCount,
+            },
+            {
+                label: 'Waterings completed',
+                value: props.player.statistics.wateringCount,
+            },
+            {
+                label: 'Play sessions completed',
+                value: props.player.statistics.playCount,
+            },
+            {
+                label: 'Grooming sessions completed',
+                value: props.player.statistics.groomingCount,
+            },
+            {
+                label: 'Rests completed',
+                value: props.player.statistics.restCount,
+            },
+            {
+                label: 'Veterinary visits',
+                value: props.player.statistics.veterinaryCount,
+            },
+        ],
     },
     {
-        label: 'Walks completed',
-        value: props.player.walksCount,
-        icon: Footprints,
+        label: 'Activities and achievements',
+        icon: Dumbbell,
+        entries: [
+            { label: 'Walks completed', value: props.player.walksCount },
+            {
+                label: 'Training sessions completed',
+                value: props.player.trainingsCount,
+            },
+            {
+                label: 'Skill lessons completed',
+                value: props.player.statistics.skillLessonsCount,
+            },
+            {
+                label: 'Dog work shifts completed',
+                value: props.player.statistics.workCount,
+            },
+            { label: 'Exhibition wins', value: props.player.exhibitionWins },
+            { label: 'Competition wins', value: props.player.competitionWins },
+        ],
     },
 ]);
 </script>
@@ -83,6 +159,64 @@ const statistics = computed(() => [
             </div>
         </section>
         <div class="player-card-panels">
+            <SurfaceCard class="player-progress-section">
+                <h3>
+                    <Sparkles :size="24" aria-hidden="true" />{{
+                        t('Player progress')
+                    }}
+                </h3>
+                <div class="player-progress-heading">
+                    <span>{{
+                        t('To level {level}', {
+                            level: number(player.progress.nextLevel),
+                        })
+                    }}</span>
+                    <strong>{{ progressText }}</strong>
+                </div>
+                <div
+                    class="player-progress-track"
+                    role="progressbar"
+                    :aria-label="
+                        t('Progress to level {level}', {
+                            level: number(player.progress.nextLevel),
+                        })
+                    "
+                    :aria-valuenow="progressPercent"
+                    :aria-valuemin="0"
+                    :aria-valuemax="100"
+                    :aria-valuetext="progressText"
+                    :style="{ '--player-progress': `${progressPercent}%` }"
+                >
+                    <span />
+                </div>
+                <p class="player-progress-remaining">
+                    {{
+                        t('Another {amount} XP to level {level}', {
+                            amount: experience(
+                                player.progress.remainingExperience,
+                            ),
+                            level: number(player.progress.nextLevel),
+                        })
+                    }}
+                </p>
+                <dl class="player-progress-total">
+                    <dt>{{ t('Total experience') }}</dt>
+                    <dd>
+                        {{
+                            t('{amount} XP', {
+                                amount: experience(player.experience),
+                            })
+                        }}
+                    </dd>
+                </dl>
+                <p class="player-progress-hint">
+                    {{
+                        t(
+                            'Completed dog activities earn experience. Each next level needs twice as much XP: 100, 200, 400…',
+                        )
+                    }}
+                </p>
+            </SurfaceCard>
             <SurfaceCard class="player-about">
                 <h3>
                     <Leaf :size="24" aria-hidden="true" />{{ t('About me') }}
@@ -97,41 +231,57 @@ const statistics = computed(() => [
                     }}
                 </p>
             </SurfaceCard>
-            <SurfaceCard class="player-statistics-section">
+        </div>
+        <SurfaceCard class="player-statistics-section">
+            <div class="player-statistics-heading">
                 <h3>
                     <BarChart3 :size="24" aria-hidden="true" />{{
                         t('Player statistics')
                     }}
                 </h3>
-                <dl class="player-statistics">
-                    <div v-for="stat in statistics" :key="stat.label">
-                        <dt>
-                            <component
-                                :is="stat.icon"
-                                :size="25"
-                                aria-hidden="true"
-                            /><span>{{ t(stat.label) }}</span>
-                        </dt>
-                        <dd>{{ number(stat.value) }}</dd>
-                    </div>
-                </dl>
-                <div class="player-statistics-extra">
-                    <span
-                        ><Sparkles :size="15" aria-hidden="true" />{{
-                            t('Player experience')
-                        }}: {{ number(player.experience) }}</span
-                    >
-                    <span
-                        >{{ t('Exhibition wins') }}:
-                        {{ number(player.exhibitionWins) }}</span
-                    >
-                    <span
-                        >{{ t('Competition wins') }}:
-                        {{ number(player.competitionWins) }}</span
-                    >
+                <span>{{ t('Across all dogs, all time') }}</span>
+            </div>
+            <dl class="player-statistics">
+                <div v-for="stat in highlights" :key="stat.label">
+                    <dt>
+                        <component
+                            :is="stat.icon"
+                            :size="25"
+                            aria-hidden="true"
+                        /><span>{{ t(stat.label) }}</span>
+                    </dt>
+                    <dd>{{ number(stat.value) }}</dd>
                 </div>
-            </SurfaceCard>
-        </div>
+            </dl>
+            <div class="player-statistics-groups">
+                <section v-for="group in statisticGroups" :key="group.label">
+                    <h4>
+                        <component
+                            :is="group.icon"
+                            :size="18"
+                            aria-hidden="true"
+                        />
+                        {{ t(group.label) }}
+                    </h4>
+                    <dl class="player-statistics-details">
+                        <div v-for="stat in group.entries" :key="stat.label">
+                            <dt>{{ t(stat.label) }}</dt>
+                            <dd>{{ number(stat.value) }}</dd>
+                        </div>
+                    </dl>
+                </section>
+            </div>
+            <p v-if="lastAction" class="player-last-action">
+                <CalendarDays :size="17" aria-hidden="true" />
+                <span
+                    >{{ t('Last dog activity') }}:
+                    <time
+                        :datetime="player.statistics.lastActionAt ?? undefined"
+                        >{{ lastAction }}</time
+                    >
+                </span>
+            </p>
+        </SurfaceCard>
         <slot name="daily-work" />
         <div v-if="$slots.actions" class="player-card-actions">
             <slot name="actions" />

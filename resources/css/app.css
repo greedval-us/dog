@@ -1526,9 +1526,6 @@
     line-height: 1.08;
     overflow-wrap: anywhere;
 }
-.pet-name-row .pet-glass-button {
-    margin-top: 4px;
-}
 .pet-name-row h1.pet-name-long {
     font-size: 26px;
     line-height: 1.2;
@@ -1550,9 +1547,7 @@
     gap: 6px;
     max-width: 315px;
 }
-.pet-tags > span,
-.pet-favorite,
-.pet-glass-button {
+.pet-tags > span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1565,26 +1560,6 @@
 .pet-tags svg {
     flex-shrink: 0;
     color: var(--primary);
-}
-.pet-favorite-row {
-    display: flex;
-    gap: 7px;
-    align-items: center;
-    margin-top: 10px;
-}
-.pet-favorite {
-    font-weight: 600;
-}
-.pet-favorite svg {
-    color: var(--destructive);
-    fill: currentColor;
-}
-.pet-dossier .pet-glass-button:disabled {
-    min-height: 33px;
-    padding: 8px 10px;
-    font-size: 11px;
-    opacity: 0.9;
-    color: var(--foreground);
 }
 .pet-hero-portrait {
     grid-area: 2 / 2;
@@ -1879,16 +1854,11 @@
     display: inline-block;
     margin-top: 4px;
 }
-.pet-planned-note,
 .pet-slots-hint {
     color: var(--muted-foreground);
     font-size: 11px;
     line-height: 1.5;
     overflow-wrap: anywhere;
-}
-.pet-planned-note {
-    grid-area: 3 / 1 / 4 / -1;
-    margin-top: 8px;
 }
 .pet-slots-hint {
     display: flex;
@@ -2812,6 +2782,10 @@
     color: var(--sage-ink);
     background: var(--sage-surface);
 }
+.pet-history-experience {
+    color: var(--primary);
+    font-weight: 600;
+}
 .pet-history-copy {
     display: grid;
     gap: 10px;
@@ -3414,9 +3388,6 @@
         padding: 6px 7px;
         font-size: 10px;
     }
-    .pet-favorite-row {
-        flex-wrap: wrap;
-    }
     .pet-sidebar,
     .pet-overview-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -3475,9 +3446,6 @@
         grid-area: 3 / 1;
         justify-self: center;
         width: 180px;
-    }
-    .pet-planned-note {
-        grid-area: 4 / 1;
     }
     .pet-gallery {
         grid-area: 5 / 1;
@@ -4832,7 +4800,7 @@
 }
 .player-card-panels {
     display: grid;
-    grid-template-columns: 1fr 1.1fr;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     gap: 20px;
     min-width: 0;
 }
@@ -4845,6 +4813,7 @@
     padding-inline: 22px;
 }
 .player-about h3,
+.player-progress-section h3,
 .player-statistics-section h3,
 .player-dogs h2 {
     display: flex;
@@ -4858,6 +4827,7 @@
     color: var(--sage-ink);
 }
 .player-statistics-section h3 svg,
+.player-progress-section h3 svg,
 .player-dogs h2 svg {
     color: var(--primary);
 }
@@ -4884,6 +4854,75 @@
     flex-shrink: 0;
     color: var(--primary);
 }
+.player-progress-heading,
+.player-progress-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    min-width: 0;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+.player-progress-heading strong,
+.player-progress-total dd {
+    min-width: 0;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.player-progress-heading strong {
+    color: var(--primary);
+}
+.player-progress-track {
+    height: 12px;
+    margin-top: 13px;
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--surface-soft);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+.player-progress-track > span {
+    display: block;
+    width: var(--player-progress);
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary);
+}
+.player-progress-remaining,
+.player-progress-hint,
+.player-statistics-heading > span,
+.player-last-action {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.player-progress-remaining {
+    margin-top: 9px;
+}
+.player-progress-total {
+    margin-top: 18px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+.player-progress-total dt {
+    color: var(--muted-foreground);
+}
+.player-progress-hint {
+    margin-top: 10px;
+}
+.player-statistics-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 18px;
+}
+.player-statistics-heading h3 {
+    margin-bottom: 0;
+}
 .player-statistics {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4891,7 +4930,7 @@
 }
 .player-statistics > div {
     min-width: 0;
-    padding: 13px 6px;
+    padding: 16px 10px;
     border: 1px solid var(--border);
     border-radius: 12px;
     text-align: center;
@@ -4903,7 +4942,7 @@
     flex-direction: column;
     gap: 8px;
     color: var(--muted-foreground);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
     overflow-wrap: anywhere;
 }
@@ -4918,18 +4957,65 @@
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
-.player-statistics-extra {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px 13px;
-    margin-top: 13px;
-    color: var(--muted-foreground);
-    font-size: 11px;
+.player-statistics-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+    margin-top: 24px;
 }
-.player-statistics-extra span {
-    display: inline-flex;
+.player-statistics-groups > section {
+    min-width: 0;
+}
+.player-statistics-groups h4 {
+    display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 9px;
+    margin-bottom: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.player-statistics-groups h4 svg {
+    flex-shrink: 0;
+    color: var(--sage-ink);
+}
+.player-statistics-details {
+    display: grid;
+    gap: 10px;
+}
+.player-statistics-details > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    line-height: 1.4;
+}
+.player-statistics-details > div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.player-statistics-details dt {
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+}
+.player-statistics-details dd {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.player-last-action {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 22px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+.player-last-action svg {
+    flex-shrink: 0;
+    color: var(--primary);
 }
 .player-dogs {
     margin-top: 20px;
@@ -5033,6 +5119,10 @@
     }
     .player-statistics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .player-statistics-groups {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
     }
 }
 @media (max-width: 1100px) {
@@ -6276,5 +6366,215 @@ a.pet-slot-action {
     }
     .player-work-job-footer > button {
         width: 100%;
+    }
+}
+
+.pet-retirement {
+    display: grid;
+    justify-items: start;
+    gap: 8px;
+    margin-top: 16px;
+}
+.pet-retirement > p {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.pet-retirement > .ui-button {
+    height: auto;
+    min-height: 36px;
+    white-space: normal;
+    text-align: left;
+}
+.pet-lifecycle-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    font-size: 11px;
+    font-weight: 600;
+}
+.pet-lifecycle-status.is-deceased {
+    background: var(--surface-soft);
+    color: var(--muted-foreground);
+}
+.pet-lifecycle-status > svg {
+    flex-shrink: 0;
+}
+.pet-hero-identity > .pet-lifecycle-status {
+    margin-top: 14px;
+}
+.pet-memorial-page {
+    display: grid;
+    gap: 22px;
+    min-width: 0;
+}
+.pet-memorial-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+}
+.pet-memorial-heading > :first-child {
+    flex: 1 1 320px;
+    min-width: 0;
+    margin: 0;
+}
+.pet-memorial-heading > .ui-button {
+    flex-shrink: 0;
+}
+.pet-memorial-owner {
+    color: var(--muted-foreground);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+.pet-memorial-card {
+    min-width: 0;
+    overflow: hidden;
+    padding-block: 0;
+}
+.pet-memorial-card > [data-slot='card-content'] {
+    padding: 0;
+}
+.pet-memorial-card .player-dog-picture {
+    width: 100%;
+    border-radius: 0;
+}
+.pet-memorial-card-content {
+    padding: 20px;
+}
+.pet-memorial-card-content > h2 {
+    margin-top: 14px;
+    font-size: 22px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.pet-memorial-card-content > p {
+    margin-top: 4px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.pet-memorial-card-content > .ui-button {
+    margin-top: 18px;
+}
+.pet-memorial-dates {
+    display: grid;
+    gap: 9px;
+    margin-top: 16px;
+    font-size: 12px;
+}
+.pet-memorial-dates > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 12px;
+}
+.pet-memorial-dates dt {
+    color: var(--muted-foreground);
+}
+.pet-memorial-dates dd {
+    text-align: right;
+}
+.pet-memorial-empty > [data-slot='card-content'] {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding-block: 28px;
+    text-align: center;
+}
+.pet-memorial-empty svg {
+    color: var(--primary);
+}
+.pet-memorial-empty h2 {
+    font-size: 20px;
+    font-weight: 700;
+}
+.pet-memorial-empty p {
+    max-width: 440px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.pet-memorial-notice > [data-slot='card-content'] {
+    display: flex;
+    align-items: start;
+    gap: 16px;
+}
+.pet-memorial-notice svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.pet-memorial-notice h2 {
+    font-size: 17px;
+    font-weight: 700;
+}
+.pet-memorial-notice p {
+    margin-top: 7px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted-foreground);
+}
+.pet-overview-grid.is-read-only {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 20px;
+}
+.pet-memorial-skills {
+    margin-top: 18px;
+}
+.pet-memorial-skills h2 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 16px;
+    font-weight: 700;
+}
+.pet-memorial-skills ul {
+    display: grid;
+    gap: 14px;
+}
+.pet-memorial-skills li {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 14px;
+}
+.pet-memorial-skills li + li {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.pet-memorial-skills h3 {
+    font-size: 14px;
+    font-weight: 600;
+}
+.pet-memorial-skills p {
+    margin-top: 5px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+}
+.pet-memorial-skills li > span {
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    padding: 6px 9px;
+    font-size: 11px;
+    font-weight: 600;
+}
+@media (max-width: 650px) {
+    .pet-overview-grid.is-read-only {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pet-memorial-heading > .ui-button {
+        width: 100%;
+    }
+    .pet-memorial-skills li {
+        flex-wrap: wrap;
     }
 }

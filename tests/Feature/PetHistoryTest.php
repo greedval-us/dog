@@ -187,7 +187,7 @@ test('catalogue seeding can be repeated without overwriting custom phrases', fun
 
     $this->seed(PetHistorySeeder::class);
 
-    $this->assertDatabaseCount('pet_history_events', 41);
+    $this->assertDatabaseCount('pet_history_events', 43);
     $this->assertDatabaseCount('pet_history_phrases', 75);
     expect($phrase->fresh()->text)->toBe(['ru' => 'Своя фраза']);
     expect($phrase->fresh()->is_active)->toBeFalse();

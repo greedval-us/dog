@@ -322,12 +322,14 @@ function countdown(seconds: number) {
                             t(
                                 offer.status === 'completed'
                                     ? 'Completed'
-                                    : offer.status === 'started'
-                                      ? 'In progress'
-                                      : form.processing &&
-                                          form.offer_id === offer.id
-                                        ? 'Starting...'
-                                        : 'Take job',
+                                    : offer.status === 'cancelled'
+                                      ? 'Cancelled'
+                                      : offer.status === 'started'
+                                        ? 'In progress'
+                                        : form.processing &&
+                                            form.offer_id === offer.id
+                                          ? 'Starting...'
+                                          : 'Take job',
                             )
                         }}
                     </Button>

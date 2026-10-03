@@ -36,6 +36,13 @@ export type PlayerPet = {
     bornAt: string;
     isPurebred: boolean;
     isFavorite: boolean;
+    lifecycle: {
+        status: 'active' | 'retired' | 'deceased';
+        archivedAt: string | null;
+        canRetire: boolean;
+        retirementEligibleAt: string;
+        automaticRetirementAt: string;
+    };
     traits: string[];
     states: Record<DogState, number>;
     energy: { value: number; maximum: number };

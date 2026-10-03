@@ -105,6 +105,8 @@ test('retired dogs leave active slots and the default selection but remain viewa
 
     $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
         ->where('pet.id', $active->id)->where('slots.0.pet.id', $active->id)->where('slots.1.pet', null));
-    $this->get(route('dashboard', ['pet' => $retired->id]))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('dashboard', ['pet' => $retired->id]))
+        ->assertRedirect(route('players.memorial.show', ['user' => $user->username, 'pet' => $retired->id]));
+    $this->get(route('players.memorial.show', ['user' => $user->username, 'pet' => $retired->id]))->assertInertia(fn (Assert $page) => $page
         ->where('pet.id', $retired->id));
 });

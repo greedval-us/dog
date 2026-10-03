@@ -10,6 +10,7 @@ use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
@@ -18,7 +19,7 @@ use Illuminate\Support\Str;
 
 final class PurchaseKennelPet
 {
-    public function __construct(private StarterPetGenerator $generator, private PlayerWallet $wallet) {}
+    public function __construct(private StarterPetGenerator $generator, private PlayerWallet $wallet, private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, PurchaseKennelPetData $data): KennelPurchase
     {
@@ -28,6 +29,7 @@ final class PurchaseKennelPet
         if (! Str::isUuid($token) || $data->dogId < 1 || $data->expectedPrice < 1 || $name === '' || mb_strlen($name) > 64) {
             throw new AdoptionUnavailable('Invalid dog purchase.');
         }
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $data, $token, $name): KennelPurchase {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);

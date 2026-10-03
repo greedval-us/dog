@@ -9,7 +9,9 @@ use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -17,7 +19,7 @@ use Illuminate\Support\Str;
 final class CompleteDogWork
 {
     public function __construct(private PetActivityManager $activities, private PlayerWallet $wallet, private PetDecayCalculator $decay,
-        private PetHistoryRecorder $history) {}
+        private PetHistoryRecorder $history, private PlayerProgress $progress, private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, string $token): DogWorkShift
     {
@@ -25,6 +27,7 @@ final class CompleteDogWork
         if (! Str::isUuid($token)) {
             throw new PetUnavailable('Invalid dog work request.');
         }
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $token): DogWorkShift {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -32,11 +35,16 @@ final class CompleteDogWork
                 throw new PetUnavailable('Your account is blocked.');
             }
             $shift = DogWorkShift::query()->where('user_id', $owner->id)->where('token', $token)->firstOrFail();
-            if ($shift->completed_at !== null) {
+            if ($shift->completed_at !== null || $shift->cancelled_at !== null) {
                 return $shift;
             }
             $pet = $owner->pets()->lockForUpdate()->findOrFail($shift->pet_id);
             $shift = DogWorkShift::query()->lockForUpdate()->findOrFail($shift->id);
+            if (! $pet->isActive()) {
+                $this->lifecycle->persist($pet);
+
+                return $shift->refresh();
+            }
             if ($shift->ends_at->greaterThan(now()->startOfSecond())) {
                 throw new PetUnavailable('This job has not finished yet.');
             }
@@ -49,14 +57,20 @@ final class CompleteDogWork
             }
 
             $pet->refresh()->advanceTo(now(), $this->decay);
+            if (! $pet->isActive()) {
+                $this->lifecycle->persist($pet);
+
+                return $shift->refresh();
+            }
             $pet->save();
             $this->wallet->change($owner, 'coins', $shift->coins_reward, $operation.':coins', 'dog_work');
             if ($shift->gems_reward > 0) {
                 $this->wallet->change($owner, 'gems', $shift->gems_reward, $operation.':gems', 'dog_work');
             }
             $shift->update(['completed_at' => now()->startOfSecond()]);
+            $experienceAwarded = $this->progress->award($owner, $shift);
             $this->history->record($pet, 'work', 'work:'.$shift->id.':completed', $shift->ends_at, [
-                'stage' => 'completed', 'name' => $shift->name,
+                'stage' => 'completed', 'name' => $shift->name, 'experienceAwarded' => $experienceAwarded,
                 'durationSeconds' => $shift->ends_at->getTimestamp() - $shift->started_at->getTimestamp(),
                 'changes' => [], 'coins' => $shift->coins_reward, 'gems' => $shift->gems_reward,
             ]);

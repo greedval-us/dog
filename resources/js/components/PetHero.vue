@@ -1,31 +1,32 @@
 <script setup lang="ts">
-import { useId } from 'vue';
 import {
     CalendarDays,
     ChevronRight,
-    Ellipsis,
-    Heart,
+    Flower2,
+    Leaf,
     Mars,
-    Pencil,
     ShieldCheck,
     Venus,
 } from '@lucide/vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
+import PetRetirement from '@/components/PetRetirement.vue';
 import type { PetAppearance } from '@/types/appearance';
-import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 import StatusEffects from '@/components/StatusEffects.vue';
 import type { PetCare } from '@/types/pet-care';
 
-defineProps<{
-    pet: PlayerPet;
-    appearance: PetAppearance;
-    care?: PetCare | null;
-}>();
+withDefaults(
+    defineProps<{
+        pet: PlayerPet;
+        appearance: PetAppearance;
+        care?: PetCare | null;
+        readOnly?: boolean;
+    }>(),
+    { readOnly: false },
+);
 const { t, locale } = useI18n();
-const id = useId();
 const date = (value: string) =>
     new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
@@ -39,7 +40,8 @@ const date = (value: string) =>
     <section class="pet-hero" :aria-label="t('Pet profile')">
         <div class="pet-hero-topline">
             <p class="pet-breadcrumb">
-                {{ t('My dog') }} <ChevronRight :size="14" />
+                {{ t(readOnly ? 'Pet memorial hall' : 'My dog') }}
+                <ChevronRight :size="14" />
                 <span>{{ pet.name }}</span>
             </p>
             <StatusEffects
@@ -55,17 +57,6 @@ const date = (value: string) =>
                 <h1 :class="{ 'pet-name-long': pet.name.length > 24 }">
                     {{ pet.name }}
                 </h1>
-                <Button
-                    type="button"
-                    variant="plain"
-                    size="icon"
-                    class="pet-glass-button"
-                    disabled
-                    :aria-describedby="id + '-planned'"
-                    :aria-label="t('Rename — coming soon')"
-                    :title="t('Rename — coming soon')"
-                    ><Pencil :size="18"
-                /></Button>
             </div>
             <p class="pet-hero-breed">
                 <component
@@ -85,36 +76,33 @@ const date = (value: string) =>
                 >
                 <span v-else>{{ t('Mixed breed') }}</span>
             </div>
-            <div class="pet-favorite-row">
-                <span v-if="pet.isFavorite" class="pet-favorite"
-                    ><Heart :size="17" />{{ t('My best friend') }}</span
-                >
-                <Button
-                    v-else
-                    variant="plain"
-                    type="button"
-                    class="pet-glass-button"
-                    disabled
-                    :aria-describedby="id + '-planned'"
-                    :title="t('Favorites — coming soon')"
-                    ><Heart :size="17" />{{ t('Add to favorites') }}</Button
-                >
-                <Button
-                    variant="plain"
-                    size="icon"
-                    type="button"
-                    class="pet-glass-button"
-                    disabled
-                    :aria-describedby="id + '-planned'"
-                    :aria-label="t('More actions — coming soon')"
-                    :title="t('More actions — coming soon')"
-                    ><Ellipsis
-                /></Button>
-            </div>
+            <span
+                v-if="pet.lifecycle.status !== 'active'"
+                class="pet-lifecycle-status"
+                :class="'is-' + pet.lifecycle.status"
+            >
+                <component
+                    :is="pet.lifecycle.status === 'retired' ? Leaf : Flower2"
+                    :size="16"
+                    aria-hidden="true"
+                />
+                {{
+                    t(
+                        pet.lifecycle.status === 'retired'
+                            ? 'Retired'
+                            : 'In loving memory',
+                    )
+                }}
+            </span>
+            <PetRetirement
+                v-if="
+                    !readOnly &&
+                    pet.lifecycle.status === 'active' &&
+                    pet.lifecycle.canRetire
+                "
+                :pet="pet"
+            />
         </header>
-        <p :id="id + '-planned'" class="pet-planned-note">
-            {{ t('Renaming, favorites and more actions are coming soon.') }}
-        </p>
         <figure class="pet-hero-portrait">
             <Transition name="pet-portrait" mode="out-in">
                 <GameAssetArtwork
@@ -124,6 +112,10 @@ const date = (value: string) =>
                 />
             </Transition>
         </figure>
-        <PetAppearanceControls :pet-id="pet.id" :appearance="appearance" />
+        <PetAppearanceControls
+            v-if="!readOnly && pet.lifecycle.status === 'active'"
+            :pet-id="pet.id"
+            :appearance="appearance"
+        />
     </section>
 </template>

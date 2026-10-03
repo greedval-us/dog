@@ -13,7 +13,7 @@ export type DogWorkOffer = {
     places: number;
     limit: number;
     reason: string | null;
-    status: 'started' | 'completed' | null;
+    status: 'started' | 'completed' | 'cancelled' | null;
 };
 
 export type DogWorkBoard = {

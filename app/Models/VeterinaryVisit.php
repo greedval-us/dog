@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property int $id
  * @property int|null $user_id
+ * @property int|null $experience_awarded
  * @property int $pet_id
  * @property string $pet_name
  * @property VeterinaryService $service
@@ -34,6 +35,7 @@ class VeterinaryVisit extends Model
     {
         return [
             'user_id' => 'integer',
+            'experience_awarded' => 'integer',
             'pet_id' => 'integer',
             'service' => VeterinaryService::class,
             'disease_episode_id' => 'integer',

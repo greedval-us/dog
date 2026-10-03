@@ -13,9 +13,11 @@ use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetLastVeterinaryVisit;
 use App\Modules\Pets\Queries\GetVeterinaryServices;
 use App\Modules\Pets\Services\PetHistoryRecorder;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Pets\Services\VeterinaryCare;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,6 +32,8 @@ final class PurchaseVeterinaryService
         private VeterinaryCare $care,
         private PetDecayCalculator $decay,
         private PetHistoryRecorder $history,
+        private PlayerProgress $progress,
+        private PetLifecycle $lifecycle,
     ) {}
 
     public function handle(User $user, PurchaseVeterinaryServiceData $data): VeterinaryVisit
@@ -40,6 +44,7 @@ final class PurchaseVeterinaryService
             || ($treatment ? ($data->diseaseEpisodeId ?? 0) < 1 : $data->diseaseEpisodeId !== null)) {
             throw new PetUnavailable('Invalid veterinary visit.');
         }
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $data, $token, $treatment): VeterinaryVisit {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -62,6 +67,9 @@ final class PurchaseVeterinaryService
             }
 
             $pet = $owner->pets()->lockForUpdate()->findOrFail($data->petId);
+            if (! $pet->isActive() && $pet->retired_at === null) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $reason = $this->rules->petUnavailableReason($owner->status, true, $pet->retired_at !== null, $pet->isBusy());
             if ($reason !== null) {
                 throw new PetUnavailable($reason);
@@ -72,6 +80,10 @@ final class PurchaseVeterinaryService
                 throw new PetUnavailable('The price has changed. Refresh the page before purchasing.');
             }
             $at = now()->startOfSecond();
+            $pet->advanceTo($at, $this->decay);
+            if (! $pet->isActive()) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $episode = null;
             $availableAt = null;
             if ($treatment) {
@@ -94,7 +106,6 @@ final class PurchaseVeterinaryService
                 throw new PetUnavailable('You do not have enough coins for this veterinary service.');
             }
 
-            $pet->advanceTo($at, $this->decay);
             $healthBefore = $pet->health / $pet->health_max * 100;
             $this->care->apply($pet, $definition, $episode, $at, $availableAt);
             $healthAfter = $pet->health / $pet->health_max * 100;
@@ -106,8 +117,9 @@ final class PurchaseVeterinaryService
                 'token' => $token, 'price_paid' => $definition->price, 'currency_transaction_id' => $entry->id,
                 'performed_at' => $at, 'available_at' => $availableAt,
             ]);
+            $experienceAwarded = $this->progress->award($owner, $visit);
             $this->history->record($pet, 'veterinary.'.$data->service->value, 'veterinary:'.$visit->id.':completed', $at, [
-                'stage' => 'completed', 'diseaseName' => $visit->disease_name, 'durationSeconds' => 0,
+                'stage' => 'completed', 'diseaseName' => $visit->disease_name, 'durationSeconds' => 0, 'experienceAwarded' => $experienceAwarded,
                 'coins' => -$visit->price_paid,
                 'changes' => $healthAfter === $healthBefore ? [] : [[
                     'metric' => 'health', 'before' => round($healthBefore, 4), 'after' => round($healthAfter, 4),

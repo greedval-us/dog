@@ -8,21 +8,27 @@ use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Pets\Queries\GetPetSkills;
 use App\Modules\Pets\Queries\GetPetSlots;
 use App\Modules\Pets\Queries\GetPrimaryPet;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare, GetPetSkills $getSkills): Response
+    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare, GetPetSkills $getSkills): Response|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
 
         $request->validate(['pet' => ['sometimes', 'integer', 'min:1']]);
-        $petId = $request->has('pet')
-            ? $user->pets()->findOrFail($request->integer('pet'), ['id'])->id
-            : $user->pets()->active()->oldest('id')->value('id');
+        $selectedPet = $request->has('pet')
+            ? $user->pets()->whereKey($request->integer('pet'))->firstOrFail()
+            : $user->pets()->active()->oldest('id')->first();
+        $petId = $selectedPet?->id;
+
+        if ($selectedPet !== null && ! $selectedPet->isActive()) {
+            return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $petId]);
+        }
 
         return Inertia::render('Dashboard', [
             'canClaimStarterPet' => fn () => $user->canClaimStarterPet(),

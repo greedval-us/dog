@@ -1,13 +1,17 @@
 <?php
 
 use App\Modules\Inventory\Services\InventoryConsumption;
+use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 
 $moduleDirectories = glob(dirname(__DIR__, 2).'/app/Modules/*', GLOB_ONLYDIR);
 $modules = array_map(fn (string $directory): string => 'App\\Modules\\'.basename($directory), $moduleDirectories);
 $layers = [];
 $publicOperations = [
+    PetLifecycle::class,
     PlayerWallet::class,
+    PlayerProgress::class,
     InventoryConsumption::class,
 ];
 

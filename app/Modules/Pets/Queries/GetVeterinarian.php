@@ -23,14 +23,14 @@ final class GetVeterinarian
     /** @return array<string, mixed> */
     public function handle(User $user, ?int $petId, string $locale): array
     {
-        $pets = $user->pets()->orderBy('id')->get();
-        $pet = $petId === null ? ($pets->first(fn (Pet $dog): bool => $dog->retired_at === null) ?? $pets->first()) : $pets->firstWhere('id', $petId);
+        $pets = $user->pets()->active()->orderBy('id')->get();
+        $pet = $petId === null ? $pets->first() : $pets->firstWhere('id', $petId);
         if ($petId !== null && $pet === null) {
-            $user->pets()->findOrFail($petId);
+            $user->pets()->active()->whereKey($petId)->firstOrFail();
         }
         $at = now();
         $pet?->advanceTo($at, $this->decay);
-        $reason = $this->rules->petUnavailableReason($user->status, $pet !== null, $pet?->retired_at !== null, $pet?->isBusy() ?? false);
+        $reason = $this->rules->petUnavailableReason($user->status, $pet !== null, $pet !== null && ! $pet->isActive(), $pet?->isBusy() ?? false);
         $definitions = $this->catalogue->handle();
         $services = [];
         foreach ($definitions as $definition) {

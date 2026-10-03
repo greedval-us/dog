@@ -17,11 +17,17 @@ use Inertia\Response;
 
 class VeterinarianController extends Controller
 {
-    public function index(Request $request, GetVeterinarian $query): Response
+    public function index(Request $request, GetVeterinarian $query): Response|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         $data = $request->validate(['pet' => ['nullable', 'integer', 'min:1']]);
+        if (isset($data['pet'])) {
+            $selected = $user->pets()->whereKey($data['pet'])->firstOrFail();
+            if (! $selected->isActive()) {
+                return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $selected->id]);
+            }
+        }
 
         return Inertia::render('Veterinarian', [
             'clinic' => $query->handle($user, isset($data['pet']) ? (int) $data['pet'] : null, app()->getLocale()),

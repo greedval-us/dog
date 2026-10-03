@@ -214,5 +214,9 @@
     "Retired": "На пенсии",
     "Choose a dog": "Выбери собаку",
     "{minutes} min": "{minutes} мин",
-    "{seconds} sec": "{seconds} сек"
+    "{seconds} sec": "{seconds} сек",
+    "This dog is no longer active.": "Эта собака больше не участвует в игре.",
+    "Retirement is available three months after birth.": "Отправить собаку на пенсию можно через три месяца после рождения.",
+    "Your dog has retired. Their card is preserved in the Pet Memorial.": "Собака вышла на пенсию. Её карточка сохранена в зале памяти питомцев.",
+    "This activity was cancelled because your dog is no longer active.": "Активность отменена: собака умерла или вышла на пенсию."
 }

@@ -7,6 +7,7 @@ import {
     History,
     MessageCircle,
     RotateCcw,
+    Sparkles,
     Stethoscope,
 } from '@lucide/vue';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
@@ -336,6 +337,7 @@ defineExpose({ refresh });
                                     entry.details.stage ||
                                     entry.details.name ||
                                     entry.details.diseaseName ||
+                                    entry.details.experienceAwarded ||
                                     entry.details.durationSeconds !== undefined
                                 "
                                 class="pet-history-meta"
@@ -365,6 +367,20 @@ defineExpose({ refresh });
                                         :size="14"
                                         aria-hidden="true"
                                     />{{ entry.details.diseaseName }}</span
+                                >
+                                <span
+                                    v-if="entry.details.experienceAwarded"
+                                    class="pet-history-experience"
+                                    ><Sparkles
+                                        :size="14"
+                                        aria-hidden="true"
+                                    />{{
+                                        t('+{amount} XP', {
+                                            amount: number(
+                                                entry.details.experienceAwarded,
+                                            ),
+                                        })
+                                    }}</span
                                 >
                                 <span
                                     v-if="

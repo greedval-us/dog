@@ -191,6 +191,7 @@ test('disabled diseases are not acquired', function () {
 });
 
 test('disease penalties survive sleep and time and reduce the next meal gain', function () {
+    config(['pet_states.health_loss_per_hour' => 0]);
     $this->freezeSecond();
     $this->seed(DiseaseSeeder::class);
     $pet = Pet::factory()->create(['satiety' => 10, 'satiety_max' => 100, 'size' => 'small', 'energy' => 50]);

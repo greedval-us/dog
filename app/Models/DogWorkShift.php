@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable $started_at
  * @property CarbonImmutable $ends_at
  * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $cancelled_at
+ * @property int|null $experience_awarded
  */
 #[Fillable(['user_id', 'pet_id', 'pet_name', 'dog_work_offer_id', 'token', 'activity_token', 'name', 'coins_reward', 'gems_reward', 'started_at', 'ends_at', 'completed_at'])]
 class DogWorkShift extends Model
@@ -32,7 +34,7 @@ class DogWorkShift extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['pet_id' => 'integer', 'dog_work_offer_id' => 'integer', 'name' => 'array', 'coins_reward' => 'integer',
+        return ['user_id' => 'integer', 'experience_awarded' => 'integer', 'cancelled_at' => 'immutable_datetime', 'pet_id' => 'integer', 'dog_work_offer_id' => 'integer', 'name' => 'array', 'coins_reward' => 'integer',
             'gems_reward' => 'integer', 'started_at' => 'datetime', 'ends_at' => 'datetime', 'completed_at' => 'datetime'];
     }
 }

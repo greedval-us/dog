@@ -28,6 +28,37 @@ final class PetDecayCalculator
     }
 
     /**
+     * @param  array<string, float>  $values
+     * @param  array<string, int>  $maximums
+     * @param  list<Effect>  $effects
+     * @return array{values: array<string, float>, diedAt: int|null}
+     */
+    public function statesUntilDeath(array $values, array $maximums, int $from, int $to, array $effects): array
+    {
+        if ($values['health'] <= 0) {
+            return ['values' => $values, 'diedAt' => $from];
+        }
+
+        $advanced = $this->states($values, $maximums, $from, $to, $effects);
+        if ($advanced['health'] > 0) {
+            return ['values' => $advanced, 'diedAt' => null];
+        }
+
+        $earliest = $from;
+        $latest = $to;
+        while ($earliest < $latest) {
+            $middle = $earliest + intdiv($latest - $earliest, 2);
+            if ($this->states($values, $maximums, $from, $middle, $effects)['health'] <= 0) {
+                $latest = $middle;
+            } else {
+                $earliest = $middle + 1;
+            }
+        }
+
+        return ['values' => $this->states($values, $maximums, $from, $earliest, $effects), 'diedAt' => $earliest];
+    }
+
+    /**
      * @param  array<string, int>  $values
      * @param  array<string, float>  $remainders
      * @param  list<Effect>  $effects

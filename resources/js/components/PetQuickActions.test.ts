@@ -20,9 +20,16 @@ async function renderActions(
         size: 'large',
         generation: 1,
         description: null,
-        bornAt: '2026-01-01',
+        bornAt: '2026-08-01',
         isPurebred: true,
         isFavorite: true,
+        lifecycle: {
+            status: 'active',
+            archivedAt: null,
+            canRetire: false,
+            retirementEligibleAt: '2026-11-01T00:00:00Z',
+            automaticRetirementAt: '2027-02-01T00:00:00Z',
+        },
         traits: [],
         states: {
             health: 100,

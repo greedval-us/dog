@@ -4,7 +4,27 @@ export type PlayerProfile = {
     avatarVersion: string | null;
     bio: string | null;
     level: number;
-    experience: number;
+    experience: string;
+    progress: {
+        levelExperience: string;
+        requiredExperience: string;
+        remainingExperience: string;
+        percent: number;
+        nextLevel: number;
+    };
+    statistics: {
+        actionsCount: number;
+        feedingCount: number;
+        wateringCount: number;
+        playCount: number;
+        groomingCount: number;
+        restCount: number;
+        skillLessonsCount: number;
+        workCount: number;
+        veterinaryCount: number;
+        activeDays: number;
+        lastActionAt: string | null;
+    };
     dogsCount: number;
     exhibitionWins: number;
     competitionWins: number;

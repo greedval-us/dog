@@ -10,15 +10,18 @@ use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 
 final class AdoptStarterPet
 {
-    public function __construct(private StarterPetGenerator $generator) {}
+    public function __construct(private StarterPetGenerator $generator, private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, AdoptStarterPetData $data): Pet
     {
+        $this->lifecycle->synchronizeOwner($user);
+
         return DB::transaction(function () use ($user, $data): Pet {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
 

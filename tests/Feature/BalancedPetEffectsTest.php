@@ -155,7 +155,7 @@ test('sleep can restore health at full energy and clear a timed incident', funct
 
 test('maximum combined penalties never make basic recovery cost energy', function () {
     $this->seed(StatusEffectSeeder::class);
-    $pet = Pet::factory()->create(['satiety' => 0, 'hydration' => 0, 'energy' => 0, 'health' => 0, 'mood' => 0, 'cleanliness' => 0]);
+    $pet = Pet::factory()->create(['satiety' => 0, 'hydration' => 0, 'energy' => 0, 'health' => 1, 'mood' => 0, 'cleanliness' => 0]);
 
     $status = app(GetPetStatuses::class)->handle($pet, now());
     expect($status->modifiers['energy_cost_percent'])->toBe(50);
@@ -163,7 +163,7 @@ test('maximum combined penalties never make basic recovery cost energy', functio
     $this->travelTo($care->ends_at);
     app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token);
 
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 25, 'health' => 1]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'energy' => 25, 'health' => 1.5833]);
 });
 
 test('catalogue reseeding keeps custom effects and purchased snapshots while adding new item choices', function () {

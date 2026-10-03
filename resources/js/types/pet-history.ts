@@ -24,6 +24,7 @@ export type PetHistoryEntry = {
         diseaseName?: string | null;
         coins?: number;
         gems?: number;
+        experienceAwarded?: number;
         durationSeconds?: number;
         changes?: PetHistoryChange[];
     };

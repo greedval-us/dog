@@ -1,8 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 import avatar from './avatar'
+import memorial from './memorial'
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
 export const show = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +18,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
 show.url = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions) => {
@@ -50,7 +51,7 @@ show.url = (args: { user: string | { username: string } } | [user: string | { us
 
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
 show.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +60,7 @@ show.get = (args: { user: string | { username: string } } | [user: string | { us
 })
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
 show.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +70,7 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
 
     /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
     const showForm = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +80,7 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
 
             /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
         showForm.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -88,7 +89,7 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
         })
             /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:15
+ * @see app/Http/Controllers/PlayerProfileController.php:16
  * @route '/players/{user}'
  */
         showForm.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -105,6 +106,7 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
 const players = {
     avatar: Object.assign(avatar, avatar),
 show: Object.assign(show, show),
+memorial: Object.assign(memorial, memorial),
 }
 
 export default players

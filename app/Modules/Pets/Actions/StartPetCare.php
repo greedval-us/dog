@@ -16,6 +16,7 @@ use App\Modules\Pets\Queries\GetCareStatusEffects;
 use App\Modules\Pets\Queries\GetTrainingOptions;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,7 @@ final class StartPetCare
         private GetTrainingOptions $trainings,
         private TrainingRules $trainingRules,
         private PetHistoryRecorder $history,
+        private PetLifecycle $lifecycle,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -50,6 +52,7 @@ final class StartPetCare
         $token = strtolower($token);
         ksort($itemIds);
         $rolls = [];
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $petId, $variant, $itemIds, $token, &$rolls): PetCareAction {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -72,7 +75,11 @@ final class StartPetCare
             $options = str_starts_with($variant, 'training:') ? $this->trainings->handle('en') : $this->rules->options($pet->size);
             $option = $options[$variant] ?? throw new InvalidArgumentException('Unknown care action.');
 
-            if ($pet->isBusy() && $pet->retired_at === null) {
+            if (! $pet->isActive() && $pet->retired_at === null) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
+
+            if ($pet->isBusy()) {
                 $finished = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $petId)
                     ->where('activity_token', $pet->activity_token)->whereNull('completed_at')
                     ->where('ends_at', '<=', now())->first();
@@ -83,7 +90,7 @@ final class StartPetCare
                 }
             }
 
-            if ($pet->retired_at !== null || $pet->isBusy()) {
+            if (! $pet->isActive() || $pet->isBusy()) {
                 throw new PetUnavailable('Your dog is busy or retired.');
             }
 
@@ -93,6 +100,9 @@ final class StartPetCare
 
             $at = now();
             $status = $this->state->advance($pet, $at);
+            if ($pet->died_at !== null || $pet->retired_at !== null || $pet->health <= 0) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $modifiers = $status->modifiers;
             $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
             $recovery = $this->statuses->recovery($status->debuffs, $variant);

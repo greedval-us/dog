@@ -47,6 +47,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $generation
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
+ * @property CarbonImmutable|null $died_at
  * @property CarbonImmutable $state_updated_at
  * @property array<string, float>|null $stat_decay_remainders
  * @property CarbonImmutable $stats_updated_at
@@ -170,11 +171,41 @@ class Pet extends Model
         return $this->activity !== null;
     }
 
+    public function isActive(): bool
+    {
+        return $this->retired_at === null && $this->died_at === null && $this->health > 0;
+    }
+
+    public function archivedAt(): ?CarbonImmutable
+    {
+        return $this->died_at ?? $this->retired_at;
+    }
+
+    public function retirementEligibleAt(): CarbonImmutable
+    {
+        return $this->born_at->addMonthsNoOverflow(3);
+    }
+
+    public function automaticRetirementAt(): CarbonImmutable
+    {
+        return $this->born_at->addMonthsNoOverflow(6);
+    }
+
+    public function canRetire(CarbonImmutable $at): bool
+    {
+        return $this->isActive() && $at->greaterThanOrEqualTo($this->retirementEligibleAt());
+    }
+
+    public function clearActivity(): void
+    {
+        $this->forceFill(['activity' => null, 'activity_token' => null, 'activity_started_at' => null, 'activity_ends_at' => null]);
+    }
+
     /** @param Builder<Pet> $query */
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->whereNull('retired_at');
+        $query->whereNull('retired_at')->whereNull('died_at')->where('health', '>', 0);
     }
 
     /** @param Builder<Pet> $query */
@@ -187,11 +218,14 @@ class Pet extends Model
     /** Advance the in-memory snapshot; callers persist it only inside a locked transaction. */
     public function advanceTo(CarbonImmutable $at, PetDecayCalculator $calculator): void
     {
-        $at = $at->startOfSecond();
+        $requestedAt = $at->startOfSecond();
 
-        if ($this->retired_at !== null) {
+        if ($this->archivedAt() !== null) {
             return;
         }
+
+        $automaticRetirementAt = $this->automaticRetirementAt()->startOfSecond();
+        $at = $requestedAt->min($automaticRetirementAt);
 
         $values = [];
         $maximums = [];
@@ -202,10 +236,17 @@ class Pet extends Model
         }
 
         $effects = [...($this->buffs ?? []), ...($this->debuffs ?? [])];
+        $diedAt = $this->health <= 0 ? $this->state_updated_at->min($at) : null;
         if ($at->greaterThan($this->state_updated_at)) {
-            $this->fill($calculator->states($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects));
+            $result = $calculator->statesUntilDeath($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $this->fill($result['values']);
+            if ($result['diedAt'] !== null) {
+                $diedAt = CarbonImmutable::createFromTimestampUTC($result['diedAt']);
+                $at = $diedAt;
+            }
             $this->state_updated_at = $at;
         }
+        $at = $diedAt ?? $at;
         if ($at->greaterThan($this->stats_updated_at)) {
             $stats = [];
             foreach (PetStat::cases() as $stat) {
@@ -215,6 +256,15 @@ class Pet extends Model
             $this->fill($result['values']);
             $this->stat_decay_remainders = $result['remainders'];
             $this->stats_updated_at = $at;
+        }
+
+        if ($diedAt !== null) {
+            $this->died_at = $diedAt;
+            $this->health = 0;
+            $this->clearActivity();
+        } elseif ($requestedAt->greaterThanOrEqualTo($automaticRetirementAt)) {
+            $this->retired_at = $automaticRetirementAt;
+            $this->clearActivity();
         }
     }
 
@@ -245,6 +295,7 @@ class Pet extends Model
             'size' => DogSize::class,
             'born_at' => 'datetime',
             'retired_at' => 'datetime',
+            'died_at' => 'datetime',
             'state_updated_at' => 'datetime',
             'stats_updated_at' => 'datetime',
             'stat_decay_remainders' => 'array',

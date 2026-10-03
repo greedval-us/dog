@@ -61,7 +61,7 @@ test('read DTOs serialize localized scalar data without additional queries', fun
         expect(DB::getQueryLog())->toBe([]);
         expect($petData)->toMatchArray(['sex' => 'female', 'size' => 'small', 'breed' => 'Hound', 'coatColor' => 'Black']);
         expect($breedData)->toMatchArray(['name' => 'Hound', 'description' => 'A friendly hound.', 'size' => 'small']);
-        expect($playerData)->toMatchArray(['dogsCount' => 1, 'level' => 1, 'experience' => 0]);
+        expect($playerData)->toMatchArray(['dogsCount' => 1, 'level' => 1, 'experience' => '0']);
     } finally {
         DB::disableQueryLog();
     }

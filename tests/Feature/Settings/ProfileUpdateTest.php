@@ -13,7 +13,7 @@ test('profile page is displayed', function () {
     $response->assertOk()->assertInertia(fn (Assert $page) => $page
         ->where('player.username', $user->username)
         ->where('player.level', 1)
-        ->where('player.experience', 0)
+        ->where('player.experience', '0')
         ->where('player.dogsCount', 0)
         ->missing('player.email')
     );

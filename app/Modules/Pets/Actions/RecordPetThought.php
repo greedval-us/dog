@@ -8,22 +8,24 @@ use App\Models\PetThoughtState;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetThoughtRules;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 final class RecordPetThought
 {
-    public function __construct(private PetDecayCalculator $decay, private PetThoughtRules $rules) {}
+    public function __construct(private PetDecayCalculator $decay, private PetThoughtRules $rules, private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, int $petId, ?CarbonImmutable $at = null): ?PetHistoryEntry
     {
         $at ??= now()->startOfSecond();
+        $this->lifecycle->synchronizeOwner($user, $at);
 
         return DB::transaction(function () use ($user, $petId, $at): ?PetHistoryEntry {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
-            if ($owner->status !== PlayerStatus::Active || $pet->retired_at !== null) {
+            if ($owner->status !== PlayerStatus::Active || ! $pet->isActive()) {
                 return null;
             }
             $last = PetThoughtState::query()->where('pet_id', $pet->id)->max('last_occurred_at');
@@ -31,6 +33,11 @@ final class RecordPetThought
                 return null;
             }
             $pet->advanceTo($at, $this->decay);
+            if (! $pet->isActive()) {
+                $this->lifecycle->persist($pet);
+
+                return null;
+            }
             $values = $pet->statePercentages(precision: null);
             $values['activity'] = $pet->activity_ends_at !== null && $pet->activity_ends_at->greaterThan($at)
                 ? ($pet->activity->value ?? 'idle') : 'idle';

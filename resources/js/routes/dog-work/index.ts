@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\DogWorkController::store
- * @see app/Http/Controllers/DogWorkController.php:33
+ * @see app/Http/Controllers/DogWorkController.php:39
  * @route '/dog-work'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\DogWorkController::store
- * @see app/Http/Controllers/DogWorkController.php:33
+ * @see app/Http/Controllers/DogWorkController.php:39
  * @route '/dog-work'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\DogWorkController::store
- * @see app/Http/Controllers/DogWorkController.php:33
+ * @see app/Http/Controllers/DogWorkController.php:39
  * @route '/dog-work'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\DogWorkController::store
- * @see app/Http/Controllers/DogWorkController.php:33
+ * @see app/Http/Controllers/DogWorkController.php:39
  * @route '/dog-work'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\DogWorkController::store
- * @see app/Http/Controllers/DogWorkController.php:33
+ * @see app/Http/Controllers/DogWorkController.php:39
  * @route '/dog-work'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -134,7 +134,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\DogWorkController::complete
- * @see app/Http/Controllers/DogWorkController.php:49
+ * @see app/Http/Controllers/DogWorkController.php:55
  * @route '/dog-work/complete'
  */
 export const complete = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -149,7 +149,7 @@ complete.definition = {
 
 /**
 * @see \App\Http\Controllers\DogWorkController::complete
- * @see app/Http/Controllers/DogWorkController.php:49
+ * @see app/Http/Controllers/DogWorkController.php:55
  * @route '/dog-work/complete'
  */
 complete.url = (options?: RouteQueryOptions) => {
@@ -158,7 +158,7 @@ complete.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\DogWorkController::complete
- * @see app/Http/Controllers/DogWorkController.php:49
+ * @see app/Http/Controllers/DogWorkController.php:55
  * @route '/dog-work/complete'
  */
 complete.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -168,7 +168,7 @@ complete.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\DogWorkController::complete
- * @see app/Http/Controllers/DogWorkController.php:49
+ * @see app/Http/Controllers/DogWorkController.php:55
  * @route '/dog-work/complete'
  */
     const completeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -178,7 +178,7 @@ complete.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\DogWorkController::complete
- * @see app/Http/Controllers/DogWorkController.php:49
+ * @see app/Http/Controllers/DogWorkController.php:55
  * @route '/dog-work/complete'
  */
         completeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

@@ -13,11 +13,13 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PetAppearanceController;
 use App\Http\Controllers\PetCareController;
 use App\Http\Controllers\PetHistoryController;
+use App\Http\Controllers\PetMemorialController;
 use App\Http\Controllers\PetSkillController;
 use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PetThoughtController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
+use App\Http\Controllers\RetirePetController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SystemNotificationController;
 use App\Http\Controllers\VeterinarianController;
@@ -39,6 +41,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::post('pets/{pet}/retire', RetirePetController::class)->middleware('throttle:15,1')->name('pets.retire');
     Route::get('pets/{pet}/history', [PetHistoryController::class, 'index'])->name('pets.history.index');
     Route::post('pets/{pet}/thoughts', [PetThoughtController::class, 'store'])->middleware('throttle:30,1')->name('pets.thoughts.store');
     Route::get('care-items', CareItemController::class)->name('care-items');
@@ -62,6 +65,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('media/assets/{asset}/{variant}', AssetImageController::class)
         ->whereIn('variant', ['image', 'icon'])->name('assets.image');
     Route::get('players/{user:username}', PlayerProfileController::class)->name('players.show');
+    Route::get('players/{user:username}/memorial', [PetMemorialController::class, 'index'])->name('players.memorial.index');
+    Route::get('players/{user:username}/memorial/{pet}', [PetMemorialController::class, 'show'])
+        ->scopeBindings()->name('players.memorial.show');
     Route::get('kennel', [KennelController::class, 'index'])->name('kennel.index');
     Route::post('kennel', [KennelController::class, 'store'])->name('kennel.store');
     Route::post('kennel/purchases', [KennelController::class, 'purchase'])->middleware('throttle:15,1')->name('kennel.purchase');

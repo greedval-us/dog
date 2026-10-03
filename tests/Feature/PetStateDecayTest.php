@@ -97,7 +97,8 @@ test('retired pets and future snapshots do not accumulate elapsed state changes'
         'state_updated_at' => $retired ? now()->subDays(2) : now()->addHour(),
     ]);
 
-    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page->where('pet.states.satiety', 80));
+    $url = $retired ? route('players.memorial.show', ['user' => $pet->user->username, 'pet' => $pet->id]) : route('dashboard', ['pet' => $pet->id]);
+    $this->actingAs($pet->user)->get($url)->assertInertia(fn (Assert $page) => $page->where('pet.states.satiety', 80));
 })->with([true, false]);
 
 test('configured rates and thresholds control health loss and energy recovery', function () {

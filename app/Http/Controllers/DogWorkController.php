@@ -19,11 +19,17 @@ use Inertia\Response;
 
 class DogWorkController extends Controller
 {
-    public function index(Request $request, GenerateDogWorkBoard $generate, GetDogWorkBoard $query): Response
+    public function index(Request $request, GenerateDogWorkBoard $generate, GetDogWorkBoard $query): Response|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         $data = $request->validate(['pet' => ['nullable', 'integer', 'min:1']]);
+        if (isset($data['pet'])) {
+            $selected = $user->pets()->whereKey($data['pet'])->firstOrFail();
+            if (! $selected->isActive()) {
+                return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $selected->id]);
+            }
+        }
 
         return Inertia::render('DogWork', [
             'board' => $query->handle($user, $generate->handle(), isset($data['pet']) ? (int) $data['pet'] : null, app()->getLocale()),
@@ -55,6 +61,11 @@ class DogWorkController extends Controller
             $shift = $complete->handle($user, $request->validated('token'));
         } catch (PetUnavailable $exception) {
             throw ValidationException::withMessages(['work' => __($exception->getMessage())]);
+        }
+        if ($shift->cancelled_at !== null) {
+            Inertia::flash('toast', ['type' => 'info', 'message' => __('This activity was cancelled because your dog is no longer active.')]);
+
+            return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $shift->pet_id]);
         }
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Work completed. The reward is in your wallet.')]);
 

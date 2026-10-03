@@ -2,6 +2,7 @@ import LocaleController from './LocaleController'
 import SystemNotificationController from './SystemNotificationController'
 import PlayerAvatarController from './PlayerAvatarController'
 import DashboardController from './DashboardController'
+import RetirePetController from './RetirePetController'
 import PetHistoryController from './PetHistoryController'
 import PetThoughtController from './PetThoughtController'
 import CareItemController from './CareItemController'
@@ -17,6 +18,7 @@ import PetAppearanceController from './PetAppearanceController'
 import AssetPurchaseController from './AssetPurchaseController'
 import AssetImageController from './AssetImageController'
 import PlayerProfileController from './PlayerProfileController'
+import PetMemorialController from './PetMemorialController'
 import KennelController from './KennelController'
 import GameImageController from './GameImageController'
 import Settings from './Settings'
@@ -25,6 +27,7 @@ const Controllers = {
 SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
 PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarController),
 DashboardController: Object.assign(DashboardController, DashboardController),
+RetirePetController: Object.assign(RetirePetController, RetirePetController),
 PetHistoryController: Object.assign(PetHistoryController, PetHistoryController),
 PetThoughtController: Object.assign(PetThoughtController, PetThoughtController),
 CareItemController: Object.assign(CareItemController, CareItemController),
@@ -40,6 +43,7 @@ PetAppearanceController: Object.assign(PetAppearanceController, PetAppearanceCon
 AssetPurchaseController: Object.assign(AssetPurchaseController, AssetPurchaseController),
 AssetImageController: Object.assign(AssetImageController, AssetImageController),
 PlayerProfileController: Object.assign(PlayerProfileController, PlayerProfileController),
+PetMemorialController: Object.assign(PetMemorialController, PetMemorialController),
 KennelController: Object.assign(KennelController, KennelController),
 GameImageController: Object.assign(GameImageController, GameImageController),
 Settings: Object.assign(Settings, Settings),

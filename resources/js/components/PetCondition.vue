@@ -14,7 +14,10 @@ import { useI18n } from '@/composables/useI18n';
 import { stateLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
 
-defineProps<{ states: PlayerPet['states'] }>();
+withDefaults(
+    defineProps<{ states: PlayerPet['states']; readOnly?: boolean }>(),
+    { readOnly: false },
+);
 const { t } = useI18n();
 const metrics = [
     { key: 'health', icon: Heart, tone: 'sage' },
@@ -29,8 +32,14 @@ const metrics = [
 
 <template>
     <SurfaceCard
-        :title="t('Wellbeing')"
-        :description="t('Small steps to a happy dog.')"
+        :title="t(readOnly ? 'Preserved wellbeing' : 'Wellbeing')"
+        :description="
+            t(
+                readOnly
+                    ? 'State preserved at departure.'
+                    : 'Small steps to a happy dog.',
+            )
+        "
         class="pet-condition"
     >
         <div class="pet-metrics">
@@ -41,7 +50,7 @@ const metrics = [
                 :value="states[metric.key]"
                 :icon="metric.icon"
                 :tone="metric.tone"
-                warn-when-low
+                :warn-when-low="!readOnly"
             />
         </div>
     </SurfaceCard>

@@ -24,6 +24,11 @@ test('other players can view the card by username without receiving private acco
         'name' => 'Анна', 'username' => 'anna_dogs', 'bio' => 'Люблю собак.',
         'level' => 7, 'experience' => 4200, 'exhibition_wins' => 3,
         'competition_wins' => 4, 'walks_count' => 31, 'trainings_count' => 12,
+        'pet_statistics' => ['care.meal' => 8, 'care.water' => 9, 'care.attention' => 4, 'care.toy' => 6,
+            'care.wash' => 3, 'care.care' => 5, 'care.nap' => 2, 'care.sleep' => 7, 'care.walk' => 31,
+            'care.home' => 2, 'training' => 10, 'skill_training' => 2, 'work' => 4,
+            'veterinary.checkup' => 1, 'veterinary.vaccination' => 1, 'veterinary.treatment' => 2],
+        'active_days' => 11, 'last_pet_action_at' => '2026-09-30 18:00:00',
         'coins' => 555, 'gems' => 99,
         'created_at' => '2026-09-01 12:00:00',
     ]);
@@ -41,8 +46,14 @@ test('other players can view the card by username without receiving private acco
                 'name' => 'Анна', 'username' => 'anna_dogs', 'bio' => 'Люблю собак.',
                 'avatarVersion' => null,
                 'joinedAt' => '2026-09-01',
-                'level' => 7, 'experience' => 4200, 'dogsCount' => 2,
+                'level' => 6, 'experience' => '4200', 'dogsCount' => 1,
                 'exhibitionWins' => 3, 'competitionWins' => 4, 'walksCount' => 31, 'trainingsCount' => 12,
+                'progress' => ['levelExperience' => '1100', 'requiredExperience' => '3200',
+                    'remainingExperience' => '2100', 'percent' => 34.37, 'nextLevel' => 7],
+                'statistics' => ['actionsCount' => 97, 'feedingCount' => 8, 'wateringCount' => 9,
+                    'playCount' => 10, 'groomingCount' => 8, 'restCount' => 9, 'skillLessonsCount' => 2,
+                    'workCount' => 4, 'veterinaryCount' => 4, 'activeDays' => 11,
+                    'lastActionAt' => '2026-09-30T18:00:00.000000Z'],
             ])
         )->assertDontSee($player->email);
 });
@@ -56,7 +67,13 @@ test('a new player can view their own card with initial statistics', function ()
         ->where('player.bio', null)
         ->where('player.level', 1)
         ->where('player.dogsCount', 0)
-        ->where('player.experience', 0)
+        ->where('player.experience', '0')
+        ->where('player.progress.levelExperience', '0')
+        ->where('player.progress.requiredExperience', '100')
+        ->where('player.progress.remainingExperience', '100')
+        ->where('player.statistics.actionsCount', 0)
+        ->where('player.statistics.activeDays', 0)
+        ->where('player.statistics.lastActionAt', null)
         ->where('player.exhibitionWins', 0)
         ->where('player.competitionWins', 0)
         ->where('player.walksCount', 0)

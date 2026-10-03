@@ -29,6 +29,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonImmutable $ends_at
  * @property CarbonImmutable $available_at
  * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $cancelled_at
+ * @property int|null $experience_awarded
  */
 #[Fillable(['user_id', 'pet_id', 'token', 'activity_token', 'group', 'variant', 'inventory_item_ids', 'effects', 'granted_effects', 'incidents', 'status_recovery', 'stat_gains', 'training_name', 'ends_at', 'available_at', 'completed_at'])]
 class PetCareAction extends Model
@@ -52,6 +54,8 @@ class PetCareAction extends Model
             'ends_at' => 'immutable_datetime',
             'available_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
+            'cancelled_at' => 'immutable_datetime',
+            'experience_awarded' => 'integer',
         ];
     }
 }

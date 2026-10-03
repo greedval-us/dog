@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
+ * @property int|null $user_id
+ * @property int|null $experience_awarded
  * @property int $pet_id
  * @property int $skill_id
  * @property int $level
@@ -27,7 +29,7 @@ class PetSkillLesson extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['pet_id' => 'integer', 'skill_id' => 'integer', 'level' => 'integer', 'price_paid' => 'integer',
+        return ['user_id' => 'integer', 'experience_awarded' => 'integer', 'pet_id' => 'integer', 'skill_id' => 'integer', 'level' => 'integer', 'price_paid' => 'integer',
             'requirements' => 'array', 'trained_at' => 'datetime', 'cooldown_until' => 'datetime'];
     }
 }

@@ -13,8 +13,10 @@ use App\Modules\Pets\DTO\TrainPetSkillData;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetHistoryRecorder;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,7 +24,8 @@ use Illuminate\Support\Str;
 final class TrainPetSkill
 {
     public function __construct(private PlayerWallet $wallet, private SkillRules $rules, private PetDecayCalculator $decay,
-        private GetPetStatSnapshot $getAttributes, private PetHistoryRecorder $history) {}
+        private GetPetStatSnapshot $getAttributes, private PetHistoryRecorder $history, private PlayerProgress $progress,
+        private PetLifecycle $lifecycle) {}
 
     public function handle(User $user, int $petId, TrainPetSkillData $data): PetSkillLesson
     {
@@ -31,6 +34,7 @@ final class TrainPetSkill
             || $data->level > SkillRules::MAX_LEVEL || $data->expectedPrice < 1) {
             throw new PetUnavailable('Invalid skill lesson.');
         }
+        $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $petId, $data, $token): PetSkillLesson {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -54,6 +58,9 @@ final class TrainPetSkill
             }
 
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
+            if (! $pet->isActive() && $pet->retired_at === null) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             if ($pet->retired_at !== null) {
                 throw new PetUnavailable('Retired dogs cannot learn skills.');
             }
@@ -84,6 +91,9 @@ final class TrainPetSkill
                 throw new PetUnavailable('The lesson price has changed. Refresh the page.');
             }
             $pet->advanceTo($at, $this->decay);
+            if (! $pet->isActive()) {
+                throw new PetUnavailable('This dog is no longer active.');
+            }
             $attributes = $this->getAttributes->handle($pet);
             if (! $this->rules->meets($attributes, $level['requirements'])) {
                 throw new PetUnavailable('Raise your dog’s attributes to the lesson requirements.');
@@ -107,8 +117,9 @@ final class TrainPetSkill
                 'token' => $token, 'trained_at' => $at, 'cooldown_until' => $cooldownUntil,
                 'currency_transaction_id' => $entry->id,
             ]);
+            $experienceAwarded = $this->progress->award($owner, $lesson);
             $this->history->record($pet, 'skill_training', 'skill:'.$lesson->id.':completed', $at, [
-                'stage' => 'completed', 'name' => $skill->name, 'level' => $data->level,
+                'stage' => 'completed', 'name' => $skill->name, 'level' => $data->level, 'experienceAwarded' => $experienceAwarded,
                 'durationSeconds' => 0, 'coins' => -$lesson->price_paid,
                 'changes' => [['metric' => 'skill_level', 'before' => (float) $currentLevel,
                     'after' => (float) $data->level, 'delta' => 1.0, 'unit' => 'points']],

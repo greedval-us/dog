@@ -46,4 +46,9 @@ class PetFactory extends Factory
     {
         return $this->state(fn (): array => ['retired_at' => now()]);
     }
+
+    public function deceased(): static
+    {
+        return $this->state(fn (): array => ['died_at' => now(), 'health' => 0]);
+    }
 }

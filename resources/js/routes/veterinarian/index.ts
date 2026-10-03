@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\VeterinarianController::store
- * @see app/Http/Controllers/VeterinarianController.php:31
+ * @see app/Http/Controllers/VeterinarianController.php:37
  * @route '/veterinarian'
  */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\VeterinarianController::store
- * @see app/Http/Controllers/VeterinarianController.php:31
+ * @see app/Http/Controllers/VeterinarianController.php:37
  * @route '/veterinarian'
  */
 store.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\VeterinarianController::store
- * @see app/Http/Controllers/VeterinarianController.php:31
+ * @see app/Http/Controllers/VeterinarianController.php:37
  * @route '/veterinarian'
  */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -113,7 +113,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
     /**
 * @see \App\Http\Controllers\VeterinarianController::store
- * @see app/Http/Controllers/VeterinarianController.php:31
+ * @see app/Http/Controllers/VeterinarianController.php:37
  * @route '/veterinarian'
  */
     const storeForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
             /**
 * @see \App\Http\Controllers\VeterinarianController::store
- * @see app/Http/Controllers/VeterinarianController.php:31
+ * @see app/Http/Controllers/VeterinarianController.php:37
  * @route '/veterinarian'
  */
         storeForm.post = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

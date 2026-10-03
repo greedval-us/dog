@@ -46,15 +46,16 @@ final class PetActivityManager
     /**
      * Apply gameplay results in the caller's transaction only when this returns true.
      */
-    public function complete(User $owner, int $petId, string $token): bool
+    public function complete(User $owner, int $petId, string $token, ?CarbonImmutable $completedAt = null): bool
     {
         if (! Str::isUuid($token)) {
             return false;
         }
 
-        $completedAt = CarbonImmutable::now()->startOfSecond();
+        $completedAt = ($completedAt ?? CarbonImmutable::now())->startOfSecond();
 
         return Pet::query()->whereKey($petId)->whereBelongsTo($owner, 'user')
+            ->active()
             ->whereNotNull('activity')->where('activity_token', $token)
             ->where('activity_ends_at', '<=', $completedAt)
             ->update([

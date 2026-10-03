@@ -151,6 +151,7 @@ test('weekly checkups restore health up to the maximum without curing diseases',
 })->with(['restore' => [100.0, 120.0], 'cap' => [195.0, 200.0]]);
 
 test('preventive services become available exactly at their saved expiry for each dog', function (string $service, int $days) {
+    config(['pet_states.health_loss_per_hour' => 0]);
     $pet = Pet::factory()->for(User::factory()->state(['coins' => 1000]))->create();
     $second = Pet::factory()->for($pet->user)->create();
     $payload = veterinaryPayload($pet, $service);

@@ -21,10 +21,10 @@ final class GetDogWorkBoard
     /** @return array<string, mixed> */
     public function handle(User $user, DogWorkBoard $board, ?int $petId, string $locale): array
     {
-        $pets = $user->pets()->orderBy('id')->get();
+        $pets = $user->pets()->active()->orderBy('id')->get();
         $pet = $petId === null ? $pets->first() : $pets->firstWhere('id', $petId);
         if ($petId !== null && $pet === null) {
-            $user->pets()->findOrFail($petId);
+            $user->pets()->active()->whereKey($petId)->firstOrFail();
         }
         $pet?->load('skills');
         $at = now();
@@ -41,7 +41,7 @@ final class GetDogWorkBoard
             $hasRequiredLevel = $skill !== null
                 && $this->skills->hasLearnedLevel($skill->levels, $skill->is_active, $level, $offer->required_skill_level);
             $active = $pet !== null && $attributes !== null && $skill !== null
-                && $this->skills->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null);
+                && $this->skills->isActive($attributes, $skill->levels, $skill->is_active, $level, ! $pet->isActive());
             $shift = $participation->get($offer->id);
             $places = max(0, $offer->daily_limit - $offer->reserved_count);
             $reason = match (true) {
@@ -50,6 +50,7 @@ final class GetDogWorkBoard
                 $user->status !== PlayerStatus::Active => 'Your account is blocked.',
                 $pet === null => 'Choose a dog to take a job.',
                 $pet->retired_at !== null => 'Retired dogs cannot work.',
+                ! $pet->isActive() => 'This dog is no longer active.',
                 $pet->isBusy() => 'Finish your dog’s current activity before starting work.',
                 ! $this->rules->valid($offer->required_skill_level, $offer->coins_reward, $offer->gems_reward,
                     $offer->duration_seconds, $offer->energy_cost, $offer->daily_limit) => 'This job is no longer available. Refresh the board.',
@@ -66,7 +67,7 @@ final class GetDogWorkBoard
                 'coins' => $offer->coins_reward, 'gems' => $offer->gems_reward,
                 'duration' => $offer->duration_seconds, 'energy' => $offer->energy_cost,
                 'places' => $places, 'limit' => $offer->daily_limit, 'reason' => $reason,
-                'status' => $shift === null ? null : ($shift->completed_at === null ? 'started' : 'completed'),
+                'status' => $shift === null ? null : ($shift->cancelled_at !== null ? 'cancelled' : ($shift->completed_at === null ? 'started' : 'completed')),
             ];
         }
 
@@ -77,7 +78,7 @@ final class GetDogWorkBoard
             'dogs' => $pets->map(fn (Pet $dog): array => ['id' => $dog->id, 'name' => $dog->name,
                 'busy' => $dog->isBusy(), 'retired' => $dog->retired_at !== null])->all(),
             'offers' => $jobs,
-            'shifts' => DogWorkShift::query()->where('user_id', $user->id)->whereNull('completed_at')->orderBy('ends_at')->get()
+            'shifts' => DogWorkShift::query()->where('user_id', $user->id)->whereNull('completed_at')->whereNull('cancelled_at')->orderBy('ends_at')->get()
                 ->map(fn (DogWorkShift $shift): array => [
                     'token' => $shift->token, 'petId' => $shift->pet_id, 'petName' => $shift->pet_name,
                     'name' => $shift->name[$locale] ?? $shift->name['en'] ?? '',

@@ -81,7 +81,7 @@ final class GetPetCare
                 ->map(fn (PetCareAction $care): array => [
                     'id' => $care->id, 'occurredAt' => $care->ends_at->toIso8601String(), 'incidents' => $care->incidents,
                 ])->all(),
-            'blocked' => $user->status !== PlayerStatus::Active || $pet->retired_at !== null,
+            'blocked' => $user->status !== PlayerStatus::Active || ! $pet->isActive(),
             'busy' => $pet->isBusy(),
             'working' => DogWorkShift::query()->where('pet_id', $petId)->where('user_id', $user->id)
                 ->where('activity_token', $pet->activity_token)->whereNull('completed_at')->exists(),

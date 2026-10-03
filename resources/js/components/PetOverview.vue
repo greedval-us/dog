@@ -17,7 +17,10 @@ import { sizeLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
 
-defineProps<{ pet: PlayerPet; care: PetCare | null }>();
+withDefaults(
+    defineProps<{ pet: PlayerPet; care: PetCare | null; readOnly?: boolean }>(),
+    { readOnly: false },
+);
 const { t, number } = useI18n();
 const traits: Record<string, string> = {
     friendly: 'Friendly',
@@ -39,14 +42,19 @@ const events = [
 </script>
 
 <template>
-    <div class="pet-overview-grid">
+    <div class="pet-overview-grid" :class="{ 'is-read-only': readOnly }">
         <SurfaceCard :title="t('About the dog')" class="pet-about">
             <p class="pet-description">
                 {{
                     pet.description ||
-                    t('{name} is starting a new story with you.', {
-                        name: pet.name,
-                    })
+                    t(
+                        readOnly
+                            ? '{name} will always be part of your story.'
+                            : '{name} is starting a new story with you.',
+                        {
+                            name: pet.name,
+                        },
+                    )
                 }}
             </p>
             <dl class="pet-facts">
@@ -68,7 +76,7 @@ const events = [
                     ><Heart :size="14" />{{ t(traits[trait] ?? trait) }}</span
                 >
             </div>
-            <p v-else class="pet-feature-note">
+            <p v-else-if="!readOnly" class="pet-feature-note">
                 {{
                     t('Personality traits will appear here as your dog grows.')
                 }}
@@ -84,6 +92,7 @@ const events = [
                 </p>
             </blockquote>
             <Button
+                v-if="!readOnly"
                 type="button"
                 variant="plain"
                 class="pet-edit-description"
@@ -100,7 +109,7 @@ const events = [
         >
             <DogStats :values="pet.stats" variant="bars" />
         </SurfaceCard>
-        <SurfaceCard class="pet-schedule">
+        <SurfaceCard v-if="!readOnly" class="pet-schedule">
             <template #header
                 ><div class="pet-section-heading">
                     <h2>{{ t('Current activity') }}</h2>

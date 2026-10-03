@@ -25,12 +25,15 @@ use Illuminate\Notifications\Notifiable;
  * @property int $coins
  * @property int $gems
  * @property int $pet_slots
- * @property int $experience
+ * @property string $experience
  * @property int $level
  * @property int $exhibition_wins
  * @property int $competition_wins
  * @property int $walks_count
  * @property int $trainings_count
+ * @property array<string, int> $pet_statistics
+ * @property int $active_days
+ * @property CarbonImmutable|null $last_pet_action_at
  * @property-read int $pets_count
  * @property string $locale
  * @property string $timezone
@@ -121,12 +124,15 @@ class User extends Authenticatable implements HasLocalePreference
             'coins' => 'integer',
             'gems' => 'integer',
             'pet_slots' => 'integer',
-            'experience' => 'integer',
+            'experience' => 'string',
             'level' => 'integer',
             'exhibition_wins' => 'integer',
             'competition_wins' => 'integer',
             'walks_count' => 'integer',
             'trainings_count' => 'integer',
+            'pet_statistics' => 'array',
+            'active_days' => 'integer',
+            'last_pet_action_at' => 'immutable_datetime',
             'last_login_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'tutorial_completed_at' => 'datetime',

@@ -41,6 +41,7 @@ test('an instructor teaches one level at the exact requirements and charges coin
 });
 
 test('all five levels cost coins in order and a mastered skill cannot be purchased again', function () {
+    config(['pet_states.health_loss_per_hour' => 0]);
     $this->freezeSecond();
     $owner = User::factory()->create(['coins' => 1500]);
     $pet = Pet::factory()->for($owner)->create(['intelligence' => 100, 'obedience' => 100]);
@@ -217,6 +218,7 @@ test('a required attribute with no genetic potential cannot qualify for a lesson
 });
 
 test('learning checks attribute decay that has not yet been written to the database', function () {
+    config(['pet_states.health_loss_per_hour' => 0]);
     $this->freezeSecond();
     $owner = User::factory()->create(['coins' => 500]);
     $pet = Pet::factory()->for($owner)->create(['intelligence' => 10, 'obedience' => 10]);
@@ -232,6 +234,7 @@ test('learning checks attribute decay that has not yet been written to the datab
 });
 
 test('a learned skill becomes inactive after decay and reactivates at its current level requirements without another payment', function () {
+    config(['pet_states.health_loss_per_hour' => 0]);
     $this->freezeSecond();
     $pet = Pet::factory()->create(['intelligence' => 30, 'obedience' => 20]);
     $skill = Skill::factory()->create();

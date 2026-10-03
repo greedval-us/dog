@@ -45,10 +45,11 @@ final class GetPetSkills
             $currentRequirements = $levels[$level - 1]['requirements'] ?? [];
             $currentPercentages = $levels[$level - 1]['requirementPercentages'] ?? [];
             $next = $levels[$level] ?? null;
-            $active = $this->rules->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null);
+            $active = $this->rules->isActive($attributes, $skill->levels, $skill->is_active, $level, ! $pet->isActive());
             $reason = match (true) {
                 $user->status !== PlayerStatus::Active => 'Your account is blocked.',
                 $pet->retired_at !== null => 'Retired dogs cannot learn skills.',
+                ! $pet->isActive() => 'This dog is no longer active.',
                 ! $skill->is_active || ! $valid => 'This skill is unavailable.',
                 $level >= SkillRules::MAX_LEVEL => 'Your dog has mastered all five levels of this skill.',
                 $pet->isBusy() => 'Finish your dog’s current activity before a skill lesson.',

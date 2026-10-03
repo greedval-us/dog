@@ -13,8 +13,11 @@ use App\Models\ItemCategory;
 use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\PetDisease;
+use App\Models\PetHistoryEntry;
+use App\Models\PetHistoryEvent;
 use App\Models\User;
 use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Services\PetLifecycle;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -52,6 +55,9 @@ test('simultaneous veterinary visits charge and apply the service once', functio
     }
     $this->assertDatabaseCount('currency_transactions', 1);
     $this->assertDatabaseCount('veterinary_visits', 1);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
+    $this->assertDatabaseHas('veterinary_visits', ['pet_id' => $pet->id, 'experience_awarded' => 10]);
+    expect($pet->user->fresh()->pet_statistics)->toBe(['veterinary.'.$service => 1]);
 })->with(['treatment replay' => ['treatment', true], 'treatment race' => ['treatment', false],
     'checkup replay' => ['checkup', true], 'checkup race' => ['checkup', false],
     'vaccination replay' => ['vaccination', true], 'vaccination race' => ['vaccination', false]]);
@@ -131,6 +137,60 @@ function runDatabaseRace(User $user, array $operations): array
     }
 }
 
+test('simultaneous retirement requests archive the dog once free its slot and preserve the frozen snapshot', function () {
+    $this->freezeSecond();
+    PetHistoryEvent::query()->firstOrCreate(['code' => 'life.retirement'], [
+        'kind' => 'action', 'name' => ['en' => 'Retirement'], 'conditions' => [], 'is_active' => true,
+    ]);
+    $pet = Pet::factory()->create(['born_at' => now()->subMonthsNoOverflow(3),
+        'health' => 75, 'satiety' => 60, 'hydration' => 65, 'energy' => 80, 'speed' => 40]);
+    $operation = ['action' => 'retire', 'pet_id' => $pet->id];
+
+    expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['ok', 'ok']);
+
+    $archived = $pet->fresh();
+    expect($archived->retired_at)->toEqual(now());
+    expect($archived->died_at)->toBeNull();
+    expect($archived->user->pets()->active()->count())->toBe(0);
+    expect($archived->user->pets()->whereNotNull('retired_at')->count())->toBe(1);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'health' => 75, 'satiety' => 60,
+        'hydration' => 65, 'energy' => 80, 'speed' => 40, 'activity' => null]);
+    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
+    $snapshot = $archived->getAttributes();
+    $this->travel(90)->days();
+    app(PetLifecycle::class)->synchronizeOwner($pet->user);
+
+    expect($pet->fresh()->getAttributes())->toBe($snapshot);
+    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
+});
+
+test('retirement racing an early care completion cancels the unfinished action without effects or experience', function () {
+    $this->freezeSecond();
+    PetHistoryEvent::query()->firstOrCreate(['code' => 'life.retirement'], [
+        'kind' => 'action', 'name' => ['en' => 'Retirement'], 'conditions' => [], 'is_active' => true,
+    ]);
+    $owner = User::factory()->create(['coins' => 30, 'gems' => 5]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(3), 'mood' => 20, 'energy' => 50]);
+    $care = app(StartPetCare::class)->handle($owner, $pet->id, 'attention', [], (string) Str::uuid());
+
+    $results = runDatabaseRace($owner, [
+        ['action' => 'retire', 'pet_id' => $pet->id],
+        ['action' => 'care-complete', 'pet_id' => $pet->id, 'token' => $care->token],
+    ]);
+
+    expect($results)->toBeIn([['ok', 'unavailable'], ['ok', 'replayed']]);
+    expect($care->fresh()->cancelled_at)->toEqual(now());
+    expect($pet->fresh()->retired_at)->toEqual(now());
+    expect($owner->pets()->active()->count())->toBe(0);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null, 'experience_awarded' => null]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 20, 'activity' => null, 'activity_token' => null]);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 30, 'gems' => 5, 'experience' => '0', 'active_days' => 0]);
+    expect($owner->fresh()->pet_statistics)->toBe([]);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
+    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('source_key', 'care:'.$care->id.':completed')->count())->toBe(0);
+});
+
 test('simultaneous care starts consume energy and the last item once', function (string $race) {
     $this->freezeSecond();
     $pet = Pet::factory()->create(['energy' => 50, 'mood' => 20]);
@@ -151,6 +211,8 @@ test('simultaneous care starts consume energy and the last item once', function 
     $this->assertDatabaseCount('item_usages', 1);
     $this->assertDatabaseCount('pet_care_actions', 1);
     $winner = PetCareAction::query()->sole();
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
+    expect($pet->user->fresh()->pet_statistics)->toBe([]);
     $this->assertDatabaseHas('pets', ['id' => $winner->pet_id, 'energy' => 40, 'activity_token' => $winner->activity_token]);
     if ($race === 'shared item') {
         $loser = $winner->pet_id === $pet->id ? $second['pet_id'] : $pet->id;
@@ -172,10 +234,37 @@ test('simultaneous care completions apply the saved result once', function () {
     expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['applied', 'replayed']);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 29.9333, 'activity' => null]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => now()->toDateTimeString()]);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'experience_awarded' => 10]);
+    expect($pet->user->fresh()->pet_statistics)->toBe(['care.attention' => 1]);
     $this->assertDatabaseCount('pet_disease_counters', 1);
     $this->assertDatabaseHas('pet_disease_counters', ['pet_id' => $pet->id, 'disease_id' => $disease->id, 'action_count' => 1]);
     $this->assertDatabaseCount('pet_diseases', 1);
     expect($pet->fresh()->debuffs)->toHaveCount(1);
+});
+
+test('simultaneous care completions for different dogs preserve both player rewards and counters', function () {
+    $this->freezeSecond();
+    $this->travelTo(now()->setTime(12, 0));
+    $owner = User::factory()->create();
+    $pets = Pet::factory()->count(2)->for($owner)->create(['hydration' => 50, 'hydration_max' => 100]);
+    $receipts = [];
+    $operations = [];
+    foreach ($pets as $pet) {
+        $care = app(StartPetCare::class)->handle($owner, $pet->id, 'water', [], (string) Str::uuid());
+        $receipts[] = $care;
+        $operations[] = ['action' => 'care-complete', 'pet_id' => $pet->id, 'token' => $care->token];
+    }
+    $this->travelTo($receipts[0]->ends_at);
+
+    expect(runDatabaseRace($owner, $operations))->toBe(['applied', 'applied']);
+
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'experience' => '20', 'level' => 1, 'active_days' => 1]);
+    expect($owner->fresh()->pet_statistics)->toBe(['care.water' => 2]);
+    foreach ($receipts as $receipt) {
+        $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id,
+            'completed_at' => now()->toDateTimeString(), 'experience_awarded' => 10]);
+    }
 });
 
 test('simultaneous kennel retries return one durable purchase', function () {
@@ -373,6 +462,7 @@ test('simultaneous dog work retries reserve and reward only once', function () {
     $operation = ['action' => 'dog-work-start', 'pet_id' => $pet->id, 'offer_id' => $offer->id, 'token' => (string) Str::uuid()];
     expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['ok', 'ok']);
     expect($offer->refresh()->reserved_count)->toBe(1);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
     $shift = DogWorkShift::query()->sole();
     $coins = $pet->user->coins;
     $gems = $pet->user->gems;
@@ -380,6 +470,9 @@ test('simultaneous dog work retries reserve and reward only once', function () {
     $finish = ['action' => 'dog-work-complete', 'token' => $shift->token];
     expect(runDatabaseRace($pet->user, [$finish, $finish]))->toBe(['ok', 'ok']);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => $coins + 150, 'gems' => $gems + 1]);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
+    $this->assertDatabaseHas('dog_work_shifts', ['id' => $shift->id, 'experience_awarded' => 10]);
+    expect($pet->user->fresh()->pet_statistics)->toBe(['work' => 1]);
     $this->assertDatabaseCount('currency_transactions', 2);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity' => null]);
 });
