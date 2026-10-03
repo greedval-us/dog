@@ -116,11 +116,10 @@ async function markRead(notification?: SystemNotification) {
             notification ? update.url(notification.id) : readAll.url(),
         );
         if (!active) return;
-        items.value = items.value.map((item) =>
-            !notification || item.id === notification.id
-                ? { ...item, readAt: item.readAt ?? response.readAt }
-                : item,
-        );
+        items.value = notification
+            ? items.value.filter((item) => item.id !== notification.id)
+            : [];
+        if (!notification) nextCursor.value = null;
         unreadCount.value = response.unreadCount;
     } catch {
         if (active) actionError.value = true;
@@ -213,15 +212,15 @@ async function markRead(notification?: SystemNotification) {
                     }}</span>
                 </div>
                 <div
-                    v-else-if="loaded && items.length === 0"
+                    v-else-if="loaded && items.length === 0 && !nextCursor"
                     class="notification-empty"
                 >
                     <BellCheck :size="30" aria-hidden="true" />
-                    <strong>{{ t('No notifications yet') }}</strong>
+                    <strong>{{ t('No unread notifications') }}</strong>
                     <p>
                         {{
                             t(
-                                'Your sign-ins, password changes and site updates will appear here.',
+                                'New sign-ins, password changes and site updates will appear here.',
                             )
                         }}
                     </p>

@@ -11,6 +11,7 @@ import SystemNotifications from '@/components/SystemNotifications.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
 import { Button } from '@/components/ui/button';
+import { Toaster } from '@/components/ui/sonner';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -143,6 +144,7 @@ const { t, number } = useI18n();
                 <slot />
             </main>
             <DogLiveFooter />
+            <Toaster :container-aria-label="t('Notifications')" />
         </div>
     </div>
 </template>

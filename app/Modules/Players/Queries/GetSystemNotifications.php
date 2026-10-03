@@ -13,7 +13,7 @@ final class GetSystemNotifications
     /** @return array{items: list<array{id: string, kind: string, title: array<string, string>, message: array<string, string>, createdAt: string|null, readAt: string|null}>, nextCursor: string|null, unreadCount: int} */
     public function handle(User $user, ?string $cursor = null): array
     {
-        $notifications = $this->records->handle($user)->orderByDesc('id')->cursorPaginate(20, cursor: $cursor);
+        $notifications = $this->records->handle($user)->whereNull('read_at')->orderByDesc('id')->cursorPaginate(20, cursor: $cursor);
 
         return [
             'items' => array_values($notifications->getCollection()->map(fn (DatabaseNotification $notification): array => SystemNotificationData::fromModel($notification)->toArray())->all()),

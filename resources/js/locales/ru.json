@@ -39,6 +39,8 @@
     "Unread": "Новое",
     "Loading notifications": "Загружаем уведомления…",
     "No notifications yet": "Пока нет уведомлений",
+    "No unread notifications": "Нет непрочитанных уведомлений",
+    "New sign-ins, password changes and site updates will appear here.": "Новые входы в аккаунт, изменения пароля и обновления сайта появятся здесь.",
     "Your sign-ins, password changes and site updates will appear here.": "Здесь появятся сообщения о входе, смене пароля и обновлениях сайта.",
     "Could not load notifications. Please try again.": "Не удалось загрузить уведомления. Попробуй ещё раз.",
     "Could not mark notifications as read. Please try again.": "Не удалось отметить уведомления прочитанными. Попробуй ещё раз.",

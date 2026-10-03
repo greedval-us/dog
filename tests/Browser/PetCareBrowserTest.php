@@ -92,6 +92,16 @@ test('the care timer applies the result automatically and reloading does not awa
     [$feed, $start, $water, $hydration, $notifications, $completed] = $locale === 'ru'
         ? ['Покормить', 'Начать · 15 сек', 'Свежая вода', 'Запас воды', 'Уведомления', 'Уход завершён. Состояние собаки обновлено.']
         : ['Feed', 'Start · 15 sec', 'Fresh water', 'Hydration', 'Notifications', 'Care completed. Your dog’s condition has been updated.'];
+    $toastIsInsideViewport = <<<'JS'
+        (() => {
+            const toast = document.querySelector('[data-sonner-toast][data-front="true"]');
+            if (!toast) return false;
+            const bounds = toast.getBoundingClientRect();
+            return bounds.width > 0 && bounds.height > 0
+                && bounds.top >= 0 && bounds.bottom <= window.innerHeight
+                && bounds.left >= 0 && bounds.right <= window.innerWidth;
+        })()
+        JS;
 
     $page = visit($dashboard, ['viewport' => ['width' => $width, 'height' => 900], 'colorScheme' => $colorScheme]);
     $page->click('#pet-care button[aria-label="'.$feed.'"]')
@@ -99,16 +109,20 @@ test('the care timer applies the result automatically and reloading does not awa
         ->press($start)
         ->assertSeeIn('.pet-care-progress', $water)
         ->assertPresent('#pet-care progress');
+    $page->script('window.scrollTo({ top: 0, left: 0, behavior: "instant" })');
+    $page->assertScript($toastIsInsideViewport, true);
     $this->travel(15)->seconds();
 
     /** Advance only the browser clock; its isolated context is discarded after the test. */
     $page->script('Date.now = ((original) => () => original() + 15000)(Date.now)');
     $page->assertMissing('.pet-care-progress')
-        ->assertSee($completed)
+        ->assertSee($completed);
+    $page->script('window.scrollTo({ top: 0, left: 0, behavior: "instant" })');
+    $page->assertScript($toastIsInsideViewport, true)
         ->assertPresent('section[aria-label^="'.$notifications.'"]')
         ->assertAttribute('progress[aria-label="'.$hydration.'"]', 'aria-valuetext', '55%')
         ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
-        ->screenshot(filename: 'care-completion-'.$locale.'-'.$width)
+        ->screenshot(fullPage: false, filename: 'care-completion-'.$locale.'-'.$width)
         ->assertNoJavaScriptErrors();
 
     $receipt = PetCareAction::query()->sole();

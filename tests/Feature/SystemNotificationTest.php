@@ -15,10 +15,13 @@ test('notification endpoints require authentication', function (string $method, 
     'read all' => ['patchJson', 'notifications.read-all', []],
 ]);
 
-test('players only receive their own system notifications', function () {
+test('players only receive their own unread system notifications', function () {
     $this->freezeTime();
     $user = User::factory()->create();
     $other = User::factory()->create();
+    $user->notify(SystemNotification::passwordReset());
+    $read = $user->notifications()->sole();
+    $read->markAsRead();
     $user->notify(SystemNotification::login('192.0.2.10'));
     $this->travel(1)->seconds();
     $user->notify(SystemNotification::passwordChanged());
@@ -39,6 +42,7 @@ test('players only receive their own system notifications', function () {
         ->assertJsonPath('items.1.readAt', null)
         ->assertJsonPath('unreadCount', 2)
         ->assertJsonPath('nextCursor', null)
+        ->assertJsonMissing(['id' => $read->id])
         ->assertJsonMissing(['message' => 'Your dog is hungry']);
 });
 
@@ -81,7 +85,9 @@ test('reading a notification is persistent and repeated reads keep the original 
     $this->patchJson(route('notifications.update', $notification->id))
         ->assertExactJson(['readAt' => $readAt, 'unreadCount' => 0]);
     expect($notification->refresh()->read_at->toISOString())->toBe($readAt);
-    $this->getJson(route('notifications.index'))->assertJsonPath('items.0.readAt', $readAt);
+    $this->getJson(route('notifications.index'))
+        ->assertExactJson(['items' => [], 'nextCursor' => null, 'unreadCount' => 0]);
+    $this->assertModelExists($notification);
 });
 
 test('a player cannot read another player or game notification', function (string $kind) {
@@ -132,9 +138,12 @@ test('reading all changes only the current player unread system notifications', 
     expect($oldRead->refresh()->read_at->toISOString())->toBe($oldReadAt);
     expect($game->refresh()->read_at)->toBeNull();
     expect($other->unreadNotifications()->count())->toBe(1);
+    $this->getJson(route('notifications.index'))
+        ->assertExactJson(['items' => [], 'nextCursor' => null, 'unreadCount' => 0]);
+    expect($user->notifications()->count())->toBe(3);
 });
 
-test('older notifications remain accessible when new notifications arrive', function () {
+test('older unread notifications remain accessible when new notifications arrive and others are read', function () {
     $this->freezeTime();
     $user = User::factory()->create();
     $ids = [];
@@ -143,18 +152,24 @@ test('older notifications remain accessible when new notifications arrive', func
         $ids[] = $user->notifications()->first()->id;
         $this->travel(1)->seconds();
     }
+    for ($i = 0; $i < 21; $i++) {
+        $user->notify(SystemNotification::passwordChanged());
+        $user->notifications()->first()->markAsRead();
+        $this->travel(1)->seconds();
+    }
 
     $firstPage = $this->actingAs($user)->getJson(route('notifications.index'))
         ->assertJsonCount(20, 'items')
         ->assertJsonPath('items.0.id', $ids[22]);
     $user->notify(SystemNotification::passwordChanged());
+    $user->notifications()->findOrFail($ids[1])->markAsRead();
 
     $secondPage = $this->getJson(route('notifications.index', ['cursor' => $firstPage->json('nextCursor')]))
-        ->assertJsonCount(3, 'items')
+        ->assertJsonCount(2, 'items')
         ->assertJsonPath('nextCursor', null)
-        ->assertJsonPath('unreadCount', 24);
+        ->assertJsonPath('unreadCount', 23);
 
-    expect(array_column($secondPage->json('items'), 'id'))->toBe([$ids[2], $ids[1], $ids[0]]);
+    expect(array_column($secondPage->json('items'), 'id'))->toBe([$ids[2], $ids[0]]);
 });
 
 test('oversized notification cursors are rejected', function () {
