@@ -5,6 +5,7 @@ import {
     Backpack,
     BriefcaseBusiness,
     House,
+    Heart,
     PawPrint,
     Settings,
     ShoppingBag,
@@ -19,6 +20,7 @@ import { index as shop } from '@/routes/shop';
 import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
 import { index as veterinarian } from '@/routes/veterinarian';
+import { index as breeding } from '@/routes/breeding';
 import { edit } from '@/routes/profile';
 import { show as playerProfile } from '@/routes/players';
 
@@ -35,6 +37,7 @@ const items = computed(() => [
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
     { label: 'Shop', icon: ShoppingBag, href: shop(), settings: false },
     { label: 'Inventory', icon: Backpack, href: inventory(), settings: false },
+    { label: 'Breeding', icon: Heart, href: breeding(), settings: false },
     {
         label: 'Veterinarian',
         icon: Stethoscope,

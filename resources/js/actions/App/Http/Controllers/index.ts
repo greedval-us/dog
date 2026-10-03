@@ -1,6 +1,9 @@
 import LocaleController from './LocaleController'
 import SystemNotificationController from './SystemNotificationController'
 import PlayerAvatarController from './PlayerAvatarController'
+import BreedingController from './BreedingController'
+import BreedingListingController from './BreedingListingController'
+import PuppyController from './PuppyController'
 import DashboardController from './DashboardController'
 import PlayerAchievementController from './PlayerAchievementController'
 import RetirePetController from './RetirePetController'
@@ -27,6 +30,9 @@ const Controllers = {
     LocaleController: Object.assign(LocaleController, LocaleController),
 SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
 PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarController),
+BreedingController: Object.assign(BreedingController, BreedingController),
+BreedingListingController: Object.assign(BreedingListingController, BreedingListingController),
+PuppyController: Object.assign(PuppyController, PuppyController),
 DashboardController: Object.assign(DashboardController, DashboardController),
 PlayerAchievementController: Object.assign(PlayerAchievementController, PlayerAchievementController),
 RetirePetController: Object.assign(RetirePetController, RetirePetController),

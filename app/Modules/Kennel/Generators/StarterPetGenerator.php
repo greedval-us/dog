@@ -14,9 +14,11 @@ final class StarterPetGenerator
     /**
      * @param  list<string>  $coatColors
      * @param  array<string, int>  $breedPotentials
+     * @param  list<string>  $excludedCoatColors
      */
-    public function generate(string $name, array $coatColors, array $breedPotentials = []): NewPetData
+    public function generate(string $name, array $coatColors, array $breedPotentials = [], array $excludedCoatColors = []): NewPetData
     {
+        $coatColors = array_values(array_diff($coatColors, $excludedCoatColors));
         if ($coatColors === []) {
             throw new InvalidArgumentException('At least one coat color is required.');
         }

@@ -52,6 +52,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, float>|null $stat_decay_remainders
  * @property CarbonImmutable $stats_updated_at
  * @property CarbonImmutable|null $last_activity_at
+ * @property CarbonImmutable|null $breeding_available_at
  * @property PetActivity|null $activity
  * @property string|null $activity_token
  * @property CarbonImmutable|null $activity_started_at
@@ -300,6 +301,7 @@ class Pet extends Model
             'stats_updated_at' => 'datetime',
             'stat_decay_remainders' => 'array',
             'last_activity_at' => 'datetime',
+            'breeding_available_at' => 'immutable_datetime',
             'activity' => PetActivity::class,
             'activity_started_at' => 'datetime',
             'activity_ends_at' => 'datetime',

@@ -85,6 +85,7 @@ final class PurchaseKennelPet
                 name: $name,
                 coatColors: array_keys($dog->coat_colors),
                 breedPotentials: $dog->only(array_map(fn (PetStat $stat): string => $stat->potentialColumn(), PetStat::cases())),
+                excludedCoatColors: config('doglive.breeding_rare_colors', []),
             ));
             $pet->user()->associate($owner);
             $pet->save();

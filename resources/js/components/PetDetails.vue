@@ -14,7 +14,7 @@ import PetHistory from '@/components/PetHistory.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
 import PetSkills from '@/components/PetSkills.vue';
-import { Deferred, router } from '@inertiajs/vue3';
+import { Deferred, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import StatusEffects from '@/components/StatusEffects.vue';
@@ -22,6 +22,8 @@ import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
 import type { PetSkills as PetSkillsData } from '@/types/pet-skill';
+import { index as breeding } from '@/routes/breeding';
+import { index as puppies } from '@/routes/puppies';
 
 defineProps<{
     pet: PlayerPet;
@@ -48,7 +50,6 @@ const tabs = [
         value: 'offspring',
         label: 'Offspring',
         icon: BookOpen,
-        description: 'Puppies and breeding results will appear here.',
     },
     {
         value: 'history',
@@ -153,6 +154,28 @@ const tabs = [
         </TabsContent>
         <TabsContent value="history" class="pet-tab-panel">
             <PetHistory :key="pet.id" :pet="pet" />
+        </TabsContent>
+        <TabsContent value="offspring" class="pet-tab-panel">
+            <SurfaceCard
+                :title="t('Offspring')"
+                :description="
+                    t(
+                        'View this dog’s puppies or choose a partner for a new litter.',
+                    )
+                "
+            >
+                <div class="breeding-links">
+                    <Button as-child
+                        ><Link :href="puppies({ query: { parent: pet.id } })">{{
+                            t('View offspring')
+                        }}</Link></Button
+                    ><Button as-child variant="secondary"
+                        ><Link :href="breeding({ query: { pet: pet.id } })">{{
+                            t('Choose a breeding partner')
+                        }}</Link></Button
+                    >
+                </div>
+            </SurfaceCard>
         </TabsContent>
         <template v-for="tab in tabs" :key="tab.value">
             <TabsContent

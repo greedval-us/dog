@@ -33,6 +33,14 @@ test('a breed with one available coat always receives that coat', function () {
     expect($generator->generate('Рэй', ['black'])->coatColor)->toBe('black');
 });
 
+test('breeding-only rare coats are excluded from ordinary kennel generation', function () {
+    $generator = new StarterPetGenerator(new Randomizer(new Mt19937(123)));
+
+    for ($index = 0; $index < 12; $index++) {
+        expect($generator->generate('Рэй', ['black', 'blue'], [], ['blue'])->coatColor)->toBe('black');
+    }
+});
+
 test('starter pet generation rejects an empty coat selection', function () {
     $generator = new StarterPetGenerator(new Randomizer(new Mt19937(123)));
 

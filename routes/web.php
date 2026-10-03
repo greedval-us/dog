@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AssetImageController;
 use App\Http\Controllers\AssetPurchaseController;
+use App\Http\Controllers\BreedingController;
+use App\Http\Controllers\BreedingListingController;
 use App\Http\Controllers\CareItemController;
 use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\DashboardController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\PetThoughtController;
 use App\Http\Controllers\PlayerAchievementController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
+use App\Http\Controllers\PuppyController;
 use App\Http\Controllers\RetirePetController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SystemNotificationController;
@@ -41,6 +44,17 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('breeding', [BreedingController::class, 'index'])->name('breeding.index');
+    Route::post('breeding', [BreedingController::class, 'store'])->middleware('throttle:15,1')->name('breeding.store');
+    Route::post('breeding/listings', [BreedingListingController::class, 'store'])->middleware('throttle:15,1')->name('breeding.listings.store');
+    Route::delete('breeding/listings/{listing}', [BreedingListingController::class, 'destroy'])->name('breeding.listings.destroy');
+    Route::get('puppies', [PuppyController::class, 'index'])->name('puppies.index');
+    Route::get('puppies/market', [PuppyController::class, 'market'])->name('puppies.market');
+    Route::post('puppies/{puppy}/keep', [PuppyController::class, 'keep'])->middleware('throttle:15,1')->name('puppies.keep');
+    Route::post('puppies/{puppy}/listing', [PuppyController::class, 'list'])->middleware('throttle:15,1')->name('puppies.listing.store');
+    Route::delete('puppies/{puppy}/listing', [PuppyController::class, 'unlist'])->name('puppies.listing.destroy');
+    Route::post('puppies/{puppy}/surrender', [PuppyController::class, 'surrender'])->name('puppies.surrender');
+    Route::post('puppies/{puppy}/purchase', [PuppyController::class, 'purchase'])->middleware('throttle:15,1')->name('puppies.purchase');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('players/{user:username}/achievements', PlayerAchievementController::class)->name('players.achievements');
     Route::post('pets/{pet}/retire', RetirePetController::class)->middleware('throttle:15,1')->name('pets.retire');

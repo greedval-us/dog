@@ -6812,3 +6812,385 @@ a.pet-slot-action {
         width: 100%;
     }
 }
+
+.breeding-page,
+.breeding-section,
+.breeding-offer-sections {
+    display: grid;
+    gap: 24px;
+    min-width: 0;
+}
+.breeding-page > .page-heading,
+.breeding-heading > .page-heading {
+    margin: 0;
+    min-width: 0;
+}
+.breeding-heading,
+.breeding-links,
+.breeding-navigation,
+.breeding-parent-identity,
+.breeding-tags,
+.breeding-offer-footer,
+.breeding-confirm,
+.breeding-own-offer,
+.puppy-actions,
+.breeding-section-title,
+.breeding-rare {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.breeding-heading {
+    justify-content: space-between;
+    align-items: start;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+}
+.breeding-heading > .page-heading {
+    flex: 1 1 320px;
+}
+.breeding-navigation,
+.breeding-links,
+.breeding-tags,
+.puppy-actions {
+    flex-wrap: wrap;
+}
+.breeding-navigation-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 15px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 13px;
+    font-weight: 600;
+    transition:
+        background 0.18s,
+        color 0.18s;
+}
+.breeding-navigation-link:hover,
+.breeding-navigation-link.is-active {
+    color: var(--primary);
+    background: var(--surface-soft);
+}
+.breeding-navigation-link.is-active {
+    border-color: var(--primary);
+}
+.breeding-navigation-link:focus-visible,
+.breeding-table-scroll:focus-visible,
+.breeding-genetics-note summary:focus-visible,
+.puppy-potential summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.breeding-intro > [data-slot='card-content'],
+.breeding-preview > [data-slot='card-content'] {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+.breeding-intro p {
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+.breeding-select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+    min-width: 0;
+}
+.breeding-select:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.breeding-select:disabled {
+    opacity: 0.6;
+}
+.breeding-parent {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+.breeding-parent-identity > div {
+    min-width: 0;
+}
+.breeding-parent-identity h3,
+.breeding-parent-identity h2 {
+    font-size: 20px;
+    line-height: 1.3;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.breeding-parent-identity p {
+    margin-top: 4px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.breeding-paw {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 54px;
+    height: 54px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    border-radius: 16px;
+}
+.breeding-tags {
+    gap: 6px;
+}
+.breeding-tags > span,
+.breeding-rare {
+    border-radius: 8px;
+    padding: 5px 8px;
+    background: var(--surface-soft);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+.breeding-section-title {
+    font-size: 22px;
+    line-height: 1.3;
+    font-weight: 700;
+}
+.breeding-section-title > svg {
+    color: var(--primary);
+    flex-shrink: 0;
+}
+.breeding-offer-grid,
+.puppy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 20px;
+}
+.breeding-offer,
+.puppy-card {
+    min-width: 0;
+}
+.breeding-offer.is-selected {
+    border-color: var(--primary);
+}
+.breeding-offer > [data-slot='card-content'],
+.puppy-card > [data-slot='card-content'] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 16px;
+    min-width: 0;
+}
+.breeding-offer-footer,
+.breeding-confirm,
+.breeding-own-offer {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.breeding-offer-footer {
+    margin-top: auto;
+}
+.breeding-offer-footer > span,
+.breeding-offer-footer > strong,
+.breeding-confirm > strong {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+}
+.breeding-offer-footer svg,
+.breeding-confirm svg {
+    flex-shrink: 0;
+}
+.breeding-parents,
+.breeding-forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+.breeding-parents > div,
+.breeding-forecast-grid > section {
+    min-width: 0;
+}
+.breeding-label {
+    margin-bottom: 12px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+}
+.breeding-forecast-grid {
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+.breeding-forecast-grid h3 {
+    font-size: 16px;
+    font-weight: 700;
+}
+.breeding-ranges {
+    display: grid;
+    gap: 10px;
+    margin-block: 16px;
+    font-size: 13px;
+}
+.breeding-ranges > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+.breeding-ranges dt {
+    color: var(--muted-foreground);
+}
+.breeding-ranges dd {
+    flex-shrink: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.breeding-table-scroll {
+    overflow-x: auto;
+    margin-top: 12px;
+}
+.breeding-color-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.breeding-color-table th,
+.breeding-color-table td {
+    padding: 10px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+.breeding-color-table thead th {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 400;
+}
+.breeding-color-table tbody th {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.breeding-color-table td,
+.breeding-color-table th:last-child {
+    padding-left: 14px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.breeding-rare {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 6px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    font-size: 10px;
+}
+.breeding-genetics-note,
+.puppy-potential {
+    min-width: 0;
+}
+.breeding-genetics-note summary,
+.puppy-potential summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+.breeding-genetics-note p {
+    margin-top: 12px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+.breeding-listing-form {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.breeding-listing-form > .form-field {
+    flex: 1 1 200px;
+}
+.breeding-own-offer {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.breeding-errors {
+    display: grid;
+    gap: 8px;
+}
+.breeding-pregnancy {
+    display: flex;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.breeding-pregnancy > svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.breeding-pregnancy p {
+    margin-top: 4px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.puppy-deadline {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    font-size: 12px;
+}
+.puppy-deadline > span {
+    color: var(--muted-foreground);
+}
+.puppy-deadline > time {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.puppy-potential[open] > .dog-stats {
+    margin-top: 14px;
+}
+.puppy-potential > .field-hint {
+    margin-top: 10px;
+}
+.puppy-sale-status {
+    font-size: 13px;
+    color: var(--sage-ink);
+    font-weight: 600;
+}
+.puppy-actions {
+    margin-top: auto;
+}
+.puppy-actions > .ui-button {
+    flex: 1 1 120px;
+}
+@media (max-width: 900px) {
+    .breeding-parents,
+    .breeding-forecast-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+@media (max-width: 650px) {
+    .breeding-links > .ui-button,
+    .breeding-confirm > .ui-button,
+    .breeding-heading > .ui-button,
+    .breeding-listing-form > .ui-button {
+        width: 100%;
+    }
+    .breeding-navigation-link {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+    .breeding-offer-footer > .ui-button {
+        flex: 1 1 100%;
+    }
+}

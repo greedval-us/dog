@@ -83,8 +83,10 @@ class DogSeeder extends Seeder
         ];
 
         foreach ($dogs as $dog) {
+            $existing = Dog::query()->where('breed', $dog['breed'])->first();
             Dog::query()->updateOrCreate(['breed' => $dog['breed']], [
                 ...$dog,
+                'coat_colors' => array_replace($existing === null ? [] : $existing->coat_colors, $dog['coat_colors']),
                 'is_starter' => true,
                 'energy_max' => 100,
                 'mood_max' => 100,

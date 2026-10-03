@@ -26,6 +26,7 @@ import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { dashboard, petScene } from '@/routes';
 import { purchase, store } from '@/routes/kennel';
 import { show as player } from '@/routes/players';
+import { market as puppyMarket } from '@/routes/puppies';
 import type { StarterBreed } from '@/types/pet';
 
 const props = defineProps<{
@@ -301,5 +302,19 @@ function submit() {
                 </p>
             </details>
         </form>
+        <SurfaceCard
+            :title="t('Puppies waiting for a home')"
+            :description="
+                t(
+                    'Meet puppies handed over to the kennel. Their coat and genetic potential are already known.',
+                )
+            "
+        >
+            <Button as-child variant="secondary"
+                ><Link :href="puppyMarket({ query: { source: 'kennel' } })"
+                    >{{ t('Meet kennel puppies')
+                    }}<ArrowRight :size="17" aria-hidden="true" /></Link
+            ></Button>
+        </SurfaceCard>
     </div>
 </template>
