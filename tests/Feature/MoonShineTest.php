@@ -222,11 +222,7 @@ test('moderation can restore a blocked player', function () {
 
 test('player changes roll back if the audit entry cannot be saved', function () {
     $player = User::factory()->create();
-    if (DB::getDriverName() === 'pgsql') {
-        DB::unprepared("CREATE FUNCTION reject_admin_audit() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER reject_admin_audit BEFORE INSERT ON admin_audit_logs FOR EACH ROW EXECUTE FUNCTION reject_admin_audit()");
-    } else {
-        DB::statement("CREATE TRIGGER reject_admin_audit BEFORE INSERT ON admin_audit_logs BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END");
-    }
+    DB::unprepared("CREATE FUNCTION reject_admin_audit() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER reject_admin_audit BEFORE INSERT ON admin_audit_logs FOR EACH ROW EXECUTE FUNCTION reject_admin_audit()");
 
     $this->actingAs(moonshineStaff(StaffRole::Moderator), 'moonshine')
         ->put(moonshineUpdateUrl(PlayerResource::class, $player->id), [

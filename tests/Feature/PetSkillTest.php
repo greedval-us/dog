@@ -364,11 +364,7 @@ test('a failed receipt write rolls back the payment progress and cooldown and al
     $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create(['intelligence' => 100, 'obedience' => 100]);
     $skill = Skill::factory()->create();
     $data = new TrainPetSkillData($skill->id, 1, 100, (string) Str::uuid());
-    if (DB::getDriverName() === 'pgsql') {
-        DB::unprepared("CREATE FUNCTION reject_skill_lesson() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER reject_skill_lesson BEFORE INSERT ON pet_skill_lessons FOR EACH ROW EXECUTE FUNCTION reject_skill_lesson()");
-    } else {
-        DB::statement("CREATE TRIGGER reject_skill_lesson BEFORE INSERT ON pet_skill_lessons BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END");
-    }
+    DB::unprepared("CREATE FUNCTION reject_skill_lesson() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER reject_skill_lesson BEFORE INSERT ON pet_skill_lessons FOR EACH ROW EXECUTE FUNCTION reject_skill_lesson()");
 
     expect(fn () => app(TrainPetSkill::class)->handle($pet->user, $pet->id, $data))->toThrow(QueryException::class);
 
@@ -376,12 +372,8 @@ test('a failed receipt write rolls back the payment progress and cooldown and al
     $this->assertDatabaseCount('currency_transactions', 0);
     $this->assertDatabaseCount('pet_skill', 0);
     $this->assertDatabaseCount('pet_skill_lessons', 0);
-    if (DB::getDriverName() === 'pgsql') {
-        DB::statement('DROP TRIGGER reject_skill_lesson ON pet_skill_lessons');
-        DB::statement('DROP FUNCTION reject_skill_lesson()');
-    } else {
-        DB::statement('DROP TRIGGER reject_skill_lesson');
-    }
+    DB::statement('DROP TRIGGER reject_skill_lesson ON pet_skill_lessons');
+    DB::statement('DROP FUNCTION reject_skill_lesson()');
     app(TrainPetSkill::class)->handle($pet->user, $pet->id, $data);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 400]);
     $this->assertDatabaseCount('pet_skill', 1);

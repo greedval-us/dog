@@ -190,11 +190,7 @@ test('a failed database update keeps the old avatar and removes the new file', f
     $player = User::factory()->create(['avatar_path' => 'old.webp']);
     Storage::disk('avatars')->put('old.webp', 'old image');
     $file = UploadedFile::fake()->image('avatar.png');
-    if (DB::getDriverName() === 'pgsql') {
-        DB::unprepared("CREATE FUNCTION reject_avatar_update() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''avatar update rejected''; END'; CREATE TRIGGER reject_avatar BEFORE UPDATE OF avatar_path ON users FOR EACH ROW EXECUTE FUNCTION reject_avatar_update()");
-    } else {
-        DB::statement("CREATE TRIGGER reject_avatar BEFORE UPDATE OF avatar_path ON users BEGIN SELECT RAISE(ABORT, 'avatar update rejected'); END");
-    }
+    DB::unprepared("CREATE FUNCTION reject_avatar_update() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''avatar update rejected''; END'; CREATE TRIGGER reject_avatar BEFORE UPDATE OF avatar_path ON users FOR EACH ROW EXECUTE FUNCTION reject_avatar_update()");
 
     expect(fn () => app(UpdatePlayerAvatar::class)->handle($player, new PlayerAvatarData($file->getPathname())))
         ->toThrow(QueryException::class);

@@ -24,20 +24,12 @@ abstract class TestCase extends BaseTestCase
 
     protected function rejectCareWrites(string $trigger, string $event = 'UPDATE'): void
     {
-        if (DB::getDriverName() === 'pgsql') {
-            DB::unprepared("CREATE FUNCTION {$trigger}() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER {$trigger} BEFORE {$event} ON pet_care_actions FOR EACH ROW EXECUTE FUNCTION {$trigger}()");
-        } else {
-            DB::statement("CREATE TRIGGER {$trigger} BEFORE {$event} ON pet_care_actions BEGIN SELECT RAISE(ABORT, 'Simulated failure'); END");
-        }
+        DB::unprepared("CREATE FUNCTION {$trigger}() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated failure''; END'; CREATE TRIGGER {$trigger} BEFORE {$event} ON pet_care_actions FOR EACH ROW EXECUTE FUNCTION {$trigger}()");
     }
 
     protected function allowCareWrites(string $trigger): void
     {
-        if (DB::getDriverName() === 'pgsql') {
-            DB::statement("DROP TRIGGER {$trigger} ON pet_care_actions");
-            DB::statement("DROP FUNCTION {$trigger}()");
-        } else {
-            DB::statement("DROP TRIGGER {$trigger}");
-        }
+        DB::statement("DROP TRIGGER {$trigger} ON pet_care_actions");
+        DB::statement("DROP FUNCTION {$trigger}()");
     }
 }

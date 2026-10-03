@@ -112,20 +112,8 @@ return new class extends Migration
         Schema::dropIfExists('item_categories');
     }
 
-    /** SQLite cannot add CHECK constraints to existing table definitions. */
     private function addCheck(string $table, string $expression): void
     {
-        if (DB::getDriverName() === 'sqlite') {
-            $columns = ['quality', 'usage_limit', 'remaining_uses', 'currency', 'price', 'stock', 'price_paid', 'uses_spent', 'uses_before', 'uses_after'];
-            $expression = preg_replace('/\\b('.implode('|', $columns).')\\b/', 'NEW.$1', $expression);
-
-            foreach (['insert', 'update'] as $event) {
-                DB::statement("CREATE TRIGGER {$table}_valid_values_{$event} BEFORE {$event} ON {$table} WHEN NOT ({$expression}) BEGIN SELECT RAISE(ABORT, 'Invalid {$table} values'); END");
-            }
-
-            return;
-        }
-
         DB::statement("ALTER TABLE {$table} ADD CONSTRAINT {$table}_valid_values CHECK ({$expression})");
     }
 };

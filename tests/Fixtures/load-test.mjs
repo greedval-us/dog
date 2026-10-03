@@ -43,7 +43,8 @@ await mkdir(run);
 for (const directory of ['logs', 'framework/cache/data', 'framework/sessions', 'framework/views', 'nginx-temp', 'temp']) {
     await mkdir(path.join(run, directory), { recursive: true });
 }
-await writeFile(path.join(run, 'fixture.sqlite'), '');
+const databaseSchema = `loadtest_${randomBytes(8).toString('hex')}`;
+await writeFile(path.join(run, 'database-schema'), databaseSchema);
 
 async function freePort() {
     const server = net.createServer();
@@ -64,12 +65,12 @@ const cachePath = filename => slash(path.relative(root, path.join(run, filename)
 const env = { ...process.env,
     APP_ENV: 'loadtest', APP_DEBUG: 'false', APP_URL: origin,
     APP_KEY: `base64:${randomBytes(32).toString('base64')}`, APP_PREVIOUS_KEYS: '',
-    DB_CONNECTION: 'sqlite', DB_DATABASE: slash(path.join(run, 'fixture.sqlite')), DB_URL: '',
+    DB_CONNECTION: 'pgsql', DB_DATABASE: 'dog_loadtest', DB_SCHEMA: databaseSchema, DB_URL: '',
+    REDIS_PREFIX: `${databaseSchema}-database-`,
     LARAVEL_STORAGE_PATH: slash(run), DOG_LOAD_RUN: run,
-    SESSION_DRIVER: 'database', SESSION_CONNECTION: 'sqlite', SESSION_COOKIE: 'dogload_session',
+    SESSION_DRIVER: 'redis', SESSION_CONNECTION: 'default', SESSION_COOKIE: 'dogload_session',
     SESSION_DOMAIN: '', SESSION_SECURE_COOKIE: 'false', SESSION_ENCRYPT: 'false',
-    CACHE_STORE: 'database', DB_CACHE_CONNECTION: 'sqlite', DB_CACHE_LOCK_CONNECTION: 'sqlite',
-    CACHE_PREFIX: 'dogload_', QUEUE_CONNECTION: 'sync', MAIL_MAILER: 'array',
+    CACHE_STORE: 'redis', CACHE_PREFIX: `${databaseSchema}-cache-`, QUEUE_CONNECTION: 'sync', MAIL_MAILER: 'array',
     LOG_CHANNEL: 'single', LOG_LEVEL: 'error', BCRYPT_ROUNDS: '4',
     APP_CONFIG_CACHE: cachePath('config.php'),
     APP_ROUTES_CACHE: cachePath('routes.php'),
@@ -241,7 +242,7 @@ async function interaction(player, ordinal) {
 const report = { createdAt: new Date().toISOString(), options: { ...options, stages },
     environment: { platform: os.platform(), release: os.release(), cpu: os.cpus()[0].model,
         logicalCpus: os.cpus().length, memoryGiB: Math.round(os.totalmem() / 2 ** 30 * 100) / 100,
-        node: process.version, database: 'SQLite', sessions: 'database', cache: 'database',
+        node: process.version, database: 'PostgreSQL', databaseSchema, sessions: 'redis', cache: 'redis',
         configCached: true, routesCached: true, debug: false, phpWorkers: options.workers },
     scope: 'Authenticated dynamic HTTP requests, full Laravel middleware including CSRF. 25% train, 75% water. '
         + 'Each player starts one activity and completes it after its real duration. Then paced dashboard/deferred props, shop, inventory, care selection and state polling. '

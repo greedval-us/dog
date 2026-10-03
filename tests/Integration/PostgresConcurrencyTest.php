@@ -33,7 +33,7 @@ function startDatabaseWorker(array $operation): Process
 {
     $process = new Process([
         PHP_BINARY,
-        ...(PHP_OS_FAMILY === 'Windows' ? ['-d', 'extension=pdo_pgsql'] : []),
+        ...(PHP_OS_FAMILY === 'Windows' && ! extension_loaded('pdo_pgsql') ? ['-d', 'extension=pdo_pgsql'] : []),
         base_path('tests/Fixtures/database-worker.php'),
     ], base_path(), ['APP_ENV' => 'testing']);
     $process->setInput(json_encode([

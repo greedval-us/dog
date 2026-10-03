@@ -29,7 +29,9 @@ if ($mode === 'inspect') {
     echo json_encode([
         'players' => User::query()->count(),
         'pets' => Pet::query()->count(),
-        'sessions' => DB::table('sessions')->whereNotNull('user_id')->distinct()->count('user_id'),
+        'sessions' => count(array_filter(json_decode(file_get_contents(storage_path('participants.json')), true, flags: JSON_THROW_ON_ERROR)['players'],
+            fn (array $player): bool => app('session')->driver()->getHandler()->read($player['sessionId']) !== ''
+        )),
         'started' => (clone $actions)->count(),
         'completed' => (clone $actions)->whereNotNull('completed_at')->count(),
         'trainingsStarted' => (clone $actions)->where('group', 'training')->count(),
@@ -39,16 +41,18 @@ if ($mode === 'inspect') {
         'itemsUsed' => DB::table('item_usages')->count(),
         'invalidPetEnergy' => Pet::query()->where('energy', '<', 0)->orWhereColumn('energy', '>', 'energy_max')->count(),
         'invalidInventoryUses' => InventoryItem::query()->where('remaining_uses', '<', 0)->count(),
-        'sqliteJournal' => DB::selectOne('PRAGMA journal_mode')->journal_mode,
+        'databaseVersion' => DB::selectOne('SELECT version()')->version,
     ], JSON_THROW_ON_ERROR);
     exit;
 }
 
 $count = filter_var($argv[2] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1000]]);
-if ($mode !== 'prepare' || $count === false || filesize(storage_path('fixture.sqlite')) !== 0) {
-    throw new RuntimeException('Prepare requires an empty fixture database and 1–1000 players.');
+if ($mode !== 'prepare' || $count === false
+    || DB::table('pg_namespace')->where('nspname', config('database.connections.pgsql.search_path'))->exists()) {
+    throw new RuntimeException('Prepare requires a new fixture schema and 1–1000 players.');
 }
 
+DB::statement('CREATE SCHEMA "'.config('database.connections.pgsql.search_path').'"');
 Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]);
 foreach ([DogSeeder::class, GameAssetSeeder::class, ShopItemSeeder::class, WorkTypeSeeder::class, TrainingSeeder::class] as $seeder) {
     Artisan::call('db:seed', ['--class' => $seeder, '--force' => true, '--no-interaction' => true]);
@@ -88,13 +92,11 @@ DB::transaction(function () use ($count, $dog, $items, $cookieName, $encrypter, 
         $sessionId = Str::random(40);
         $csrf = Str::random(40);
         $session = ['_token' => $csrf, $guardKey => $user->id];
-        DB::table('sessions')->insert([
-            'id' => $sessionId, 'user_id' => $user->id, 'ip_address' => '127.0.0.1',
-            'user_agent' => 'DogLive local load test', 'last_activity' => time(),
-            'payload' => base64_encode(config('session.serialization') === 'json' ? json_encode($session, JSON_THROW_ON_ERROR) : serialize($session)),
-        ]);
+        app('session')->driver()->getHandler()->write($sessionId,
+            config('session.serialization') === 'json' ? json_encode($session, JSON_THROW_ON_ERROR) : serialize($session)
+        );
         $cookie = $encrypter->encrypt(CookieValuePrefix::create($cookieName, $encrypter->getKey()).$sessionId, false);
-        $participants[] = ['id' => $user->id, 'pet' => $pet->id, 'sports' => $sportsId, 'csrf' => $csrf, 'cookie' => $cookieName.'='.rawurlencode($cookie)];
+        $participants[] = ['id' => $user->id, 'pet' => $pet->id, 'sports' => $sportsId, 'csrf' => $csrf, 'sessionId' => $sessionId, 'cookie' => $cookieName.'='.rawurlencode($cookie)];
     }
 });
 
