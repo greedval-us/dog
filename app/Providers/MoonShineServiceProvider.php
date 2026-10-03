@@ -16,6 +16,8 @@ use App\MoonShine\Resources\KennelPurchaseResource;
 use App\MoonShine\Resources\MoonShineUser\MoonShineUserResource;
 use App\MoonShine\Resources\MoonShineUserRole\MoonShineUserRoleResource;
 use App\MoonShine\Resources\PetCareActionResource;
+use App\MoonShine\Resources\PetHistoryEventResource;
+use App\MoonShine\Resources\PetHistoryPhraseResource;
 use App\MoonShine\Resources\PetResource;
 use App\MoonShine\Resources\PlayerResource;
 use App\MoonShine\Resources\ShopOfferResource;
@@ -49,6 +51,7 @@ class MoonShineServiceProvider extends ServiceProvider
             PetCareActionResource::class, DogWorkShiftResource::class,
             DogResource::class, ItemResource::class, ShopOfferResource::class, GameAssetResource::class,
             TrainingResource::class, SkillResource::class, DogWorkTypeResource::class, StatusEffectResource::class,
+            PetHistoryEventResource::class, PetHistoryPhraseResource::class,
         ])->pages([...$core->getConfig()->getPages()]);
     }
 }

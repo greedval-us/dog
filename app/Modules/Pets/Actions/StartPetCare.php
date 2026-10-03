@@ -15,6 +15,7 @@ use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetCareStatusEffects;
 use App\Modules\Pets\Queries\GetTrainingOptions;
 use App\Modules\Pets\Services\PetActivityManager;
+use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,7 @@ final class StartPetCare
         private GetCareStatusEffects $careStatuses,
         private GetTrainingOptions $trainings,
         private TrainingRules $trainingRules,
+        private PetHistoryRecorder $history,
     ) {}
 
     /** @param array<string, int> $itemIds */
@@ -168,7 +170,7 @@ final class StartPetCare
                 }
             }
 
-            return PetCareAction::query()->create([
+            $care = PetCareAction::query()->create([
                 'user_id' => $owner->id,
                 'pet_id' => $petId,
                 'token' => $token,
@@ -185,6 +187,26 @@ final class StartPetCare
                 'ends_at' => $started->endsAt,
                 'available_at' => $started->endsAt->addSeconds($option['cooldown']),
             ]);
+
+            $energyBefore = $pet->energy / $pet->energy_max * 100;
+            $energyAfter = ($pet->energy - $option['energy']) / $pet->energy_max * 100;
+            $this->history->record($pet, $care->group === 'training' ? 'training' : 'care.'.$variant,
+                'care:'.$care->id.':started', $started->startedAt, [
+                    'stage' => 'started',
+                    'name' => $care->training_name,
+                    'durationSeconds' => $option['duration'],
+                    'items' => array_map(fn (string $category, int $id): array => [
+                        'category' => $category, 'name' => $instances->get($id)?->name,
+                        'uses' => $option['uses'][$category] ?? 1,
+                    ], array_keys($itemIds), array_values($itemIds)),
+                    'changes' => $option['energy'] === 0 ? [] : [[
+                        'metric' => 'energy', 'before' => round($energyBefore, 4),
+                        'after' => round($energyAfter, 4), 'delta' => round($energyAfter - $energyBefore, 4),
+                        'unit' => 'percent',
+                    ]],
+                ]);
+
+            return $care;
         }, attempts: 3);
     }
 }

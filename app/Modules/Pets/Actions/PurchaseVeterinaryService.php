@@ -5,12 +5,14 @@ namespace App\Modules\Pets\Actions;
 use App\Models\CurrencyTransaction;
 use App\Models\User;
 use App\Models\VeterinaryVisit;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\VeterinaryRules;
 use App\Modules\Pets\DTO\PurchaseVeterinaryServiceData;
 use App\Modules\Pets\Enums\VeterinaryService;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetLastVeterinaryVisit;
 use App\Modules\Pets\Queries\GetVeterinaryServices;
+use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\VeterinaryCare;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
@@ -26,6 +28,8 @@ final class PurchaseVeterinaryService
         private GetLastVeterinaryVisit $lastVisit,
         private VeterinaryRules $rules,
         private VeterinaryCare $care,
+        private PetDecayCalculator $decay,
+        private PetHistoryRecorder $history,
     ) {}
 
     public function handle(User $user, PurchaseVeterinaryServiceData $data): VeterinaryVisit
@@ -90,15 +94,28 @@ final class PurchaseVeterinaryService
                 throw new PetUnavailable('You do not have enough coins for this veterinary service.');
             }
 
+            $pet->advanceTo($at, $this->decay);
+            $healthBefore = $pet->health / $pet->health_max * 100;
             $this->care->apply($pet, $definition, $episode, $at, $availableAt);
+            $healthAfter = $pet->health / $pet->health_max * 100;
             $pet->save();
 
-            return VeterinaryVisit::query()->create([
+            $visit = VeterinaryVisit::query()->create([
                 'user_id' => $owner->id, 'pet_id' => $pet->id, 'pet_name' => $pet->name,
                 'service' => $data->service, 'disease_episode_id' => $episode?->id, 'disease_name' => $episode?->disease->name,
                 'token' => $token, 'price_paid' => $definition->price, 'currency_transaction_id' => $entry->id,
                 'performed_at' => $at, 'available_at' => $availableAt,
             ]);
+            $this->history->record($pet, 'veterinary.'.$data->service->value, 'veterinary:'.$visit->id.':completed', $at, [
+                'stage' => 'completed', 'diseaseName' => $visit->disease_name, 'durationSeconds' => 0,
+                'coins' => -$visit->price_paid,
+                'changes' => $healthAfter === $healthBefore ? [] : [[
+                    'metric' => 'health', 'before' => round($healthBefore, 4), 'after' => round($healthAfter, 4),
+                    'delta' => round($healthAfter - $healthBefore, 4), 'unit' => 'percent',
+                ]],
+            ]);
+
+            return $visit;
         }, attempts: 3);
     }
 }

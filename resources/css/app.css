@@ -34,7 +34,8 @@
     line-height: 1.6;
 }
 .dog-work-select,
-.vet-select {
+.vet-select,
+.pet-history-select {
     width: 100%;
     min-width: 0;
     padding: 12px 14px;
@@ -44,12 +45,14 @@
     color: var(--foreground);
 }
 .dog-work-select:focus-visible,
-.vet-select:focus-visible {
+.vet-select:focus-visible,
+.pet-history-select:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
 }
 .dog-work-select:disabled,
-.vet-select:disabled {
+.vet-select:disabled,
+.pet-history-select:disabled {
     opacity: 0.6;
 }
 .dog-work-empty {
@@ -2733,6 +2736,221 @@
     outline: 2px solid var(--ring);
     outline-offset: 3px;
     border-radius: 16px;
+}
+.pet-history-content,
+.pet-history-panel,
+.pet-history-loading {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+.pet-history-tabs {
+    width: fit-content;
+    max-width: 100%;
+    background: var(--surface-soft);
+}
+.pet-history-tabs .pet-tab:disabled {
+    cursor: wait;
+}
+.pet-history-toolbar {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.pet-history-field {
+    display: grid;
+    gap: 7px;
+    flex: 1 1 180px;
+    min-width: 0;
+}
+.pet-history-field label {
+    font-size: 12px;
+    font-weight: 600;
+}
+.pet-history-toolbar > button {
+    min-height: 46px;
+}
+.pet-history-retention,
+.pet-history-meta,
+.pet-history-heading time,
+.pet-history-changes dt,
+.pet-history-changes dd > span {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+}
+.pet-history-list {
+    display: grid;
+    min-width: 0;
+}
+.pet-history-entry {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 13px;
+    padding-block: 20px;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+}
+.pet-history-entry:first-child {
+    padding-top: 0;
+}
+.pet-history-entry:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.pet-history-icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    color: var(--primary);
+    background: var(--surface-soft);
+}
+.pet-history-entry.is-thought .pet-history-icon {
+    color: var(--sage-ink);
+    background: var(--sage-surface);
+}
+.pet-history-copy {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+.pet-history-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px 16px;
+    flex-wrap: wrap;
+}
+.pet-history-heading h3 {
+    font-size: 14px;
+    font-weight: 700;
+}
+.pet-history-message {
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+.pet-history-entry.is-thought .pet-history-message {
+    padding: 12px 15px;
+    border-radius: 0 14px 14px;
+    color: var(--sage-ink);
+    background: var(--sage-surface);
+}
+.pet-history-meta,
+.pet-history-meta > span {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pet-history-meta {
+    gap: 8px 14px;
+}
+.pet-history-stage {
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: var(--surface-soft);
+    color: var(--foreground);
+    font-weight: 600;
+}
+.pet-history-stage.is-completed {
+    background: var(--success-surface);
+    color: var(--success);
+}
+.pet-history-changes {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+.pet-history-changes > div,
+.pet-history-changes dd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+}
+.pet-history-changes dd {
+    justify-content: flex-end;
+    margin-left: auto;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.pet-history-changes strong.is-gain {
+    color: var(--success);
+}
+.pet-history-changes strong.is-loss,
+.pet-history-error {
+    color: var(--destructive);
+}
+.pet-history-empty {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding: 26px 12px;
+    text-align: center;
+}
+.pet-history-empty > svg {
+    color: var(--primary);
+}
+.pet-history-empty h3 {
+    font-weight: 600;
+    font-size: 15px;
+}
+.pet-history-empty p,
+.pet-history-error {
+    font-size: 13px;
+    line-height: 1.6;
+}
+.pet-history-empty p {
+    color: var(--muted-foreground);
+}
+.pet-history-skeleton {
+    height: 104px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    animation: notification-pulse 1.5s ease-in-out infinite;
+}
+.pet-history-panel:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 5px;
+    border-radius: 12px;
+}
+@media (max-width: 650px) {
+    .pet-history-tabs,
+    .pet-history-toolbar > button {
+        width: 100%;
+    }
+    .pet-history-toolbar {
+        align-items: stretch;
+    }
+    .pet-history-entry {
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 9px;
+    }
+    .pet-history-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+    }
+    .pet-history-heading {
+        flex-direction: column;
+    }
+    .pet-history-changes dd {
+        flex-basis: 100%;
+        justify-content: space-between;
+    }
+    .pet-history-pagination {
+        flex-wrap: wrap;
+    }
+    .pet-history-pagination > button {
+        flex: 1;
+    }
 }
 .pet-skills {
     display: grid;

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
+use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,8 @@ use Illuminate\Support\Str;
 
 final class CompleteDogWork
 {
-    public function __construct(private PetActivityManager $activities, private PlayerWallet $wallet, private PetDecayCalculator $decay) {}
+    public function __construct(private PetActivityManager $activities, private PlayerWallet $wallet, private PetDecayCalculator $decay,
+        private PetHistoryRecorder $history) {}
 
     public function handle(User $user, string $token): DogWorkShift
     {
@@ -53,6 +55,11 @@ final class CompleteDogWork
                 $this->wallet->change($owner, 'gems', $shift->gems_reward, $operation.':gems', 'dog_work');
             }
             $shift->update(['completed_at' => now()->startOfSecond()]);
+            $this->history->record($pet, 'work', 'work:'.$shift->id.':completed', $shift->ends_at, [
+                'stage' => 'completed', 'name' => $shift->name,
+                'durationSeconds' => $shift->ends_at->getTimestamp() - $shift->started_at->getTimestamp(),
+                'changes' => [], 'coins' => $shift->coins_reward, 'gems' => $shift->gems_reward,
+            ]);
 
             return $shift;
         }, attempts: 3);

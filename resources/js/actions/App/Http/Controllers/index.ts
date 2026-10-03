@@ -2,6 +2,8 @@ import LocaleController from './LocaleController'
 import SystemNotificationController from './SystemNotificationController'
 import PlayerAvatarController from './PlayerAvatarController'
 import DashboardController from './DashboardController'
+import PetHistoryController from './PetHistoryController'
+import PetThoughtController from './PetThoughtController'
 import CareItemController from './CareItemController'
 import DogWorkController from './DogWorkController'
 import VeterinarianController from './VeterinarianController'
@@ -23,6 +25,8 @@ const Controllers = {
 SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
 PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarController),
 DashboardController: Object.assign(DashboardController, DashboardController),
+PetHistoryController: Object.assign(PetHistoryController, PetHistoryController),
+PetThoughtController: Object.assign(PetThoughtController, PetThoughtController),
 CareItemController: Object.assign(CareItemController, CareItemController),
 DogWorkController: Object.assign(DogWorkController, DogWorkController),
 VeterinarianController: Object.assign(VeterinarianController, VeterinarianController),

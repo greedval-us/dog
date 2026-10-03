@@ -13,6 +13,8 @@ use App\Models\ItemPurchase;
 use App\Models\KennelPurchase;
 use App\Models\Pet;
 use App\Models\PetCareAction;
+use App\Models\PetHistoryEvent;
+use App\Models\PetHistoryPhrase;
 use App\Models\ShopOffer;
 use App\Models\Skill;
 use App\Models\StatusEffect;
@@ -51,6 +53,8 @@ final class StaffAccess
                 && ($read || $ability === Ability::UPDATE),
             Pet::class, AdminAuditLog::class => in_array($role, [StaffRole::Administrator, StaffRole::Moderator], true) && $read,
             CurrencyTransaction::class, ItemPurchase::class, KennelPurchase::class, PetCareAction::class, DogWorkShift::class => in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true) && $read,
+            PetHistoryEvent::class, PetHistoryPhrase::class => ($read && in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true))
+                || ($role === StaffRole::Administrator && in_array($ability, [Ability::CREATE, Ability::UPDATE], true)),
             Dog::class, Item::class, ShopOffer::class, GameAsset::class, Training::class, Skill::class, DogWorkType::class, StatusEffect::class => ($read && in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true))
                 || ($role === StaffRole::Administrator && $ability === Ability::UPDATE),
             default => false,

@@ -12,8 +12,10 @@ use App\Http\Controllers\KennelController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PetAppearanceController;
 use App\Http\Controllers\PetCareController;
+use App\Http\Controllers\PetHistoryController;
 use App\Http\Controllers\PetSkillController;
 use App\Http\Controllers\PetSlotController;
+use App\Http\Controllers\PetThoughtController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
 use App\Http\Controllers\ShopController;
@@ -37,6 +39,8 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('pets/{pet}/history', [PetHistoryController::class, 'index'])->name('pets.history.index');
+    Route::post('pets/{pet}/thoughts', [PetThoughtController::class, 'store'])->middleware('throttle:30,1')->name('pets.thoughts.store');
     Route::get('care-items', CareItemController::class)->name('care-items');
     Route::get('dog-work', [DogWorkController::class, 'index'])->name('dog-work.index');
     Route::get('veterinarian', [VeterinarianController::class, 'index'])->name('veterinarian.index');

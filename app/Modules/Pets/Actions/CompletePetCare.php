@@ -11,6 +11,7 @@ use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetDiseaseTracker;
+use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ final class CompletePetCare
         private PetDecayCalculator $states,
         private PetStateSynchronizer $state,
         private PetDiseaseTracker $diseases,
+        private PetHistoryRecorder $history,
     ) {}
 
     public function handle(User $user, int $petId, string $token): bool
@@ -50,17 +52,29 @@ final class CompletePetCare
             $at = now();
             $endedAt = $care->ends_at;
             $pet->advanceTo($endedAt, $this->states);
+            $changes = [];
 
             foreach ($care->effects as $name => $percentage) {
                 $state = PetState::from($name);
                 $maximum = $pet->getAttribute($state->maximumColumn());
-                $value = $pet->getAttribute($name) + $maximum * $percentage / 100;
+                $before = $pet->getAttribute($name);
+                $value = $before + $maximum * $percentage / 100;
                 $pet->setAttribute($name, round(max(0, min($maximum, $value)), 4));
+                $after = $pet->getAttribute($name);
+                $changes[] = [
+                    'metric' => $name, 'before' => round($before / $maximum * 100, 4),
+                    'after' => round($after / $maximum * 100, 4),
+                    'delta' => round(($after - $before) / $maximum * 100, 4), 'unit' => 'percent',
+                ];
             }
 
             foreach ($care->stat_gains ?? [] as $name => $gain) {
                 $stat = PetStat::from($name);
-                $pet->setAttribute($name, min($pet->getAttribute($stat->potentialColumn()), $pet->getAttribute($name) + $gain));
+                $before = $pet->getAttribute($name);
+                $pet->setAttribute($name, min($pet->getAttribute($stat->potentialColumn()), $before + $gain));
+                $after = $pet->getAttribute($name);
+                $changes[] = ['metric' => $name, 'before' => (float) $before,
+                    'after' => (float) $after, 'delta' => (float) ($after - $before), 'unit' => 'points'];
             }
 
             $pet->debuffs = $this->statuses->recover($pet->debuffs ?? [], $care->status_recovery ?? [], $endedAt->getTimestamp());
@@ -74,6 +88,14 @@ final class CompletePetCare
             $pet->save();
             $care->completed_at = $at;
             $care->save();
+            $this->history->record($pet, $care->group === 'training' ? 'training' : 'care.'.$care->variant,
+                'care:'.$care->id.':completed', $endedAt, [
+                    'stage' => 'completed', 'name' => $care->training_name,
+                    'durationSeconds' => max(0, $endedAt->getTimestamp() - ($care->created_at?->getTimestamp() ?? $endedAt->getTimestamp())),
+                    'changes' => $changes, 'confirmedAt' => $at->toIso8601String(),
+                    'statusRecovery' => $care->status_recovery ?? [],
+                    'awardedEffects' => $awards,
+                ]);
 
             return true;
         }, attempts: 3);

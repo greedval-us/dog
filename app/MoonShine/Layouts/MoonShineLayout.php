@@ -18,6 +18,8 @@ use App\MoonShine\Resources\KennelPurchaseResource;
 use App\MoonShine\Resources\MoonShineUser\MoonShineUserResource;
 use App\MoonShine\Resources\MoonShineUserRole\MoonShineUserRoleResource;
 use App\MoonShine\Resources\PetCareActionResource;
+use App\MoonShine\Resources\PetHistoryEventResource;
+use App\MoonShine\Resources\PetHistoryPhraseResource;
 use App\MoonShine\Resources\PetResource;
 use App\MoonShine\Resources\PlayerResource;
 use App\MoonShine\Resources\ShopOfferResource;
@@ -118,6 +120,7 @@ final class MoonShineLayout extends AppLayout
                 MenuItem::make(DogResource::class), MenuItem::make(ItemResource::class), MenuItem::make(ShopOfferResource::class),
                 MenuItem::make(GameAssetResource::class), MenuItem::make(TrainingResource::class), MenuItem::make(SkillResource::class),
                 MenuItem::make(DogWorkTypeResource::class), MenuItem::make(StatusEffectResource::class),
+                MenuItem::make(PetHistoryEventResource::class), MenuItem::make(PetHistoryPhraseResource::class),
             ])->canSee(fn (): bool => in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true)),
             MenuItem::make(route('home'), __('admin.open_site'), 'arrow-top-right-on-square')->blank(),
         ];

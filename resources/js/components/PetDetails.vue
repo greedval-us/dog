@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-    Backpack,
     BookOpen,
     GitBranch,
     History,
@@ -11,6 +10,7 @@ import {
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
 import DogStats from '@/components/DogStats.vue';
 import PetFeaturePlaceholder from '@/components/PetFeaturePlaceholder.vue';
+import PetHistory from '@/components/PetHistory.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
 import PetSkills from '@/components/PetSkills.vue';
@@ -38,13 +38,6 @@ const tabs = [
         icon: Sparkles,
     },
     {
-        value: 'equipment',
-        label: 'Equipment',
-        icon: Backpack,
-        description:
-            'Collars, accessories and equipped items will appear here.',
-    },
-    {
         value: 'pedigree',
         label: 'Pedigree',
         icon: GitBranch,
@@ -61,7 +54,6 @@ const tabs = [
         value: 'history',
         label: 'History',
         icon: History,
-        description: 'Milestones and shared memories will appear here.',
     },
 ] as const;
 </script>
@@ -158,6 +150,9 @@ const tabs = [
                     :data="skills"
                 />
             </Deferred>
+        </TabsContent>
+        <TabsContent value="history" class="pet-tab-panel">
+            <PetHistory :key="pet.id" :pet="pet" />
         </TabsContent>
         <template v-for="tab in tabs" :key="tab.value">
             <TabsContent
