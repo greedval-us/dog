@@ -36,6 +36,7 @@ export type PlayerPet = {
     bornAt: string;
     isPurebred: boolean;
     isFavorite: boolean;
+    hasPedigree: boolean;
     lifecycle: {
         status: 'active' | 'retired' | 'deceased';
         archivedAt: string | null;

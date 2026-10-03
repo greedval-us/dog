@@ -9,7 +9,6 @@ import {
 } from '@lucide/vue';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
 import DogStats from '@/components/DogStats.vue';
-import PetFeaturePlaceholder from '@/components/PetFeaturePlaceholder.vue';
 import PetHistory from '@/components/PetHistory.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
@@ -24,6 +23,7 @@ import type { PetCare } from '@/types/pet-care';
 import type { PetSkills as PetSkillsData } from '@/types/pet-skill';
 import { index as breeding } from '@/routes/breeding';
 import { index as puppies } from '@/routes/puppies';
+import { pedigree } from '@/routes/pets';
 
 defineProps<{
     pet: PlayerPet;
@@ -43,8 +43,6 @@ const tabs = [
         value: 'pedigree',
         label: 'Pedigree',
         icon: GitBranch,
-        description:
-            'Parents, ancestors and family connections will appear here.',
     },
     {
         value: 'offspring',
@@ -69,12 +67,6 @@ const tabs = [
                 class="pet-tab"
             >
                 <component :is="tab.icon" :size="17" />{{ t(tab.label) }}
-                <span
-                    v-if="'description' in tab"
-                    class="pet-tab-planned"
-                    :title="t('Soon')"
-                    >{{ t('Soon') }}</span
-                >
             </TabsTrigger>
         </TabsList>
         <TabsContent value="overview" class="pet-tab-panel"
@@ -177,18 +169,25 @@ const tabs = [
                 </div>
             </SurfaceCard>
         </TabsContent>
-        <template v-for="tab in tabs" :key="tab.value">
-            <TabsContent
-                v-if="'description' in tab"
-                :value="tab.value"
-                class="pet-tab-panel"
+        <TabsContent value="pedigree" class="pet-tab-panel">
+            <SurfaceCard
+                :title="t('Pedigree')"
+                :description="
+                    t(
+                        pet.hasPedigree
+                            ? 'Follow the family branches and select a dog to see its card and attributes.'
+                            : 'There are no parent records for this dog. A pedigree becomes available for dogs born through breeding.',
+                    )
+                "
             >
-                <PetFeaturePlaceholder
-                    :title="t(tab.label)"
-                    :description="t(tab.description)"
-                    :icon="tab.icon"
-                />
-            </TabsContent>
-        </template>
+                <Button v-if="pet.hasPedigree" as-child>
+                    <Link :href="pedigree(pet.id)"
+                        ><GitBranch :size="17" aria-hidden="true" />{{
+                            t('View pedigree')
+                        }}</Link
+                    >
+                </Button>
+            </SurfaceCard>
+        </TabsContent>
     </TabsRoot>
 </template>

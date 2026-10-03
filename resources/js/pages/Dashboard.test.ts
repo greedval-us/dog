@@ -21,6 +21,7 @@ function petFixture(): PlayerPet {
         bornAt: '2026-08-01',
         isPurebred: true,
         isFavorite: true,
+        hasPedigree: false,
         lifecycle: {
             status: 'active',
             archivedAt: null,

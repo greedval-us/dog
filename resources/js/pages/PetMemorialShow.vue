@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Flower2, Leaf, Sparkles } from '@lucide/vue';
+import { ArrowLeft, Flower2, GitBranch, Leaf, Sparkles } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import PetCondition from '@/components/PetCondition.vue';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { image } from '@/routes/assets';
 import { index } from '@/routes/players/memorial';
+import { pedigree } from '@/routes/pets';
 import type { PetAppearance } from '@/types/appearance';
 import type { PlayerPet } from '@/types/pet';
 import type { PlayerProfile } from '@/types/player';
@@ -117,6 +118,18 @@ const archivedDate = computed(() =>
                 </aside>
             </div>
             <PetOverview :pet="pet" :care="null" read-only />
+            <Button
+                v-if="pet.hasPedigree"
+                as-child
+                variant="secondary"
+                class="pet-memorial-pedigree"
+            >
+                <Link :href="pedigree(pet.id)"
+                    ><GitBranch :size="17" aria-hidden="true" />{{
+                        t('View pedigree')
+                    }}</Link
+                >
+            </Button>
             <SurfaceCard
                 v-if="learnedSkills.length"
                 class="pet-memorial-skills"

@@ -6,6 +6,8 @@ import BreedingListingController from './BreedingListingController'
 import PuppyController from './PuppyController'
 import DashboardController from './DashboardController'
 import PlayerAchievementController from './PlayerAchievementController'
+import PetProfileController from './PetProfileController'
+import PetPedigreeController from './PetPedigreeController'
 import RetirePetController from './RetirePetController'
 import PetHistoryController from './PetHistoryController'
 import PetThoughtController from './PetThoughtController'
@@ -35,6 +37,8 @@ BreedingListingController: Object.assign(BreedingListingController, BreedingList
 PuppyController: Object.assign(PuppyController, PuppyController),
 DashboardController: Object.assign(DashboardController, DashboardController),
 PlayerAchievementController: Object.assign(PlayerAchievementController, PlayerAchievementController),
+PetProfileController: Object.assign(PetProfileController, PetProfileController),
+PetPedigreeController: Object.assign(PetPedigreeController, PetPedigreeController),
 RetirePetController: Object.assign(RetirePetController, RetirePetController),
 PetHistoryController: Object.assign(PetHistoryController, PetHistoryController),
 PetThoughtController: Object.assign(PetThoughtController, PetThoughtController),

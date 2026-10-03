@@ -16,6 +16,8 @@ use App\Http\Controllers\PetAppearanceController;
 use App\Http\Controllers\PetCareController;
 use App\Http\Controllers\PetHistoryController;
 use App\Http\Controllers\PetMemorialController;
+use App\Http\Controllers\PetPedigreeController;
+use App\Http\Controllers\PetProfileController;
 use App\Http\Controllers\PetSkillController;
 use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PetThoughtController;
@@ -57,6 +59,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('puppies/{puppy}/purchase', [PuppyController::class, 'purchase'])->middleware('throttle:15,1')->name('puppies.purchase');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('players/{user:username}/achievements', PlayerAchievementController::class)->name('players.achievements');
+    Route::get('pets/{pet}', PetProfileController::class)->where('pet', '[1-9][0-9]{0,17}')->name('pets.show');
+    Route::get('pets/{pet}/pedigree', PetPedigreeController::class)->where('pet', '[1-9][0-9]{0,17}')->name('pets.pedigree');
     Route::post('pets/{pet}/retire', RetirePetController::class)->middleware('throttle:15,1')->name('pets.retire');
     Route::get('pets/{pet}/history', [PetHistoryController::class, 'index'])->name('pets.history.index');
     Route::post('pets/{pet}/thoughts', [PetThoughtController::class, 'store'])->middleware('throttle:30,1')->name('pets.thoughts.store');

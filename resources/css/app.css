@@ -2685,19 +2685,6 @@
     outline: 2px solid var(--ring);
     outline-offset: -2px;
 }
-.pet-tab-planned {
-    padding: 2px 5px;
-    border-radius: 5px;
-    background: var(--surface-soft);
-    color: var(--muted-foreground);
-    font-size: 9px;
-    font-weight: 400;
-    flex-shrink: 0;
-}
-.pet-tab[data-state='active'] .pet-tab-planned {
-    background: var(--primary-foreground);
-    color: var(--primary);
-}
 .pet-tab-panel {
     margin-top: 14px;
     min-width: 0;
@@ -3291,38 +3278,6 @@
 .pet-events .ui-button svg {
     width: 12px;
     height: 12px;
-}
-.pet-feature-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    min-height: 270px;
-    padding: 35px 24px;
-    background: var(--pet-panel);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    text-align: center;
-}
-.pet-placeholder-icon {
-    display: grid;
-    place-items: center;
-    width: 65px;
-    height: 65px;
-    border-radius: 20px;
-    background: var(--secondary);
-    color: var(--primary);
-}
-.pet-feature-placeholder h2 {
-    font-size: 24px;
-    font-weight: 700;
-}
-.pet-feature-placeholder p {
-    max-width: 420px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--muted-foreground);
 }
 @media (max-width: 1100px) {
     .pet-dossier {
@@ -7192,5 +7147,391 @@ a.pet-slot-action {
     }
     .breeding-offer-footer > .ui-button {
         flex: 1 1 100%;
+    }
+}
+
+.pet-public-page,
+.pedigree-page {
+    display: grid;
+    gap: 22px;
+    min-width: 0;
+}
+.pet-public-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+}
+.pet-public-heading > :first-child {
+    flex: 1 1 300px;
+    min-width: 0;
+    margin: 0;
+}
+.pet-public-identity > [data-slot='card-content'] {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+.pet-public-artwork {
+    flex: 0 0 104px;
+    width: 104px;
+    height: 104px;
+    border-radius: 24px;
+    background: var(--surface-soft);
+    color: var(--primary);
+}
+.pet-public-artwork > .game-asset-artwork {
+    width: 100%;
+    height: 100%;
+}
+.pet-public-artwork svg {
+    width: 48px;
+    height: 48px;
+}
+.pet-public-name {
+    flex: 1;
+    min-width: 0;
+}
+.pet-public-name h2 {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.pet-public-breed {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 7px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+.pet-public-breed svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.pet-public-name > .pet-lifecycle-status {
+    margin-top: 12px;
+}
+.pet-public-pedigree {
+    flex-shrink: 0;
+}
+.pet-public-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+}
+.pet-public-details > * {
+    min-width: 0;
+}
+.pet-public-facts {
+    display: grid;
+    gap: 13px;
+    font-size: 13px;
+}
+.pet-public-facts > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+}
+.pet-public-facts dt {
+    color: var(--muted-foreground);
+}
+.pet-public-facts dd {
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+.pet-public-details .pet-description {
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+.pet-public-details .pet-traits > span {
+    padding: 6px 9px;
+    font-size: 12px;
+}
+.pet-public-no-pedigree {
+    margin-top: 20px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.pet-memorial-pedigree {
+    margin-top: 18px;
+}
+.pedigree-surface {
+    min-width: 0;
+}
+.pedigree-guide {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+}
+.pedigree-guide > p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.pedigree-guide svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.pedigree-generation-picker {
+    display: grid;
+    gap: 6px;
+    min-width: 180px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.pedigree-generation-picker > select {
+    padding-block: 9px;
+    font-size: 13px;
+}
+.pedigree-surface[data-generations='1'] #pedigree-scroll-hint,
+.pedigree-surface[data-generations='1'] .pedigree-parents[data-generation='2'],
+.pedigree-surface[data-generations='2'] .pedigree-parents[data-generation='3'] {
+    display: none;
+}
+.pedigree-surface[data-generations='1'] .pedigree-tree {
+    width: 100%;
+}
+.pedigree-surface[data-generations='1'] .pedigree-tree > .pedigree-branch {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0;
+}
+.pedigree-surface[data-generations='1'] .pedigree-parents {
+    width: 100%;
+    max-width: 384px;
+}
+.pedigree-surface[data-generations='1'] .pedigree-parents > .pedigree-branch {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 4px;
+}
+.pedigree-surface[data-generations='1']
+    .pedigree-parents
+    > .pedigree-branch
+    > .pedigree-dog {
+    width: 100%;
+}
+.pedigree-viewport {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-soft);
+    scrollbar-color: var(--primary) var(--surface-soft);
+}
+.pedigree-viewport:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.pedigree-tree {
+    display: flex;
+    justify-content: center;
+    width: max-content;
+    min-width: 100%;
+    padding: 24px 8px;
+}
+.pedigree-branch {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 192px;
+    padding-inline: 8px;
+}
+.pedigree-dog {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 176px;
+    min-height: 150px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+    text-decoration: none;
+    transition:
+        border-color 0.18s,
+        box-shadow 0.18s;
+}
+a.pedigree-dog:hover {
+    border-color: var(--primary);
+    box-shadow: 0 3px 12px color-mix(in oklab, var(--primary) 12%, transparent);
+}
+a.pedigree-dog:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.is-root > .pedigree-dog {
+    border-color: var(--primary);
+    background: var(--sage-surface);
+}
+.pedigree-relation {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 600;
+}
+.pedigree-dog > strong {
+    font-size: 15px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+.pedigree-breed,
+.pedigree-coat {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.pedigree-dog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 5px;
+    font-size: 10px;
+}
+.pedigree-dog-footer > svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.pedigree-archived {
+    font-size: 10px;
+    color: var(--muted-foreground);
+}
+.pedigree-unknown {
+    border-style: dashed;
+    background: transparent;
+}
+.pedigree-unknown > strong {
+    margin-top: 12px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+.pedigree-parents {
+    position: relative;
+    display: flex;
+    align-items: start;
+    padding-top: 20px;
+}
+.pedigree-parents::before {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 20px;
+    border-left: 2px solid
+        color-mix(in oklab, var(--primary) 40%, var(--border));
+    content: '';
+}
+.pedigree-parents > .pedigree-branch {
+    padding-top: 20px;
+}
+.pedigree-parents > .pedigree-branch::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-top: 2px solid color-mix(in oklab, var(--primary) 40%, var(--border));
+    content: '';
+}
+.pedigree-parents > .pedigree-branch:first-child::before {
+    left: 50%;
+}
+.pedigree-parents > .pedigree-branch:last-child::before {
+    right: 50%;
+}
+.pedigree-parents > .pedigree-branch::after {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 20px;
+    border-left: 2px solid
+        color-mix(in oklab, var(--primary) 40%, var(--border));
+    content: '';
+}
+.pedigree-depth-note {
+    margin-top: 15px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+}
+.pedigree-empty > [data-slot='card-content'] {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding-block: 28px;
+    text-align: center;
+}
+.pedigree-empty svg {
+    color: var(--primary);
+}
+.pedigree-empty h2 {
+    font-size: 20px;
+    font-weight: 700;
+}
+.pedigree-empty p {
+    max-width: 480px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.7;
+}
+@media (max-width: 900px) {
+    .pet-public-identity > [data-slot='card-content'] {
+        flex-wrap: wrap;
+    }
+    .pet-public-pedigree {
+        margin-left: 126px;
+    }
+}
+@media (max-width: 650px) {
+    .pet-public-heading > .ui-button {
+        width: 100%;
+    }
+    .pet-public-artwork {
+        flex-basis: 72px;
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+    }
+    .pet-public-artwork svg {
+        width: 36px;
+        height: 36px;
+    }
+    .pet-public-name h2 {
+        font-size: 25px;
+    }
+    .pet-public-identity > [data-slot='card-content'] {
+        align-items: start;
+        gap: 16px;
+    }
+    .pet-public-pedigree {
+        width: 100%;
+        margin-left: 0;
+    }
+    .pet-public-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pedigree-surface > [data-slot='card-content'] {
+        padding-inline: 14px;
+    }
+    .pedigree-generation-picker {
+        width: 100%;
     }
 }

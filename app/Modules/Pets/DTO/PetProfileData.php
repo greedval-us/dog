@@ -37,6 +37,7 @@ final readonly class PetProfileData implements Arrayable
         public array $energy,
         public array $stats,
         public array $lifecycle,
+        public bool $hasPedigree = false,
     ) {}
 
     public static function fromModel(Pet $pet, Dog $dog, string $locale): self
@@ -73,10 +74,12 @@ final readonly class PetProfileData implements Arrayable
                 'retirementEligibleAt' => $pet->retirementEligibleAt()->toIso8601String(),
                 'automaticRetirementAt' => $pet->automaticRetirementAt()->toIso8601String(),
             ],
+            hasPedigree: ($pet->father_id !== null && $pet->father_id !== $pet->id)
+                || ($pet->mother_id !== null && $pet->mother_id !== $pet->id),
         );
     }
 
-    /** @return array{id: int, name: string, sex: string, size: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, isFavorite: bool, traits: list<string>, breed: string, coatColor: string, states: array<string, float>, energy: array{value: float, maximum: int}, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null, canRetire: bool, retirementEligibleAt: string, automaticRetirementAt: string}} */
+    /** @return array{id: int, name: string, sex: string, size: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, isFavorite: bool, traits: list<string>, breed: string, coatColor: string, states: array<string, float>, energy: array{value: float, maximum: int}, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null, canRetire: bool, retirementEligibleAt: string, automaticRetirementAt: string}, hasPedigree: bool} */
     public function toArray(): array
     {
         return [
@@ -96,6 +99,7 @@ final readonly class PetProfileData implements Arrayable
             'energy' => $this->energy,
             'stats' => $this->stats,
             'lifecycle' => $this->lifecycle,
+            'hasPedigree' => $this->hasPedigree,
         ];
     }
 }
