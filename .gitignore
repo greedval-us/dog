@@ -24,6 +24,8 @@ Homestead.json
 
 /public/build
 /storage/pail
+/tests/Browser/Screenshots
+/tests/Browser/Traces
 .env.backup
 .env.production
 .phpactor.json

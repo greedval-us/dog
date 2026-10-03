@@ -11,20 +11,20 @@ use App\Modules\Pets\DTO\PreparedPetCare;
 use App\Modules\Pets\Enums\CareRefusal;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
-use App\Modules\Pets\Queries\GetTrainingOptions;
+use App\Modules\Pets\Queries\GetExecutableTraining;
 use InvalidArgumentException;
 
 final class PetTrainingPreparation
 {
     public function __construct(
-        private GetTrainingOptions $trainings,
+        private GetExecutableTraining $training,
         private TrainingRules $rules,
         private PetCarePreparation $care,
     ) {}
 
     public function option(Pet $pet, string $variant): CareOption
     {
-        return $this->trainings->handle('en')[$variant] ?? throw new InvalidArgumentException('Unknown care action.');
+        return $this->training->handle($variant) ?? throw new InvalidArgumentException('Unknown care action.');
     }
 
     /**
