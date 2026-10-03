@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import {
     BarChart3,
     CalendarDays,
@@ -13,8 +14,10 @@ import {
 import { computed } from 'vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
+import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { petScene } from '@/routes';
+import { achievements } from '@/routes/players';
 import type { PlayerProfile } from '@/types/player';
 
 const props = defineProps<{ player: PlayerProfile }>();
@@ -150,10 +153,14 @@ const statisticGroups = computed(() => [
                         }}</span
                     >
                 </div>
-                <div
-                    v-if="$slots['header-actions']"
-                    class="player-header-actions"
-                >
+                <div class="player-header-actions">
+                    <Button as-child variant="secondary">
+                        <Link :href="achievements(player.username)">
+                            <Trophy :size="17" aria-hidden="true" />{{
+                                t('Achievements')
+                            }}
+                        </Link>
+                    </Button>
                     <slot name="header-actions" />
                 </div>
             </div>

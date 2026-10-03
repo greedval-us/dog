@@ -10,6 +10,7 @@ use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Pets\Enums\PetSex;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Services\PlayerWallet;
 use Database\Seeders\DogSeeder;
@@ -69,8 +70,8 @@ test('a player can adopt each starter breed for free with server chosen sex and 
         ->and($pet->sex)->toBeIn([PetSex::Male, PetSex::Female])
         ->and($pet->coat_color)->toBeIn(array_keys($dog->coat_colors))
         ->and($pet->generation)->toBe(1)
-        ->and($pet->endurance)->toBe(0)
-        ->and($pet->endurance_potential)->toBe($dog->endurance_potential)
+        ->and($pet->endurance_potential)->toBeGreaterThanOrEqual((int) ceil($dog->endurance_potential * 0.9))
+        ->and($pet->endurance_potential)->toBeLessThanOrEqual((int) floor($dog->endurance_potential * 1.1))
         ->and($pet->health)->toBe((float) $dog->health_max)
         ->and($pet->energy)->toBe(100.0)
         ->and($pet->energy_max)->toBe(100)
@@ -80,6 +81,10 @@ test('a player can adopt each starter breed for free with server chosen sex and 
         ->and($user->fresh()->gems)->toBe(7)
         ->and($other->pets()->exists())->toBeFalse();
     $this->assertDatabaseCount('pets', 1);
+
+    foreach (PetStat::cases() as $stat) {
+        expect($pet->getAttribute($stat->value))->toBe((int) round($pet->getAttribute($stat->potentialColumn()) / 5));
+    }
 })->with(['german_shepherd', 'pit_bull', 'dachshund']);
 
 test('adoption persists the generated sex and coat through the container supplied randomness', function () {
@@ -106,6 +111,12 @@ test('adoption persists the generated sex and coat through the container supplie
     expect($pet->sex)->toBe(PetSex::Female)
         ->and($pet->coat_color)->toBe('brown')
         ->and($user->fresh()->starter_pet_claimed_at)->not->toBeNull();
+
+    foreach (PetStat::cases() as $stat) {
+        expect($pet->getAttribute($stat->potentialColumn()))->toBe(91);
+        expect($pet->getAttribute($stat->value))->toBe(18);
+        expect($dog->fresh()->getAttribute($stat->potentialColumn()))->toBe(100);
+    }
 });
 
 test('retrying adoption cannot issue a second pet even after the first is removed', function () {
@@ -219,6 +230,7 @@ test('additional dogs cost 500 coins once per purchase and belong to the buyer',
 
     $this->actingAs($user)->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
     $newPet = $user->pets()->latest('id')->firstOrFail();
+    $generatedAttributes = $newPet->only(array_map(fn (PetStat $stat): string => $stat->potentialColumn(), PetStat::cases()));
     $this->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();
 
     $this->assertDatabaseCount('pets', 2);
@@ -234,6 +246,13 @@ test('additional dogs cost 500 coins once per purchase and belong to the buyer',
         ->and($newPet->sex)->toBeIn([PetSex::Male, PetSex::Female])
         ->and($newPet->coat_color)->toBeIn(array_keys($dog->coat_colors));
     expect($other->pets()->exists())->toBeFalse();
+
+    foreach (PetStat::cases() as $stat) {
+        expect($newPet->getAttribute($stat->potentialColumn()))->toBeGreaterThanOrEqual(90)->toBeLessThanOrEqual(110);
+        expect($newPet->getAttribute($stat->value))->toBe((int) round($newPet->getAttribute($stat->potentialColumn()) / 5));
+    }
+
+    expect($newPet->fresh()->only(array_keys($generatedAttributes)))->toBe($generatedAttributes);
 
     $payload['adoption_token'] = (string) Str::uuid();
     $this->post(route('kennel.purchase'), $payload)->assertSessionHasNoErrors();

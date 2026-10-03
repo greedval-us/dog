@@ -35,6 +35,7 @@ test('new pets keep a personal snapshot of breed potential and body needs', func
         sex: PetSex::Male,
         coatColor: 'black',
         description: 'Любит прогулки.',
+        potentials: ['endurance_potential' => 133],
     ));
 
     $user->pets()->save($pet);
@@ -45,7 +46,7 @@ test('new pets keep a personal snapshot of breed potential and body needs', func
     expect($pet->dog->is($dog))->toBeTrue();
     $this->assertDatabaseHas('pets', [
         'id' => $pet->id, 'name' => 'Рэй', 'sex' => 'male', 'coat_color' => 'black',
-        'endurance' => 0, 'endurance_potential' => 140,
+        'endurance' => 27, 'endurance_potential' => 133,
         'satiety' => 600, 'satiety_max' => 600, 'food_per_day' => 300,
         'generation' => 1, 'father_id' => null, 'mother_id' => null, 'bond' => 0,
     ]);
@@ -82,6 +83,28 @@ test('all six genetic limits are independent of current training and may exceed 
     expect($child->mother->is($mother))->toBeTrue();
     expect($father->paternalOffspring->modelKeys())->toBe([$child->id]);
     expect($mother->maternalOffspring->modelKeys())->toBe([$child->id]);
+});
+
+test('new pets start at twenty percent of their individual limits rounded to a positive whole point', function () {
+    $dog = Dog::factory()->make();
+
+    $pet = $dog->newPet(new NewPetData(
+        name: 'Рэй',
+        sex: PetSex::Male,
+        coatColor: 'black',
+        potentials: [
+            'endurance_potential' => 1, 'speed_potential' => 6,
+            'strength_potential' => 8, 'agility_potential' => 100,
+            'obedience_potential' => 117, 'intelligence_potential' => 120,
+        ],
+    ));
+
+    expect($pet->endurance)->toBe(1)
+        ->and($pet->speed)->toBe(1)
+        ->and($pet->strength)->toBe(2)
+        ->and($pet->agility)->toBe(20)
+        ->and($pet->obedience)->toBe(23)
+        ->and($pet->intelligence)->toBe(24);
 });
 
 test('raw condition values produce the seven percentages shown in the sketch', function () {

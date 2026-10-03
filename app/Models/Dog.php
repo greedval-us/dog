@@ -116,6 +116,13 @@ class Dog extends Model
             'coat_color' => $data->coatColor,
             'description' => $data->description,
         ]);
+
+        foreach (PetStat::cases() as $stat) {
+            $maximum = $data->potentials[$stat->potentialColumn()] ?? $pet->getAttribute($stat->potentialColumn());
+            $pet->setAttribute($stat->potentialColumn(), $maximum);
+            $pet->setAttribute($stat->value, max(1, (int) round($maximum * 0.2)));
+        }
+
         $pet->dog()->associate($this);
 
         return $pet;

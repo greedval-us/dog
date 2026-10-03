@@ -16,6 +16,13 @@ use InvalidArgumentException;
 /** Public cross-module operation for completed dog actions and lifetime player progress. */
 final class PlayerProgress
 {
+    public function __construct(private PlayerAchievements $achievements) {}
+
+    public function refreshAchievements(User $user): void
+    {
+        $this->achievements->synchronize($user);
+    }
+
     /** Call inside the gameplay transaction so the action, reward and counters commit together. */
     public function award(User $user, PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit $receipt): int
     {
@@ -63,6 +70,7 @@ final class PlayerProgress
 
             $completed->forceFill(['experience_awarded' => $experience])->save();
             $receipt->setAttribute('experience_awarded', $experience);
+            $this->achievements->synchronize($owner);
 
             return $experience;
         }, attempts: 3);

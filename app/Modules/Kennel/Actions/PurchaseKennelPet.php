@@ -10,16 +10,18 @@ use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
+use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class PurchaseKennelPet
 {
-    public function __construct(private StarterPetGenerator $generator, private PlayerWallet $wallet, private PetLifecycle $lifecycle) {}
+    public function __construct(private StarterPetGenerator $generator, private PlayerWallet $wallet, private PetLifecycle $lifecycle, private PlayerProgress $progress) {}
 
     public function handle(User $user, PurchaseKennelPetData $data): KennelPurchase
     {
@@ -82,6 +84,7 @@ final class PurchaseKennelPet
             $pet = $dog->newPet($this->generator->generate(
                 name: $name,
                 coatColors: array_keys($dog->coat_colors),
+                breedPotentials: $dog->only(array_map(fn (PetStat $stat): string => $stat->potentialColumn(), PetStat::cases())),
             ));
             $pet->user()->associate($owner);
             $pet->save();
@@ -89,7 +92,7 @@ final class PurchaseKennelPet
             User::query()->whereKey($owner->id)->whereNull('starter_pet_claimed_at')
                 ->update(['starter_pet_claimed_at' => now()]);
 
-            return KennelPurchase::query()->create([
+            $purchase = KennelPurchase::query()->create([
                 'user_id' => $owner->id,
                 'dog_id' => $dog->id,
                 'pet_id' => $pet->id,
@@ -98,6 +101,9 @@ final class PurchaseKennelPet
                 'price_paid' => $price,
                 'currency_transaction_id' => $entry->id,
             ]);
+            $this->progress->refreshAchievements($owner);
+
+            return $purchase;
         }, attempts: 3);
     }
 }

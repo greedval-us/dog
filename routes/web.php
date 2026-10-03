@@ -17,6 +17,7 @@ use App\Http\Controllers\PetMemorialController;
 use App\Http\Controllers\PetSkillController;
 use App\Http\Controllers\PetSlotController;
 use App\Http\Controllers\PetThoughtController;
+use App\Http\Controllers\PlayerAchievementController;
 use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
 use App\Http\Controllers\RetirePetController;
@@ -41,6 +42,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('players/{user:username}/achievements', PlayerAchievementController::class)->name('players.achievements');
     Route::post('pets/{pet}/retire', RetirePetController::class)->middleware('throttle:15,1')->name('pets.retire');
     Route::get('pets/{pet}/history', [PetHistoryController::class, 'index'])->name('pets.history.index');
     Route::post('pets/{pet}/thoughts', [PetThoughtController::class, 'store'])->middleware('throttle:30,1')->name('pets.thoughts.store');

@@ -290,7 +290,7 @@ function submit() {
                 <p class="field-hint">
                     {{
                         t(
-                            'Starting genetic limits. Trained skills begin at zero.',
+                            'Each dog’s genetic limits vary by up to 10% from the breed values. Starting characteristics are 20% of the individual limits, rounded to whole points.',
                         )
                     }}
                     {{

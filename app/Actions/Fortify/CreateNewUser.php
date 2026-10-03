@@ -5,6 +5,8 @@ namespace App\Actions\Fortify;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
+use App\Modules\Players\Services\PlayerWallet;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
@@ -12,6 +14,8 @@ use Laravel\Fortify\Contracts\CreatesNewUsers;
 class CreateNewUser implements CreatesNewUsers
 {
     use PasswordValidationRules, ProfileValidationRules;
+
+    public function __construct(private PlayerWallet $wallet) {}
 
     /**
      * Validate and create a newly registered user.
@@ -26,16 +30,20 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        $user = new User([
-            'name' => $input['name'],
-            'username' => $input['username'],
-            'email' => $input['email'],
-            'password' => $input['password'],
-        ]);
+        return DB::transaction(function () use ($input): User {
+            $user = new User([
+                'name' => $input['name'],
+                'username' => $input['username'],
+                'email' => $input['email'],
+                'password' => $input['password'],
+            ]);
 
-        $user->locale = app()->getLocale();
-        $user->save();
+            $user->locale = app()->getLocale();
+            $user->save();
 
-        return $user;
+            $this->wallet->change($user, 'coins', 300, 'registration:'.$user->id, 'registration_bonus');
+
+            return $user->refresh();
+        }, attempts: 3);
     }
 }
