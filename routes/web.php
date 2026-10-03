@@ -18,6 +18,7 @@ use App\Http\Controllers\PlayerAvatarController;
 use App\Http\Controllers\PlayerProfileController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SystemNotificationController;
+use App\Http\Controllers\VeterinarianController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -38,6 +39,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('care-items', CareItemController::class)->name('care-items');
     Route::get('dog-work', [DogWorkController::class, 'index'])->name('dog-work.index');
+    Route::get('veterinarian', [VeterinarianController::class, 'index'])->name('veterinarian.index');
+    Route::post('veterinarian', [VeterinarianController::class, 'store'])->middleware('throttle:15,1')->name('veterinarian.store');
     Route::post('dog-work', [DogWorkController::class, 'store'])->middleware('throttle:15,1')->name('dog-work.store');
     Route::post('dog-work/complete', [DogWorkController::class, 'complete'])->middleware('throttle:15,1')->name('dog-work.complete');
     Route::post('daily-work', [DailyWorkController::class, 'store'])->middleware('throttle:15,1')->name('daily-work.store');

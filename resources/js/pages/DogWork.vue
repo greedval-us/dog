@@ -13,8 +13,8 @@ import { useIntervalFn } from '@vueuse/core';
 import { computed, nextTick, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import OwnedDogSelector from '@/components/OwnedDogSelector.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
-import FormField from '@/components/FormField.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { index, store, complete } from '@/routes/dog-work';
@@ -68,8 +68,7 @@ watch(
         form.token = board.token;
     },
 );
-function chooseDog(event: Event) {
-    const pet = Number((event.target as HTMLSelectElement).value);
+function chooseDog(pet: number) {
     if (pending.value) return;
     moving.value = true;
     form.clearErrors();
@@ -157,35 +156,16 @@ function countdown(seconds: number) {
                     )
                 }}
             </p>
-            <FormField
+            <OwnedDogSelector
                 v-if="board.dogs.length"
                 id="work-dog"
-                :label="t('Choose a dog')"
-                v-slot="{ field }"
-            >
-                <select
-                    v-bind="field"
-                    class="dog-work-select"
-                    :value="board.selectedPetId"
-                    :disabled="pending"
-                    @change="chooseDog"
-                >
-                    <option
-                        v-for="dog in board.dogs"
-                        :key="dog.id"
-                        :value="dog.id"
-                    >
-                        {{ dog.name
-                        }}{{
-                            dog.retired
-                                ? ' · ' + t('Retired')
-                                : dog.busy
-                                  ? ' · ' + t('Busy')
-                                  : ''
-                        }}
-                    </option>
-                </select>
-            </FormField>
+                :dogs="board.dogs"
+                :selected-pet-id="board.selectedPetId"
+                select-class="dog-work-select"
+                :disabled="pending"
+                show-status
+                @select="chooseDog"
+            />
             <div v-else class="dog-work-empty">
                 <p>{{ t('Choose a dog to take a job.') }}</p>
                 <Button as-child

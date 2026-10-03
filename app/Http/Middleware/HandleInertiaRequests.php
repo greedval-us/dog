@@ -3,12 +3,14 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
-use App\Notifications\SystemNotification;
+use App\Modules\Players\Queries\GetUnreadSystemNotificationCount;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private GetUnreadSystemNotificationCount $unreadNotifications) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -45,7 +47,7 @@ class HandleInertiaRequests extends Middleware
             'locale' => app()->getLocale(),
             'locales' => config('localization.supported'),
             'systemNotificationUnreadCount' => fn (): int => $user instanceof User
-                ? $user->unreadNotifications()->where('type', SystemNotification::class)->count()
+                ? $this->unreadNotifications->handle($user)
                 : 0,
             'auth' => [
                 'user' => $user instanceof User ? [

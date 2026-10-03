@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,7 +34,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,7 +44,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -54,7 +54,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -63,7 +63,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\SystemNotificationController::index
- * @see app/Http/Controllers/SystemNotificationController.php:13
+ * @see app/Http/Controllers/SystemNotificationController.php:15
  * @route '/notifications'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\SystemNotificationController::readAll
- * @see app/Http/Controllers/SystemNotificationController.php:51
+ * @see app/Http/Controllers/SystemNotificationController.php:36
  * @route '/notifications/read-all'
  */
 export const readAll = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -94,7 +94,7 @@ readAll.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::readAll
- * @see app/Http/Controllers/SystemNotificationController.php:51
+ * @see app/Http/Controllers/SystemNotificationController.php:36
  * @route '/notifications/read-all'
  */
 readAll.url = (options?: RouteQueryOptions) => {
@@ -103,7 +103,7 @@ readAll.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::readAll
- * @see app/Http/Controllers/SystemNotificationController.php:51
+ * @see app/Http/Controllers/SystemNotificationController.php:36
  * @route '/notifications/read-all'
  */
 readAll.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -113,7 +113,7 @@ readAll.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
     /**
 * @see \App\Http\Controllers\SystemNotificationController::readAll
- * @see app/Http/Controllers/SystemNotificationController.php:51
+ * @see app/Http/Controllers/SystemNotificationController.php:36
  * @route '/notifications/read-all'
  */
     const readAllForm = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -128,7 +128,7 @@ readAll.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
 
             /**
 * @see \App\Http\Controllers\SystemNotificationController::readAll
- * @see app/Http/Controllers/SystemNotificationController.php:51
+ * @see app/Http/Controllers/SystemNotificationController.php:36
  * @route '/notifications/read-all'
  */
         readAllForm.patch = (options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -144,7 +144,7 @@ readAll.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     readAll.form = readAllForm
 /**
 * @see \App\Http\Controllers\SystemNotificationController::update
- * @see app/Http/Controllers/SystemNotificationController.php:38
+ * @see app/Http/Controllers/SystemNotificationController.php:24
  * @route '/notifications/{notification}'
  */
 export const update = (args: { notification: string | number } | [notification: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -159,7 +159,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::update
- * @see app/Http/Controllers/SystemNotificationController.php:38
+ * @see app/Http/Controllers/SystemNotificationController.php:24
  * @route '/notifications/{notification}'
  */
 update.url = (args: { notification: string | number } | [notification: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -187,7 +187,7 @@ update.url = (args: { notification: string | number } | [notification: string | 
 
 /**
 * @see \App\Http\Controllers\SystemNotificationController::update
- * @see app/Http/Controllers/SystemNotificationController.php:38
+ * @see app/Http/Controllers/SystemNotificationController.php:24
  * @route '/notifications/{notification}'
  */
 update.patch = (args: { notification: string | number } | [notification: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -197,7 +197,7 @@ update.patch = (args: { notification: string | number } | [notification: string 
 
     /**
 * @see \App\Http\Controllers\SystemNotificationController::update
- * @see app/Http/Controllers/SystemNotificationController.php:38
+ * @see app/Http/Controllers/SystemNotificationController.php:24
  * @route '/notifications/{notification}'
  */
     const updateForm = (args: { notification: string | number } | [notification: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -212,7 +212,7 @@ update.patch = (args: { notification: string | number } | [notification: string 
 
             /**
 * @see \App\Http\Controllers\SystemNotificationController::update
- * @see app/Http/Controllers/SystemNotificationController.php:38
+ * @see app/Http/Controllers/SystemNotificationController.php:24
  * @route '/notifications/{notification}'
  */
         updateForm.patch = (args: { notification: string | number } | [notification: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

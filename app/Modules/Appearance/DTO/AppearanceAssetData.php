@@ -17,6 +17,22 @@ final readonly class AppearanceAssetData
         public bool $unlocked,
     ) {}
 
+    /**
+     * @param  iterable<GameAsset>  $assets
+     * @return array<int, self>
+     */
+    public static function fromCatalogue(iterable $assets, string $locale): array
+    {
+        $catalogue = [];
+        foreach ($assets as $asset) {
+            if ($asset->hasValidPrice() && $asset->hasFiles()) {
+                $catalogue[$asset->id] = self::fromModel($asset, $locale);
+            }
+        }
+
+        return $catalogue;
+    }
+
     public static function fromModel(GameAsset $asset, string $locale): self
     {
         $prices = [];

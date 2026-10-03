@@ -15,10 +15,8 @@ final class GetPetAppearance
         $pet = $user->pets()->findOrFail($petId);
         $assets = GameAsset::query()->where('is_active', true)->compatibleWith($pet)
             ->withExists(['unlocks as is_unlocked' => fn (Builder $query) => $query->whereBelongsTo($user)])
-            ->orderBy('sort_order')->orderBy('id')->get()
-            ->filter(fn (GameAsset $asset): bool => $asset->hasValidPrice() && $asset->hasFiles())
-            ->map(fn (GameAsset $asset): AppearanceAssetData => AppearanceAssetData::fromModel($asset, $locale));
+            ->orderBy('sort_order')->orderBy('id')->get();
 
-        return PetAppearanceData::fromAssets($pet, array_values($assets->all()));
+        return PetAppearanceData::fromAssets($pet, array_values(AppearanceAssetData::fromCatalogue($assets, $locale)));
     }
 }

@@ -6,7 +6,7 @@ use App\Modules\Pets\Enums\PetState;
 
 /**
  * @phpstan-type Condition array{state: string, operator: string, threshold: int}
- * @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null, starts_at?: int, conditions?: list<Condition>, condition_group?: string|null, condition_priority?: int, care_variants?: list<string>, recovery_actions?: array<string, int>}
+ * @phpstan-type Effect array{code: string, kind: string, name: array<string, string>, description: array<string, string>, modifiers: array<string, int>, duration_seconds: int|null, condition_state: string|null, condition_threshold?: int|null, condition_operator?: string, expires_at?: int|null, starts_at?: int, conditions?: list<Condition>, condition_group?: string|null, condition_priority?: int, care_variants?: list<string>, recovery_actions?: array<string, int>, disease_id?: int}
  */
 final class PetStatusRules
 {
@@ -15,7 +15,8 @@ final class PetStatusRules
      */
     public function active(array $effects, int $timestamp): array
     {
-        return array_values(array_filter($effects, fn (array $effect): bool => ($effect['expires_at'] ?? 0) > $timestamp));
+        return array_values(array_filter($effects, fn (array $effect): bool => ($effect['expires_at'] ?? 0) > $timestamp
+            || (isset($effect['disease_id']) && ($effect['expires_at'] ?? null) === null && ($effect['starts_at'] ?? 0) <= $timestamp)));
     }
 
     /** @param list<Effect> $catalogue

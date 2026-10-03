@@ -4,6 +4,7 @@ import PlayerAvatarController from './PlayerAvatarController'
 import DashboardController from './DashboardController'
 import CareItemController from './CareItemController'
 import DogWorkController from './DogWorkController'
+import VeterinarianController from './VeterinarianController'
 import DailyWorkController from './DailyWorkController'
 import PetCareController from './PetCareController'
 import PetSkillController from './PetSkillController'
@@ -24,6 +25,7 @@ PlayerAvatarController: Object.assign(PlayerAvatarController, PlayerAvatarContro
 DashboardController: Object.assign(DashboardController, DashboardController),
 CareItemController: Object.assign(CareItemController, CareItemController),
 DogWorkController: Object.assign(DogWorkController, DogWorkController),
+VeterinarianController: Object.assign(VeterinarianController, VeterinarianController),
 DailyWorkController: Object.assign(DailyWorkController, DailyWorkController),
 PetCareController: Object.assign(PetCareController, PetCareController),
 PetSkillController: Object.assign(PetSkillController, PetSkillController),

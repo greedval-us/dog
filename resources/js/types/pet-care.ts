@@ -12,6 +12,7 @@ export type StatusEffect = {
     condition_operator?: 'lt' | 'lte' | 'gt' | 'gte';
     expires_at?: number | null;
     recovery_actions?: Record<string, number>;
+    disease_id?: number;
 };
 
 export type ItemRisk = {

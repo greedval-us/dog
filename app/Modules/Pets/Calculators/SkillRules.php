@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pets\Calculators;
 
+use App\Modules\Pets\DTO\PetStatSnapshot;
 use App\Modules\Pets\Enums\PetStat;
 
 final class SkillRules
@@ -40,33 +41,43 @@ final class SkillRules
     }
 
     /**
-     * @param  array<string, int>  $potentials
      * @param  array<string, int>  $percentages
      * @return array<string, int>
      */
-    public function requiredValues(array $potentials, array $percentages): array
+    public function requiredValues(PetStatSnapshot $attributes, array $percentages): array
     {
         $requirements = [];
         foreach ($percentages as $stat => $percentage) {
-            $requirements[$stat] = intdiv(max(0, $potentials[$stat] ?? 0) * $percentage + 99, 100);
+            $requirements[$stat] = intdiv(max(0, $attributes->potentials[$stat] ?? 0) * $percentage + 99, 100);
         }
 
         return $requirements;
     }
 
     /**
-     * @param  array<string, int>  $stats
-     * @param  array<string, int>  $potentials
      * @param  array<string, int>  $percentages
      */
-    public function meets(array $stats, array $potentials, array $percentages): bool
+    public function meets(PetStatSnapshot $attributes, array $percentages): bool
     {
-        foreach ($this->requiredValues($potentials, $percentages) as $stat => $minimum) {
-            if (($potentials[$stat] ?? 0) < 1 || ($stats[$stat] ?? 0) < $minimum) {
+        foreach ($this->requiredValues($attributes, $percentages) as $stat => $minimum) {
+            if (($attributes->potentials[$stat] ?? 0) < 1 || ($attributes->values[$stat] ?? 0) < $minimum) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /** @param array<mixed>|null $levels */
+    public function hasLearnedLevel(?array $levels, bool $enabled, int $level, int $minimumLevel = 1): bool
+    {
+        return $enabled && $level >= 1 && $level >= $minimumLevel && $level <= self::MAX_LEVEL && $this->valid($levels);
+    }
+
+    /** @param list<array{price: int, requirements: array<string, int>}>|null $levels */
+    public function isActive(PetStatSnapshot $attributes, ?array $levels, bool $enabled, int $level, bool $retired): bool
+    {
+        return ! $retired && $this->hasLearnedLevel($levels, $enabled, $level)
+            && $this->meets($attributes, $levels[$level - 1]['requirements']);
     }
 }

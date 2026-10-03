@@ -2,6 +2,7 @@
 
 namespace App\Modules\Inventory\Actions;
 
+use App\Models\CurrencyTransaction;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemPurchase;
@@ -47,6 +48,11 @@ final class PurchaseItem
                 return $existing;
             }
 
+            $operationKey = 'item-purchase:'.$token;
+            if (CurrencyTransaction::query()->whereBelongsTo($owner)->whereRaw('LOWER(operation_key) = ?', [$operationKey])->exists()) {
+                throw new ItemUnavailable('This purchase was already paid for, but its receipt is unavailable. Check your inventory before making a new purchase.');
+            }
+
             $offer = ShopOffer::query()->lockForUpdate()->findOrFail($data->offerId);
             $item = Item::query()->sharedLock()->findOrFail($offer->item_id);
             $category = ItemCategory::query()->sharedLock()->findOrFail($item->item_category_id);
@@ -59,7 +65,7 @@ final class PurchaseItem
                 throw new ItemUnavailable('The offer has changed. Refresh the shop before purchasing.');
             }
 
-            $entry = $this->wallet->change($owner, $offer->currency, -$offer->price, 'item-purchase:'.$token, 'item_purchase');
+            $entry = $this->wallet->change($owner, $offer->currency, -$offer->price, $operationKey, 'item_purchase');
 
             if ($offer->stock !== null) {
                 $changed = ShopOffer::query()->whereKey($offer->id)->where('stock', $offer->stock)->decrement('stock');

@@ -10,8 +10,8 @@ use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
 use App\Modules\Pets\DTO\TrainPetSkillData;
-use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
@@ -20,7 +20,8 @@ use Illuminate\Support\Str;
 
 final class TrainPetSkill
 {
-    public function __construct(private PlayerWallet $wallet, private SkillRules $rules, private PetDecayCalculator $decay) {}
+    public function __construct(private PlayerWallet $wallet, private SkillRules $rules, private PetDecayCalculator $decay,
+        private GetPetStatSnapshot $getAttributes) {}
 
     public function handle(User $user, int $petId, TrainPetSkillData $data): PetSkillLesson
     {
@@ -82,13 +83,8 @@ final class TrainPetSkill
                 throw new PetUnavailable('The lesson price has changed. Refresh the page.');
             }
             $pet->advanceTo($at, $this->decay);
-            $stats = [];
-            $potentials = [];
-            foreach (PetStat::cases() as $stat) {
-                $stats[$stat->value] = (int) $pet->getAttribute($stat->value);
-                $potentials[$stat->value] = (int) $pet->getAttribute($stat->potentialColumn());
-            }
-            if (! $this->rules->meets($stats, $potentials, $level['requirements'])) {
+            $attributes = $this->getAttributes->handle($pet);
+            if (! $this->rules->meets($attributes, $level['requirements'])) {
                 throw new PetUnavailable('Raise your dog’s attributes to the lesson requirements.');
             }
 
@@ -106,7 +102,7 @@ final class TrainPetSkill
 
             return PetSkillLesson::query()->create([
                 'user_id' => $owner->id, 'pet_id' => $pet->id, 'skill_id' => $skill->id,
-                'level' => $data->level, 'price_paid' => $level['price'], 'requirements' => $this->rules->requiredValues($potentials, $level['requirements']),
+                'level' => $data->level, 'price_paid' => $level['price'], 'requirements' => $this->rules->requiredValues($attributes, $level['requirements']),
                 'token' => $token, 'trained_at' => $at, 'cooldown_until' => $cooldownUntil,
                 'currency_transaction_id' => $entry->id,
             ]);

@@ -64,7 +64,7 @@ final class PetDecayCalculator
         $timed = [];
         $boundaries = [$from, $to];
         foreach ($effects as $effect) {
-            $end = $effect['expires_at'] ?? 0;
+            $end = $effect['expires_at'] ?? (isset($effect['disease_id']) ? $to : 0);
             $start = $effect['starts_at'] ?? ($end - (int) ($effect['duration_seconds'] ?? 0));
             if ($end <= $from || $start >= $to || $end <= $start) {
                 continue;

@@ -715,7 +715,7 @@ function finishActivity() {
                 :message="hint.message"
             />
         </div>
-        <div v-if="care.active" class="pet-care-progress">
+        <div v-if="care.active && !trainingOnly" class="pet-care-progress">
             <div class="pet-care-progress-heading">
                 <strong
                     ><Clock3 :size="17" aria-hidden="true" />{{
@@ -760,7 +760,7 @@ function finishActivity() {
                 >{{ t('Open the job board') }}</Link
             >
         </p>
-        <p v-else-if="care.busy" class="pet-care-notice">
+        <p v-else-if="care.busy && !care.active" class="pet-care-notice">
             {{ t('Your dog is busy with another activity.') }}
         </p>
         <p v-else-if="care.blocked" class="pet-care-notice">

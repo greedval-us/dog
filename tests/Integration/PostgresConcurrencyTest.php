@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Disease;
 use App\Models\Dog;
 use App\Models\DogWorkBoard;
 use App\Models\DogWorkOffer;
@@ -11,6 +12,7 @@ use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\Pet;
 use App\Models\PetCareAction;
+use App\Models\PetDisease;
 use App\Models\User;
 use App\Modules\Pets\Actions\StartPetCare;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
@@ -27,6 +29,32 @@ beforeEach(function () {
         $this->markTestSkipped('Row-lock tests require PostgreSQL.');
     }
 });
+
+test('simultaneous veterinary visits charge and apply the service once', function (string $service, bool $sameToken) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create(['health' => 50, 'health_max' => 100]);
+    $episode = $service === 'treatment' ? PetDisease::factory()->for($pet)->create() : null;
+    $price = match ($service) {
+        'treatment' => 120, 'checkup' => 60, 'vaccination' => 100
+    };
+    $operation = ['action' => 'veterinarian', 'pet_id' => $pet->id, 'service' => $service,
+        'episode_id' => $episode?->id, 'price' => $price, 'token' => (string) Str::uuid()];
+    $second = $sameToken ? $operation : [...$operation, 'token' => (string) Str::uuid()];
+
+    expect(runDatabaseRace($pet->user, [$operation, $second]))->toBe($sameToken ? ['ok', 'ok'] : ['ok', 'unavailable']);
+    expect($pet->user->fresh()->coins)->toBe(500 - $price);
+    expect($pet->fresh()->health)->toBe($service === 'checkup' ? 60.0 : 50.0);
+    if ($episode !== null) {
+        expect($episode->fresh()->ended_at)->not->toBeNull();
+    }
+    if ($service === 'vaccination') {
+        expect($pet->fresh()->buffs)->toHaveCount(1);
+    }
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseCount('veterinary_visits', 1);
+})->with(['treatment replay' => ['treatment', true], 'treatment race' => ['treatment', false],
+    'checkup replay' => ['checkup', true], 'checkup race' => ['checkup', false],
+    'vaccination replay' => ['vaccination', true], 'vaccination race' => ['vaccination', false]]);
 
 /** @param array<string, mixed> $operation */
 function startDatabaseWorker(array $operation): Process
@@ -132,6 +160,10 @@ test('simultaneous care starts consume energy and the last item once', function 
 
 test('simultaneous care completions apply the saved result once', function () {
     $this->freezeSecond();
+    $disease = Disease::factory()->create([
+        'acquisition_rules' => ['group' => 'play', 'variants' => [], 'daily_min' => 1, 'daily_max' => 1],
+        'is_active' => true, 'modifiers' => ['energy_cost_percent' => 20],
+    ]);
     $pet = Pet::factory()->create(['energy' => 50, 'mood' => 20, 'mood_max' => 100]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'attention', [], (string) Str::uuid());
     $this->travelTo($care->ends_at);
@@ -140,6 +172,10 @@ test('simultaneous care completions apply the saved result once', function () {
     expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['applied', 'replayed']);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 29.9333, 'activity' => null]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => now()->toDateTimeString()]);
+    $this->assertDatabaseCount('pet_disease_counters', 1);
+    $this->assertDatabaseHas('pet_disease_counters', ['pet_id' => $pet->id, 'disease_id' => $disease->id, 'action_count' => 1]);
+    $this->assertDatabaseCount('pet_diseases', 1);
+    expect($pet->fresh()->debuffs)->toHaveCount(1);
 });
 
 test('simultaneous kennel retries return one durable purchase', function () {

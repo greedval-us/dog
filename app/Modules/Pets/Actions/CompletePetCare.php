@@ -9,8 +9,9 @@ use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
-use App\Modules\Pets\Queries\GetPetStatuses;
 use App\Modules\Pets\Services\PetActivityManager;
+use App\Modules\Pets\Services\PetDiseaseTracker;
+use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 
@@ -20,12 +21,15 @@ final class CompletePetCare
         private PetActivityManager $activities,
         private PetStatusRules $statuses,
         private PetDecayCalculator $states,
-        private GetPetStatuses $getStatuses,
+        private PetStateSynchronizer $state,
+        private PetDiseaseTracker $diseases,
     ) {}
 
     public function handle(User $user, int $petId, string $token): bool
     {
-        return DB::transaction(function () use ($user, $petId, $token): bool {
+        $thresholds = [];
+
+        return DB::transaction(function () use ($user, $petId, $token, &$thresholds): bool {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
 
             if ($owner->status !== PlayerStatus::Active) {
@@ -65,10 +69,8 @@ final class CompletePetCare
                 $grants = array_values(array_filter($awards, fn (array $effect): bool => $effect['kind'] === $kind));
                 $pet->setAttribute($column, $this->statuses->award($pet->getAttribute($column) ?? [], $grants, $endedAt->getTimestamp(), $endedAt->getTimestamp()));
             }
-            $pet->advanceTo($at, $this->states);
-            $status = $this->getStatuses->handle($pet, $at);
-            $pet->buffs = $status->buffs;
-            $pet->debuffs = $status->debuffs;
+            $pet->debuffs = [...($pet->debuffs ?? []), ...$this->diseases->record($pet, $care, $thresholds)];
+            $this->state->advance($pet, $at);
             $pet->save();
             $care->completed_at = $at;
             $care->save();

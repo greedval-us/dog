@@ -10,10 +10,13 @@ use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\GenerateDogWorkBoard;
 use App\Modules\Pets\Actions\PurchasePetSlot;
+use App\Modules\Pets\Actions\PurchaseVeterinaryService;
 use App\Modules\Pets\Actions\StartDogWork;
 use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Pets\DTO\PurchasePetSlotData;
+use App\Modules\Pets\DTO\PurchaseVeterinaryServiceData;
 use App\Modules\Pets\DTO\StartDogWorkData;
+use App\Modules\Pets\Enums\VeterinaryService;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
@@ -54,6 +57,9 @@ try {
         'dog-work-start' => app(StartDogWork::class)->handle($user, $input['pet_id'], new StartDogWorkData($input['offer_id'], $input['token'])),
         'dog-work-complete' => app(CompleteDogWork::class)->handle($user, $input['token']),
         'kennel' => app(PurchaseKennelPet::class)->handle($user, new PurchaseKennelPetData($input['dog_id'], 'Luna', 500, $input['token'])),
+        'veterinarian' => app(PurchaseVeterinaryService::class)->handle($user, new PurchaseVeterinaryServiceData(
+            $input['pet_id'], VeterinaryService::from($input['service']), $input['episode_id'] ?? null, $input['price'], $input['token'],
+        )),
     };
     echo $input['action'] === 'care-complete' ? ($result ? 'applied' : 'replayed') : 'ok';
 } catch (InsufficientFunds) {

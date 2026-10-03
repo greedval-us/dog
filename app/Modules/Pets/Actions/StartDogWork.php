@@ -12,8 +12,8 @@ use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
 use App\Modules\Pets\DTO\StartDogWorkData;
 use App\Modules\Pets\Enums\PetActivity;
-use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ use Illuminate\Support\Str;
 final class StartDogWork
 {
     public function __construct(private PetActivityManager $activities, private SkillRules $skills,
-        private DogWorkRules $rules, private PetDecayCalculator $decay) {}
+        private DogWorkRules $rules, private PetDecayCalculator $decay, private GetPetStatSnapshot $getAttributes) {}
 
     public function handle(User $user, int $petId, StartDogWorkData $data): DogWorkShift
     {
@@ -67,19 +67,14 @@ final class StartDogWork
 
             $skill = Skill::query()->sharedLock()->find($offer->required_skill_id);
             $progress = PetSkill::query()->where('pet_id', $pet->id)->where('skill_id', $offer->required_skill_id)->first();
-            if ($skill === null || ! $skill->is_active || ! $this->skills->valid($skill->levels)
-                || $progress === null || $progress->level < $offer->required_skill_level || $progress->level > SkillRules::MAX_LEVEL) {
+            $level = $progress->level ?? 0;
+            if ($skill === null || ! $this->skills->hasLearnedLevel($skill->levels, $skill->is_active, $level, $offer->required_skill_level)) {
                 throw new PetUnavailable('Your dog needs the required skill level.');
             }
             $at = now()->startOfSecond();
             $pet->advanceTo($at, $this->decay);
-            $stats = [];
-            $potentials = [];
-            foreach (PetStat::cases() as $stat) {
-                $stats[$stat->value] = (int) $pet->getAttribute($stat->value);
-                $potentials[$stat->value] = (int) $pet->getAttribute($stat->potentialColumn());
-            }
-            if (! $this->skills->meets($stats, $potentials, $skill->levels[$progress->level - 1]['requirements'])) {
+            $attributes = $this->getAttributes->handle($pet);
+            if (! $this->skills->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null)) {
                 throw new PetUnavailable('Raise your dog’s attributes to reactivate this skill.');
             }
             if ($pet->energy < $offer->energy_cost) {

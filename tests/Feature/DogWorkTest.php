@@ -302,7 +302,7 @@ test('completion cannot free an unrelated activity or grant an orphaned reward',
     if ($condition === 'activity changed') {
         $pet->refresh()->update(['activity_token' => (string) Str::uuid(), 'activity' => PetActivity::Walk]);
     } else {
-        CurrencyTransaction::factory()->for($pet->user)->create(['operation_key' => 'dog-work:'.$shift->id.':coins', 'currency' => 'coins', 'amount' => 150, 'reason' => 'dog_work']);
+        CurrencyTransaction::factory()->for($pet->user)->create(['operation_key' => 'dog-work:'.$shift->id.':coins', 'currency' => 'coins', 'amount' => 150, 'balance_after' => 150, 'reason' => 'dog_work']);
     }
     $this->actingAs($pet->user)->post(route('dog-work.complete'), ['token' => $shift->token])->assertSessionHasErrors('work');
     expect($pet->refresh()->isBusy())->toBeTrue();

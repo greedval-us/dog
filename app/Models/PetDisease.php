@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
+ * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ *
  * @property int $id
  * @property int $pet_id
  * @property int $disease_id
@@ -19,8 +21,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $ended_at
  * @property Pet $pet
  * @property Disease $disease
+ * @property Effect|null $effect_snapshot
  */
-#[Fillable(['pet_id', 'disease_id', 'started_at', 'ended_at'])]
+#[Fillable(['pet_id', 'disease_id', 'started_at', 'ended_at', 'effect_snapshot'])]
 class PetDisease extends Model
 {
     /** @use HasFactory<PetDiseaseFactory> */
@@ -48,6 +51,6 @@ class PetDisease extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['started_at' => 'datetime', 'ended_at' => 'datetime'];
+        return ['started_at' => 'datetime', 'ended_at' => 'datetime', 'effect_snapshot' => 'array'];
     }
 }

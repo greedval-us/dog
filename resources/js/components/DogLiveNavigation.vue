@@ -8,6 +8,7 @@ import {
     PawPrint,
     Settings,
     ShoppingBag,
+    Stethoscope,
     UserRound,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -17,6 +18,7 @@ import { index as kennel } from '@/routes/kennel';
 import { index as shop } from '@/routes/shop';
 import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
+import { index as veterinarian } from '@/routes/veterinarian';
 import { edit } from '@/routes/profile';
 import { show as playerProfile } from '@/routes/players';
 
@@ -33,6 +35,12 @@ const items = computed(() => [
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
     { label: 'Shop', icon: ShoppingBag, href: shop(), settings: false },
     { label: 'Inventory', icon: Backpack, href: inventory(), settings: false },
+    {
+        label: 'Veterinarian',
+        icon: Stethoscope,
+        href: veterinarian(),
+        settings: false,
+    },
     {
         label: 'Work with a dog',
         icon: BriefcaseBusiness,

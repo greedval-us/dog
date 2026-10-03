@@ -6,7 +6,6 @@ use App\Models\Skill;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
-use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Str;
 
@@ -16,7 +15,7 @@ use Illuminate\Support\Str;
  */
 final class GetPetSkills
 {
-    public function __construct(private SkillRules $rules, private PetDecayCalculator $decay) {}
+    public function __construct(private SkillRules $rules, private PetDecayCalculator $decay, private GetPetStatSnapshot $getAttributes) {}
 
     /** @return array{serverNow: string, token: string, skills: list<SkillView>} */
     public function handle(User $user, int $petId, string $locale): array
@@ -24,12 +23,7 @@ final class GetPetSkills
         $pet = $user->pets()->with('skills')->findOrFail($petId);
         $at = now()->startOfSecond();
         $pet->advanceTo($at, $this->decay);
-        $stats = [];
-        $potentials = [];
-        foreach (PetStat::cases() as $stat) {
-            $stats[$stat->value] = (int) $pet->getAttribute($stat->value);
-            $potentials[$stat->value] = (int) $pet->getAttribute($stat->potentialColumn());
-        }
+        $attributes = $this->getAttributes->handle($pet);
 
         $learned = $pet->skills->keyBy('id');
         $skills = [];
@@ -44,15 +38,14 @@ final class GetPetSkills
             foreach ($valid ? $skill->levels : [] as $lesson) {
                 $levels[] = [
                     'price' => $lesson['price'],
-                    'requirements' => $this->rules->requiredValues($potentials, $lesson['requirements']),
+                    'requirements' => $this->rules->requiredValues($attributes, $lesson['requirements']),
                     'requirementPercentages' => $lesson['requirements'],
                 ];
             }
             $currentRequirements = $levels[$level - 1]['requirements'] ?? [];
             $currentPercentages = $levels[$level - 1]['requirementPercentages'] ?? [];
             $next = $levels[$level] ?? null;
-            $active = $level > 0 && $currentRequirements !== [] && $skill->is_active && $pet->retired_at === null
-                && $this->rules->meets($stats, $potentials, $currentPercentages);
+            $active = $this->rules->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null);
             $reason = match (true) {
                 $user->status !== PlayerStatus::Active => 'Your account is blocked.',
                 $pet->retired_at !== null => 'Retired dogs cannot learn skills.',
@@ -60,7 +53,7 @@ final class GetPetSkills
                 $level >= SkillRules::MAX_LEVEL => 'Your dog has mastered all five levels of this skill.',
                 $pet->isBusy() => 'Finish your dog’s current activity before a skill lesson.',
                 $progress?->cooldown_until?->greaterThan($at) === true => 'Wait 24 hours between lessons for the same skill.',
-                $next !== null && ! $this->rules->meets($stats, $potentials, $next['requirementPercentages']) => 'Raise your dog’s attributes to the lesson requirements.',
+                $next !== null && ! $this->rules->meets($attributes, $next['requirementPercentages']) => 'Raise your dog’s attributes to the lesson requirements.',
                 $next !== null && $user->coins < $next['price'] => 'You do not have enough coins to pay the instructor.',
                 default => null,
             };

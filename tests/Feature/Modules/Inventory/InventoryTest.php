@@ -13,6 +13,7 @@ use App\Modules\Inventory\Queries\GetPlayerInventory;
 use App\Modules\Inventory\Queries\GetShopOffers;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerWallet;
 use Database\Seeders\ItemCategorySeeder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -79,6 +80,22 @@ test('a purchase token cannot be reused with changed contents', function (string
     $this->assertDatabaseCount('inventory_items', 1);
     $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 75, 'gems' => 100]);
 })->with(['offer', 'item', 'currency', 'price']);
+
+test('a paid purchase without its receipt cannot charge or grant again even when its ledger token uses uppercase letters', function () {
+    $user = User::factory()->create(['coins' => 100]);
+    $offer = ShopOffer::factory()->create(['price' => 25, 'stock' => 2]);
+    $token = '6b639cae-3484-4e11-8ce8-873c547211bc';
+    app(PlayerWallet::class)->change($user, 'coins', -25, 'item-purchase:'.strtoupper($token), 'item_purchase');
+
+    expect(fn () => app(PurchaseItem::class)->handle($user, itemPurchaseData($offer, $token)))
+        ->toThrow(ItemUnavailable::class, 'This purchase was already paid for, but its receipt is unavailable. Check your inventory before making a new purchase.');
+
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 75]);
+    $this->assertDatabaseHas('shop_offers', ['id' => $offer->id, 'stock' => 2]);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseCount('item_purchases', 0);
+    $this->assertDatabaseCount('inventory_items', 0);
+});
 
 test('insufficient funds roll back stock and inventory', function () {
     $user = User::factory()->create(['coins' => 24]);

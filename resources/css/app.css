@@ -33,7 +33,8 @@
     font-size: 13px;
     line-height: 1.6;
 }
-.dog-work-select {
+.dog-work-select,
+.vet-select {
     width: 100%;
     min-width: 0;
     padding: 12px 14px;
@@ -42,11 +43,13 @@
     background: var(--card);
     color: var(--foreground);
 }
-.dog-work-select:focus-visible {
+.dog-work-select:focus-visible,
+.vet-select:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
 }
-.dog-work-select:disabled {
+.dog-work-select:disabled,
+.vet-select:disabled {
     opacity: 0.6;
 }
 .dog-work-empty {
@@ -142,6 +145,133 @@
     }
     .dog-work-details > div:first-child dd {
         text-align: left;
+    }
+}
+
+.vet-page,
+.vet-intro > [data-slot='card-content'] {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+}
+.vet-heading,
+.vet-health,
+.vet-healthy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.vet-heading {
+    flex-wrap: wrap;
+}
+.vet-heading > div {
+    flex: 1;
+    min-width: 160px;
+}
+.vet-health {
+    font-weight: 600;
+    font-size: 14px;
+}
+.vet-health svg,
+.vet-healthy svg {
+    flex-shrink: 0;
+    color: var(--primary);
+}
+.vet-heading h2,
+.vet-disease h3,
+.vet-history h3 {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.vet-page p,
+.vet-dates {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.vet-diseases,
+.vet-history {
+    display: grid;
+    gap: 16px;
+}
+.vet-disease,
+.vet-history li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+.vet-disease:last-child,
+.vet-history li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.vet-disease > div,
+.vet-history li > div {
+    min-width: 0;
+}
+.vet-disease > button {
+    flex-shrink: 0;
+}
+.vet-services {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+.vet-service {
+    min-width: 0;
+}
+.vet-service > [data-slot='card-content'] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 14px;
+}
+.vet-service button {
+    margin-top: auto;
+    align-self: flex-start;
+}
+.vet-reason {
+    margin-top: 12px;
+}
+.vet-dates {
+    display: grid;
+    gap: 10px;
+}
+.vet-dates dd {
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+}
+.vet-history li > span {
+    flex-shrink: 0;
+    font-size: 13px;
+}
+.vet-empty {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+}
+.vet-error {
+    padding: 16px;
+    border: 1px solid var(--destructive);
+    border-radius: 12px;
+    background: var(--danger-surface);
+}
+@media (max-width: 650px) {
+    .vet-services {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .vet-disease {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .vet-service button {
+        width: 100%;
+    }
+    .vet-history li {
+        flex-wrap: wrap;
     }
 }
 

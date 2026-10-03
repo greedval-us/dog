@@ -7,16 +7,15 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 use App\Modules\Pets\Calculators\PetCareRules;
-use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
 use App\Modules\Pets\Calculators\TrainingRules;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetCareStatusEffects;
-use App\Modules\Pets\Queries\GetPetStatuses;
 use App\Modules\Pets\Queries\GetTrainingOptions;
 use App\Modules\Pets\Services\PetActivityManager;
+use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -33,8 +32,7 @@ final class StartPetCare
         private PetStatusRules $statuses,
         private ItemEffectRules $riskRules,
         private Randomizer $random,
-        private PetDecayCalculator $states,
-        private GetPetStatuses $getStatuses,
+        private PetStateSynchronizer $state,
         private GetCareStatusEffects $careStatuses,
         private GetTrainingOptions $trainings,
         private TrainingRules $trainingRules,
@@ -92,10 +90,7 @@ final class StartPetCare
             }
 
             $at = now();
-            $pet->advanceTo($at, $this->states);
-            $status = $this->getStatuses->handle($pet, $at);
-            $pet->buffs = $status->buffs;
-            $pet->debuffs = $status->debuffs;
+            $status = $this->state->advance($pet, $at);
             $modifiers = $status->modifiers;
             $option['energy'] = $this->statuses->energyCost($option['energy'], $modifiers['energy_cost_percent']);
             $recovery = $this->statuses->recovery($status->debuffs, $variant);

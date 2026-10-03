@@ -233,7 +233,10 @@ const filtered = computed(() =>
                     }}</span>
                 </div>
                 <p>{{ text(effect.description) }}</p>
-                <small v-if="effect.duration_seconds">{{
+                <small v-if="effect.disease_id">{{
+                    t('Until treatment')
+                }}</small>
+                <small v-else-if="effect.duration_seconds">{{
                     t(
                         preview
                             ? 'After completion · {duration}'

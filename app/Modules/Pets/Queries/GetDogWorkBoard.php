@@ -9,44 +9,39 @@ use App\Models\User;
 use App\Modules\Pets\Calculators\DogWorkRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
-use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 final class GetDogWorkBoard
 {
-    public function __construct(private SkillRules $skills, private DogWorkRules $rules, private PetDecayCalculator $decay) {}
+    public function __construct(private SkillRules $skills, private DogWorkRules $rules, private PetDecayCalculator $decay,
+        private GetPetStatSnapshot $getAttributes) {}
 
     /** @return array<string, mixed> */
     public function handle(User $user, DogWorkBoard $board, ?int $petId, string $locale): array
     {
-        $pets = $user->pets()->with('skills')->orderBy('id')->get();
+        $pets = $user->pets()->orderBy('id')->get();
         $pet = $petId === null ? $pets->first() : $pets->firstWhere('id', $petId);
         if ($petId !== null && $pet === null) {
             $user->pets()->findOrFail($petId);
         }
+        $pet?->load('skills');
         $at = now();
         $pet?->advanceTo($at, $this->decay);
         $offers = $board->offers()->orderBy('id')->get();
         $participation = DogWorkShift::query()->where('user_id', $user->id)
             ->whereIn('dog_work_offer_id', $offers->modelKeys())->get()->keyBy('dog_work_offer_id');
-        $stats = [];
-        $potentials = [];
-        if ($pet !== null) {
-            foreach (PetStat::cases() as $stat) {
-                $stats[$stat->value] = (int) $pet->getAttribute($stat->value);
-                $potentials[$stat->value] = (int) $pet->getAttribute($stat->potentialColumn());
-            }
-        }
+        $attributes = $pet === null ? null : $this->getAttributes->handle($pet);
 
         $jobs = [];
         foreach ($offers as $offer) {
             $skill = $pet?->skills->firstWhere('id', $offer->required_skill_id);
             $level = $skill?->pivot->level ?? 0;
-            $active = $pet !== null && $pet->retired_at === null && $skill !== null && $skill->is_active
-                && $this->skills->valid($skill->levels) && $level >= 1 && $level <= SkillRules::MAX_LEVEL
-                && $this->skills->meets($stats, $potentials, $skill->levels[$level - 1]['requirements']);
+            $hasRequiredLevel = $skill !== null
+                && $this->skills->hasLearnedLevel($skill->levels, $skill->is_active, $level, $offer->required_skill_level);
+            $active = $pet !== null && $attributes !== null && $skill !== null
+                && $this->skills->isActive($attributes, $skill->levels, $skill->is_active, $level, $pet->retired_at !== null);
             $shift = $participation->get($offer->id);
             $places = max(0, $offer->daily_limit - $offer->reserved_count);
             $reason = match (true) {
@@ -58,8 +53,7 @@ final class GetDogWorkBoard
                 $pet->isBusy() => 'Finish your dog’s current activity before starting work.',
                 ! $this->rules->valid($offer->required_skill_level, $offer->coins_reward, $offer->gems_reward,
                     $offer->duration_seconds, $offer->energy_cost, $offer->daily_limit) => 'This job is no longer available. Refresh the board.',
-                $skill === null || ! $skill->is_active || ! $this->skills->valid($skill->levels)
-                    || $level < $offer->required_skill_level || $level > SkillRules::MAX_LEVEL => 'Your dog needs the required skill level.',
+                ! $hasRequiredLevel => 'Your dog needs the required skill level.',
                 ! $active => 'Raise your dog’s attributes to reactivate this skill.',
                 $pet->energy < $offer->energy_cost => 'Your dog does not have enough energy for this job.',
                 default => null,

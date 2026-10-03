@@ -26,12 +26,12 @@ final class GetPlayerDogs
                 }
             })
             ->withExists(['unlocks as is_unlocked' => fn (Builder $query) => $query->whereBelongsTo($user)])
-            ->orderBy('sort_order')->orderBy('id')->get()
-            ->filter(fn (GameAsset $asset): bool => $asset->hasValidPrice() && $asset->hasFiles());
+            ->orderBy('sort_order')->orderBy('id')->get();
+        $appearanceAssets = AppearanceAssetData::fromCatalogue($assets, $locale);
 
-        return array_values($pets->map(function (Pet $pet) use ($assets, $locale): array {
-            $compatibleAssets = $assets->filter(fn (GameAsset $asset): bool => $asset->matches($pet))
-                ->map(fn (GameAsset $asset): AppearanceAssetData => AppearanceAssetData::fromModel($asset, $locale));
+        return array_values($pets->map(function (Pet $pet) use ($assets, $appearanceAssets, $locale): array {
+            $compatibleAssets = $assets->filter(fn (GameAsset $asset): bool => isset($appearanceAssets[$asset->id]) && $asset->matches($pet))
+                ->map(fn (GameAsset $asset): AppearanceAssetData => $appearanceAssets[$asset->id]);
             $appearance = PetAppearanceData::fromAssets($pet, array_values($compatibleAssets->all()));
 
             return [
