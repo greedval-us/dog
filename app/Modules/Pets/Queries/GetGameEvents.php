@@ -22,7 +22,7 @@ final class GetGameEvents
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
-    public function index(User $user, string $locale, array $filters = []): array
+    public function index(User $user, array $filters = []): array
     {
         $query = GameEvent::query()->where(function (Builder $query) use ($user): void {
             $query->where('ends_at', '>', now())->orWhere(function (Builder $history) use ($user): void {
@@ -40,9 +40,6 @@ final class GetGameEvents
 
         return [
             'events' => array_values($page->getCollection()->map(fn (GameEvent $event): array => $this->summary($event, $user))->all()),
-            'dogs' => $this->dogs($user, $locale),
-            'equipment' => $this->equipment($user, $locale),
-            'disciplines' => ['agility', 'nosework', 'canicross', 'conformation', 'progeny'],
             'filters' => ['frequency' => $filters['frequency'] ?? null, 'kind' => $filters['kind'] ?? null],
             'nextCursor' => $page->nextCursor()?->encode(),
         ];
@@ -124,7 +121,7 @@ final class GetGameEvents
     /** @return list<array<string, mixed>> */
     private function dogs(User $user, string $locale): array
     {
-        $pets = $user->pets()->with(['dog', 'titles', 'sportRecords'])->orderBy('id')->get();
+        $pets = $user->pets()->with(['dog', 'titles'])->orderBy('id')->get();
         $ids = $pets->modelKeys();
         $children = Pet::query()->where(fn (Builder $query) => $query->whereIn('father_id', $ids)->orWhereIn('mother_id', $ids))
             ->withCount('titles')->orderBy('id')->get(['id', 'dog_id', 'father_id', 'mother_id', 'name', 'exterior']);

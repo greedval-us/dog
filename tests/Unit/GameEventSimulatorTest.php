@@ -2,6 +2,29 @@
 
 use App\Modules\Pets\Calculators\GameEventSimulator;
 
+test('ranking uses discipline rules before the time tie breaker', function (string $discipline, int $expected) {
+    $fewerPenalties = ['eliminated' => false, 'penalties' => 0, 'score' => 20.0, 'time' => 250.0];
+    $higherScore = ['eliminated' => false, 'penalties' => 1, 'score' => 90.0, 'time' => 120.0];
+
+    expect((new GameEventSimulator)->compareResults($discipline, $fewerPenalties, $higherScore))->toBe($expected);
+})->with([
+    'agility' => ['agility', -1],
+    'nosework' => ['nosework', -1],
+    'canicross' => ['canicross', 1],
+    'conformation' => ['conformation', 1],
+    'progeny' => ['progeny', 1],
+]);
+
+test('ranking places eliminated entries last and resolves equal scores by time', function () {
+    $simulator = new GameEventSimulator;
+    $finished = ['eliminated' => false, 'penalties' => 3, 'score' => 20.0, 'time' => 250.0];
+    $eliminated = ['eliminated' => true, 'penalties' => 0, 'score' => 90.0, 'time' => 120.0];
+    expect($simulator->compareResults('conformation', $finished, $eliminated))->toBe(-1);
+    $faster = [...$finished, 'time' => 200.0];
+    expect($simulator->compareResults('conformation', $finished, $faster))->toBe(1);
+    expect($simulator->compareResults('conformation', $finished, $finished))->toBe(0);
+});
+
 function eventSimulationSnapshot(): array
 {
     return [

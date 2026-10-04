@@ -109,6 +109,7 @@ test('equipment snapshots and purchase retries survive catalogue changes and des
 
     expect($purchase->inventoryItem->characteristics['competition']['modifiers']['pace'])->toBe(0.04);
     expect(app(GetInventoryCatalogue::class)->handle($player, 'ru', $item->item_category_id)['items'][0]['competition']['modifiers']['pace'])->toBe(0.04);
+    expect(app(GetShopCatalogue::class)->handle($player, 'ru', $item->item_category_id)['offers'][0]['competition']['modifiers']['pace'])->toBe(0.09);
     app(UseInventoryItem::class)->handle($player, $purchase->inventoryItem->id, (string) Str::uuid(), 40);
     $repeat = app(PurchaseItem::class)->handle($player, $data);
 

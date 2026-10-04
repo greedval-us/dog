@@ -77,8 +77,7 @@ final class RegisterGameEvent
             } catch (PetUnavailable) {
                 throw new GameEventUnavailable('events.errors.reserved');
             }
-            $canonicalPlan = $this->admission->plan($event, $pet, $plan);
-            $this->admission->gear($owner, $event, $pet, $gearIds);
+            $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
             $division = $this->admission->division($event, $pet);
             if ($event->entries()->where('division', $division)->whereIn('status', ['registered', 'frozen'])->count() >= ($event->rules['field_size'] ?? 8)) {
                 throw new GameEventUnavailable('events.errors.full');
@@ -92,7 +91,7 @@ final class RegisterGameEvent
             return GameEventEntry::query()->create([
                 'game_event_id' => $event->id, 'user_id' => $owner->id, 'pet_id' => $pet->id,
                 'operation_token' => $token, 'registration_hash' => $hash, 'division' => $division,
-                'status' => 'registered', 'fee' => $expectedFee, 'plan' => $canonicalPlan, 'gear_ids' => $gearIds,
+                'status' => 'registered', 'fee' => $expectedFee, 'plan' => $preparation['plan'], 'gear_ids' => $gearIds,
             ]);
         }, attempts: 3);
     }

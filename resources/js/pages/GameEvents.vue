@@ -7,42 +7,24 @@ import Heading from '@/components/Heading.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import { index, show } from '@/routes/game-events';
-import type {
-    EventDog,
-    EventEquipment,
-    GameEventSummary,
-} from '@/types/game-event';
+import type { GameEventFilters, GameEventSummary } from '@/types/game-event';
 
 const props = defineProps<{
     events: GameEventSummary[];
-    dogs: EventDog[];
-    equipment: EventEquipment[];
-    disciplines: string[];
-    filters?: { frequency: string | null; kind: string | null };
+    filters?: GameEventFilters;
     nextCursor?: string | null;
 }>();
-const { t, number, locale } = useI18n();
+const { t, number } = useI18n();
+const { date, calendarDay } = useGameEventPresentation();
 const loading = ref(false);
 const frequency = ref(props.filters?.frequency ?? '');
 const kind = ref(props.filters?.kind ?? '');
-const date = (value: string) =>
-    new Intl.DateTimeFormat(locale.value, {
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Moscow',
-    }).format(new Date(value));
 const groupedEvents = computed(() => {
     const groups = new Map<string, GameEventSummary[]>();
     for (const event of props.events) {
-        const key = new Intl.DateTimeFormat(locale.value, {
-            day: 'numeric',
-            month: 'long',
-            weekday: 'long',
-            timeZone: 'Europe/Moscow',
-        }).format(new Date(event.startsAt));
+        const key = calendarDay(event.startsAt);
         groups.set(key, [...(groups.get(key) ?? []), event]);
     }
     return [...groups.entries()];

@@ -8,6 +8,7 @@ import ItemCharacteristics from '@/components/ItemCharacteristics.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { show as player } from '@/routes/players';
 import type { ShopOffer } from '@/types/shop';
@@ -19,7 +20,8 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ buy: [] }>();
-const { t, number, locale } = useI18n();
+const { t, number } = useI18n();
+const { date } = useGameEventPresentation();
 const page = usePage();
 const id = useId();
 const balance = computed(() => Number(page.props.auth.user.coins));
@@ -39,15 +41,7 @@ const actionReason = computed(() =>
             : null,
 );
 const restockDate = computed(() =>
-    props.offer.nextRestockAt
-        ? new Intl.DateTimeFormat(locale.value, {
-              day: 'numeric',
-              month: 'long',
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: 'Europe/Moscow',
-          }).format(new Date(props.offer.nextRestockAt))
-        : null,
+    props.offer.nextRestockAt ? date(props.offer.nextRestockAt) : null,
 );
 const errorSummary = useTemplateRef<HTMLDivElement>('errorSummary');
 watch(

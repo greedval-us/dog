@@ -6,6 +6,7 @@ use App\Models\GameEventEntry;
 use App\Models\InventoryItem;
 use App\Models\Pet;
 use App\Models\PetSportRecord;
+use App\Models\PetTitle;
 use App\Models\User;
 use App\Modules\Pets\Actions\CancelGameEventEntry;
 use App\Modules\Pets\Actions\RegisterGameEvent;
@@ -192,6 +193,11 @@ test('progeny entries permit a retired parent and require three actual direct ch
     $parent = Pet::factory()->retired()->for(User::factory()->state(['coins' => 500]))->create();
     $event = GameEvent::factory()->create(['discipline' => 'progeny']);
     $children = Pet::factory()->count(3)->create(['dog_id' => $parent->dog_id, 'father_id' => $parent->id]);
+    $winner = $children->first();
+    $winningEntry = GameEventEntry::factory()->for($winner)->for($winner->user)->create(['status' => 'completed']);
+    PetTitle::factory()->for($winner)->for($winningEntry, 'entry')->create([
+        'discipline' => 'conformation', 'frequency' => 'weekly', 'code' => 'conformation_weekly_winner',
+    ]);
     $plan = ['stages' => ['balanced', 'balanced', 'balanced'], 'offspring_ids' => $children->modelKeys()];
     $entry = app(RegisterGameEvent::class)->handle($parent->user, $event->id, $parent->id, $plan, [], 25, (string) Str::uuid());
     $this->travelTo($event->ends_at);
@@ -200,6 +206,10 @@ test('progeny entries permit a retired parent and require three actual direct ch
 
     expect($entry->fresh()->status)->toBe('completed');
     expect($entry->fresh()->snapshot['offspring'])->toHaveCount(3);
+    expect($entry->fresh()->snapshot['offspring'][0]['titles'])->toBe([
+        ['discipline' => 'conformation', 'frequency' => 'weekly', 'code' => 'conformation_weekly_winner'],
+    ]);
+    expect($entry->fresh()->snapshot['offspring'][1]['titles'])->toBe([]);
     expect($parent->fresh()->isBusy())->toBeFalse();
 });
 

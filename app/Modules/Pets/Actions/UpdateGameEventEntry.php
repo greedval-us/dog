@@ -31,9 +31,8 @@ final class UpdateGameEventEntry
             if ($owner->status !== PlayerStatus::Active || $entry->status !== 'registered' || $event->status !== 'registration' || now()->greaterThanOrEqualTo($event->closes_at)) {
                 throw new GameEventUnavailable('events.errors.closed');
             }
-            $canonicalPlan = $this->admission->plan($event, $pet, $plan);
-            $this->admission->gear($owner, $event, $pet, $gearIds);
-            $entry->update(['plan' => $canonicalPlan, 'gear_ids' => $gearIds]);
+            $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
+            $entry->update(['plan' => $preparation['plan'], 'gear_ids' => $gearIds]);
 
             return $entry;
         }, attempts: 3);

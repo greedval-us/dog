@@ -9,6 +9,19 @@ final class GameEventSimulator
     public const VERSION = 1;
 
     /**
+     * @param  array{eliminated:bool, penalties:int, score:float, time:float}  $first
+     * @param  array{eliminated:bool, penalties:int, score:float, time:float}  $second
+     */
+    public function compareResults(string $discipline, array $first, array $second): int
+    {
+        return ($first['eliminated'] <=> $second['eliminated'])
+            ?: (in_array($discipline, ['agility', 'nosework'], true)
+                ? ($first['penalties'] <=> $second['penalties'])
+                : ($second['score'] <=> $first['score']))
+            ?: ($first['time'] <=> $second['time']);
+    }
+
+    /**
      * @param  array<string, mixed>  $snapshot
      * @param  array<string, mixed>  $plan
      * @param  array<string, mixed>  $rules

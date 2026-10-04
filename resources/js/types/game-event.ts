@@ -1,3 +1,5 @@
+import type { CompetitionGear } from '@/types/competition-gear';
+
 export type EventDiscipline =
     | 'agility'
     | 'nosework'
@@ -6,6 +8,10 @@ export type EventDiscipline =
     | 'progeny';
 
 export type EventFrequency = 'daily' | 'weekly' | 'monthly';
+export type GameEventFilters = {
+    frequency: EventFrequency | null;
+    kind: 'competition' | 'exhibition' | null;
+};
 export type EventDecision = 'careful' | 'balanced' | 'bold';
 export type EventExterior = {
     type: number;
@@ -36,16 +42,7 @@ export type EventDog = {
     }[];
 };
 
-export type EventCompetitionGear = {
-    slot: string;
-    disciplines: string[];
-    phase: string;
-    sizes: string[];
-    modifiers: Record<string, number>;
-    description?: string | Record<string, string>;
-};
-
-export type EventEquipment = EventCompetitionGear & {
+export type EventEquipment = CompetitionGear & {
     id: number;
     name: string;
     remainingUses: number;
@@ -66,6 +63,18 @@ export type GameEventSummary = {
     stages: { key: string; label: string; options: string[] }[];
 };
 
+export type GameEventPlan = {
+    stages: EventDecision[];
+    offspring_ids?: number[];
+};
+
+export type GameEventEntryProps = {
+    event: GameEventDetail;
+    dogs: EventDog[];
+    equipment: EventEquipment[];
+    entry: GameEventEntry | null;
+};
+
 export type GameEventEntry = {
     id: number;
     petId: number | null;
@@ -75,7 +84,7 @@ export type GameEventEntry = {
     division: string;
     divisionLabel?: string;
     status: string;
-    plan: { stages: EventDecision[]; offspring_ids?: number[] };
+    plan: GameEventPlan;
     gearIds: number[];
     rank: number | null;
     prize: number;

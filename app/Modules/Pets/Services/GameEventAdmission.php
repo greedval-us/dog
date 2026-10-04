@@ -22,6 +22,19 @@ final class GameEventAdmission
 
     /**
      * @param  array<string, mixed>  $plan
+     * @param  array<array-key, mixed>  $gearIds
+     * @return array{plan:array<string, mixed>, gear:list<array<string, mixed>>}
+     */
+    public function prepare(User $user, GameEvent $event, Pet $pet, array $plan, array $gearIds, bool $lockGear = false): array
+    {
+        return [
+            'plan' => $this->plan($event, $pet, $plan),
+            'gear' => $this->gear($user, $event, $pet, $gearIds, $lockGear),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $plan
      * @return array<string, mixed>
      */
     public function plan(GameEvent $event, Pet $pet, array $plan): array
@@ -157,10 +170,12 @@ final class GameEventAdmission
         }
         $offspring = [];
         if ($event->discipline === 'progeny') {
-            foreach (Pet::query()->whereIn('id', $plan['offspring_ids'])->orderBy('id')->get() as $child) {
+            $children = Pet::query()->whereIn('id', $plan['offspring_ids'])->orderBy('id')
+                ->with(['titles' => fn ($query) => $query->reorder()->orderBy('id')->select(['pet_id', 'discipline', 'frequency', 'code'])])->get();
+            foreach ($children as $child) {
                 $offspring[] = [
                     'id' => $child->id, 'name' => $child->name, 'exterior' => $child->getAttribute('exterior') ?? [],
-                    'titles' => PetTitle::query()->where('pet_id', $child->id)->get(['discipline', 'frequency', 'code'])->toArray(),
+                    'titles' => $child->titles->map(fn (PetTitle $title): array => $title->only(['discipline', 'frequency', 'code']))->all(),
                 ];
             }
         }

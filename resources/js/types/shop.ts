@@ -1,5 +1,5 @@
 import type { StatusEffect, ItemRisk } from '@/types/pet-care';
-import type { EventCompetitionGear } from '@/types/game-event';
+import type { CompetitionGear } from '@/types/competition-gear';
 export type ShopCategory = {
     id: number;
     code: string;
@@ -23,7 +23,7 @@ export type ShopOffer = {
     price: number;
     stock: number | null;
     owned: number;
-    competition?: EventCompetitionGear | null;
+    competition?: CompetitionGear | null;
     nextRestockAt?: string | null;
     purchaseLimit?: number | null;
     purchasedThisPeriod?: number;

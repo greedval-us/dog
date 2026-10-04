@@ -26,7 +26,8 @@ test('the calendar filters monthly shows and does not expose the event random se
     $this->actingAs($user)->get(route('game-events.index', ['frequency' => 'monthly', 'kind' => 'exhibition']))
         ->assertInertia(fn (Assert $page) => $page->component('GameEvents')
             ->has('events', 4)->where('events.0.frequency', 'monthly')
-            ->where('filters.kind', 'exhibition')->missing('events.0.seed')->has('equipment', 0));
+            ->where('filters.kind', 'exhibition')->missing('events.0.seed')
+            ->missing('dogs')->missing('equipment')->missing('disciplines'));
 });
 
 test('an entry can be registered edited and cancelled with its full fee returned', function () {
@@ -80,6 +81,42 @@ test('invalid stage decisions are rejected without charging an entry fee', funct
     $this->assertDatabaseCount('game_event_entries', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
 });
+
+test('invalid preparation updates preserve the registered plan and equipment', function () {
+    $this->freezeTime();
+    $user = User::factory()->create(['coins' => 200]);
+    $entry = GameEventEntry::factory()->for($user)->create();
+    $originalPlan = $entry->plan;
+
+    $this->actingAs($user)->put(route('game-events.update', $entry->event), [
+        'plan' => ['stages' => ['impossible', 'bold', 'careful']], 'gear_ids' => [10, 10],
+    ])->assertSessionHasErrors(['plan.stages.0', 'gear_ids.0', 'gear_ids.1']);
+
+    expect($entry->fresh()->plan)->toBe($originalPlan);
+    expect($entry->fresh()->gear_ids)->toBe([]);
+    expect($user->fresh()->coins)->toBe(200);
+    $this->assertDatabaseCount('currency_transactions', 0);
+});
+
+test('closed entry operations return a localized error without changing the entry or wallet', function (string $method, string $route) {
+    $this->freezeTime();
+    $user = User::factory()->create(['coins' => 200]);
+    $event = GameEvent::factory()->create(['status' => 'frozen']);
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($user)->create(['status' => 'frozen']);
+    $payload = ['pet_id' => $entry->pet_id, 'fee' => 25, 'token' => (string) Str::uuid(), 'plan' => ['stages' => ['balanced', 'balanced', 'balanced']], 'gear_ids' => []];
+
+    $this->actingAs($user)->call($method, route($route, $event), $payload)
+        ->assertSessionHasErrors(['event' => __('events.errors.closed')]);
+
+    expect($entry->fresh()->status)->toBe('frozen');
+    expect($user->fresh()->coins)->toBe(200);
+    $this->assertDatabaseCount('game_event_entries', 1);
+    $this->assertDatabaseCount('currency_transactions', 0);
+})->with([
+    'registration' => ['POST', 'game-events.register'],
+    'preparation update' => ['PUT', 'game-events.update'],
+    'cancellation' => ['POST', 'game-events.cancel'],
+]);
 
 test('the event page presents frozen replay stages and clearly marks club participants', function () {
     $this->freezeTime();

@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ShopDelivery;
 use App\Models\ShopOffer;
+use App\Modules\Inventory\Calculators\AmmunitionSupplyRules;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
@@ -17,15 +18,16 @@ class AmmunitionSeeder extends Seeder
     /**
      * Run the database seeds.
      */
-    public function run(CompetitionAmmunitionRules $rules): void
+    public function run(CompetitionAmmunitionRules $rules, AmmunitionSupplyRules $supplies): void
     {
-        DB::transaction(function () use ($rules): void {
+        DB::transaction(function () use ($rules, $supplies): void {
             $category = ItemCategory::query()->firstOrCreate(['code' => 'ammunition'], [
                 'name' => ['ru' => 'Амуниция для выступлений', 'en' => 'Competition gear'],
                 'sort_order' => 8, 'is_active' => true,
             ]);
             $at = CarbonImmutable::now(config('doglive.work_timezone'))->startOfSecond();
             foreach ($this->catalogue() as $index => [$code, $ru, $en, $slot, $disciplines, $phase, $sizes, $modifiers, $price, $specialized, $descriptionRu, $descriptionEn]) {
+                $supply = $supplies->supply($specialized);
                 $metadata = [
                     'slot' => $slot, 'disciplines' => $disciplines, 'phase' => $phase, 'sizes' => $sizes,
                     'modifiers' => $modifiers, 'description' => ['ru' => $descriptionRu, 'en' => $descriptionEn],
@@ -35,7 +37,7 @@ class AmmunitionSeeder extends Seeder
                 }
                 $item = Item::query()->firstOrCreate(['code' => $code], [
                     'item_category_id' => $category->id, 'name' => ['ru' => $ru, 'en' => $en],
-                    'description' => $metadata['description'], 'quality' => 5, 'usage_limit' => $specialized ? 60 : 40,
+                    'description' => $metadata['description'], 'quality' => 5, 'usage_limit' => $supply['usageLimit'],
                     'characteristics' => ['competition' => $metadata], 'bonuses' => [], 'is_active' => true,
                 ]);
                 if (! $item->wasRecentlyCreated && $disciplines === ['conformation']) {
@@ -43,17 +45,18 @@ class AmmunitionSeeder extends Seeder
                         ->whereJsonContains('characteristics->competition->disciplines', 'progeny')
                         ->update(['characteristics->competition->disciplines' => ['conformation']]);
                 }
-                $interval = $specialized ? 168 : 6;
-                $period = $specialized ? $at->startOfWeek(1) : $at->startOfDay()->addHours(intdiv($at->hour, 6) * 6);
+                $anchor = $specialized ? $at->startOfWeek(1) : $at->startOfDay();
+                $schedule = $supplies->schedule($at->getTimestamp(), $anchor->getTimestamp(), $supply['intervalHours']);
+                $period = CarbonImmutable::createFromTimestampUTC($schedule['current']);
                 $offer = ShopOffer::query()->firstOrCreate(['item_id' => $item->id, 'currency' => 'coins'], [
-                    'price' => $price, 'stock' => $specialized ? 6 : 18, 'is_active' => true, 'sort_order' => 100 + $index,
-                    'restock_interval_hours' => $interval, 'restock_target' => $specialized ? 6 : 18,
-                    'purchase_limit' => $specialized ? 1 : 2, 'last_restock_at' => $period->utc(),
-                    'next_restock_at' => $period->addHours($interval)->utc(),
+                    'price' => $price, 'stock' => $supply['stockTarget'], 'is_active' => true, 'sort_order' => 100 + $index,
+                    'restock_interval_hours' => $supply['intervalHours'], 'restock_target' => $supply['stockTarget'],
+                    'purchase_limit' => $supply['purchaseLimit'], 'last_restock_at' => $period,
+                    'next_restock_at' => CarbonImmutable::createFromTimestampUTC($schedule['next']),
                 ]);
                 if ($offer->wasRecentlyCreated) {
                     ShopDelivery::query()->create([
-                        'shop_offer_id' => $offer->id, 'scheduled_at' => $period->utc(),
+                        'shop_offer_id' => $offer->id, 'scheduled_at' => $period,
                         'stock_before' => 0, 'stock_after' => $offer->stock,
                     ]);
                 }

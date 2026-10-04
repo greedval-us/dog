@@ -5,21 +5,18 @@ namespace App\Modules\Inventory\Queries;
 use App\Models\ItemCategory;
 use App\Models\ShopOffer;
 use App\Models\User;
-use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
-use App\Modules\Pets\Calculators\ItemEffectRules;
 
 /**
- * @phpstan-import-type Risk from ItemEffectRules
- * @phpstan-import-type Ammunition from CompetitionAmmunitionRules
+ * @phpstan-import-type ItemPresentation from CatalogueItemPresentation
  */
 final class GetShopCatalogue
 {
-    public function __construct(private GetShopOffers $offers, private ItemEffectRules $riskRules, private CompetitionAmmunitionRules $ammunition) {}
+    public function __construct(private GetShopOffers $offers, private CatalogueItemPresentation $items) {}
 
     /**
      * @return array{
      *     categories: array<int, array{id: int, code: string, name: string}>,
-     *     offers: array<int, array{id: int, itemId: int, name: string, description: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, characteristics: array<string, mixed>, currency: string, price: int, stock: int|null, owned: int, competition: Ammunition|null, soldOut: bool, nextRestockAt: string|null, purchaseLimit: int|null, purchasedThisPeriod: int}>,
+     *     offers: array<int, ItemPresentation&array{id: int, itemId: int, description: string, currency: string, price: int, stock: int|null, owned: int, soldOut: bool, nextRestockAt: string|null, purchaseLimit: int|null, purchasedThisPeriod: int, ...}>,
      *     nextCursor: string|null, previousCursor: string|null, inventoryCount: int
      * }
      */
@@ -39,28 +36,14 @@ final class GetShopCatalogue
                 ->orderBy('sort_order')->orderBy('id')->get()
                 ->map(fn (ItemCategory $category): array => CatalogueLabels::category($category, $locale))->all(),
             'offers' => $offers->getCollection()->map(function (ShopOffer $offer) use ($locale, $owned, $periodPurchases): array {
-                $item = $offer->item;
-                $category = $item->category;
-                $outcomes = $this->riskRules->forItem($item->effectRuleSnapshots(), $item->quality, $item->name);
-
                 return [
+                    ...$this->items->forTemplate($offer->item, $locale),
                     'id' => $offer->id,
-                    'itemId' => $item->id,
-                    'name' => CatalogueLabels::text($item->name, $locale, $item->code),
-                    'description' => CatalogueLabels::text($item->description, $locale, ''),
-                    'category' => CatalogueLabels::text($category->name, $locale, $category->code),
-                    'categoryCode' => $category->code,
-                    'quality' => $item->quality,
-                    'usageLimit' => $item->usage_limit,
-                    'characteristics' => $item->characteristics,
-                    'risks' => $this->riskRules->uncertain($outcomes),
-                    'bonuses' => $item->bonuses ?? [],
-                    'grantedEffects' => $this->riskRules->guaranteed($outcomes),
+                    'itemId' => $offer->item_id,
                     'currency' => $offer->currency,
                     'price' => $offer->price,
                     'stock' => $offer->stock,
-                    'owned' => (int) ($owned[$item->id] ?? 0),
-                    'competition' => $this->ammunition->metadata($item->characteristics),
+                    'owned' => (int) ($owned[$offer->item_id] ?? 0),
                     'soldOut' => $offer->stock === 0,
                     'nextRestockAt' => $offer->next_restock_at?->toIso8601String(),
                     'purchaseLimit' => $offer->purchase_limit,
