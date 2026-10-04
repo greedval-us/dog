@@ -59,6 +59,11 @@ export type GameEventSummary = {
     fee: number;
     prizes: number[];
     entryCount: number;
+    participationRules: {
+        playerDailyLimit: number;
+        petDailyLimit: number;
+        petRestHours: number;
+    };
     canRegister: boolean;
     stages: { key: string; label: string; options: string[] }[];
 };

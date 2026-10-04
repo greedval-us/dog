@@ -1,3 +1,33 @@
+export type PlayerCareerStatistics = {
+    competitionStarts: number;
+    competitionPodiums: number;
+    competitionWins: number;
+    exhibitionStarts: number;
+    exhibitionPodiums: number;
+    exhibitionWins: number;
+    agilityWins: number;
+    noseworkWins: number;
+    canicrossWins: number;
+    conformationWins: number;
+    progenyStarts: number;
+    progenyWins: number;
+    weeklyEventWins: number;
+    monthlyEventWins: number;
+    titlesCount: number;
+    titledDogsCount: number;
+    eventPrizeCoins: number;
+    eventFeesCoins: number;
+    littersStarted: number;
+    littersBorn: number;
+    puppiesBorn: number;
+    puppiesKept: number;
+    puppiesPurchased: number;
+    puppiesSold: number;
+    puppySalesCoins: number;
+    titledOffspring: number;
+    ammunitionPurchases: number;
+};
+
 export type PlayerProfile = {
     name: string;
     username: string;
@@ -12,7 +42,7 @@ export type PlayerProfile = {
         percent: number;
         nextLevel: number;
     };
-    statistics: {
+    statistics: PlayerCareerStatistics & {
         actionsCount: number;
         feedingCount: number;
         wateringCount: number;

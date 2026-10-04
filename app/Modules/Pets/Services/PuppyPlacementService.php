@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Pets\DTO\NewPetData;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Players\Enums\AchievementMetric;
 use App\Modules\Players\Services\PlayerProgress;
 
 final class PuppyPlacementService
@@ -48,6 +49,10 @@ final class PuppyPlacementService
             'operation_token' => $token, 'kind' => $kind, 'price' => $price, 'name' => $name,
         ]);
         $this->progress->refreshAchievements($owner);
+        if ($sellerId !== null && $sellerId !== $owner->id) {
+            $seller = User::query()->findOrFail($sellerId);
+            $this->progress->refreshAchievements($seller, [AchievementMetric::PuppiesSold]);
+        }
 
         return $placement;
     }

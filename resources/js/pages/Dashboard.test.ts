@@ -110,6 +110,9 @@ describe('independent dashboard data', () => {
             expect(html).toContain('id="pet-care"');
             expect(html).toContain('pet-condition');
             expect(html).toContain('pet-details');
+            expect(html).toContain(locale === 'ru' ? 'Титулы' : 'Titles');
+            expect(html).not.toContain('pet-career-title-list');
+            expect(html).not.toContain('pet-career-result-list');
             expect(html).toContain('dashboard-skeleton-portrait');
             expect(html).toContain('Rey');
         },

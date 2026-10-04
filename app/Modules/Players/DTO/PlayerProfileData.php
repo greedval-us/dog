@@ -8,7 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 
 /**
  * @phpstan-type Progress array{levelExperience: string, requiredExperience: string, remainingExperience: string, percent: float, nextLevel: int}
- * @phpstan-type Statistics array{actionsCount: int, feedingCount: int, wateringCount: int, playCount: int, groomingCount: int, restCount: int, skillLessonsCount: int, workCount: int, veterinaryCount: int, activeDays: int, lastActionAt: string|null}
+ * @phpstan-type Statistics array{actionsCount: int, feedingCount: int, wateringCount: int, playCount: int, groomingCount: int, restCount: int, skillLessonsCount: int, workCount: int, veterinaryCount: int, activeDays: int, lastActionAt: string|null, competitionStarts: int, competitionPodiums: int, competitionWins: int, exhibitionStarts: int, exhibitionPodiums: int, exhibitionWins: int, agilityWins: int, noseworkWins: int, canicrossWins: int, conformationWins: int, progenyStarts: int, progenyWins: int, weeklyEventWins: int, monthlyEventWins: int, titlesCount: int, titledDogsCount: int, eventPrizeCoins: int, eventFeesCoins: int, littersStarted: int, littersBorn: int, puppiesBorn: int, puppiesKept: int, puppiesPurchased: int, puppiesSold: int, puppySalesCoins: int, titledOffspring: int, ammunitionPurchases: int}
  *
  * @implements Arrayable<string, int|string|null|Progress|Statistics>
  */
@@ -35,10 +35,11 @@ final readonly class PlayerProfileData implements Arrayable
         public array $statistics,
     ) {}
 
-    public static function fromModel(User $user, int $dogsCount): self
+    public static function fromModel(User $user, int $dogsCount, ?PlayerGameStatisticsData $gameStatistics = null): self
     {
         $levelProgress = PlayerLevelRules::progress($user->experience);
         $statistics = $user->pet_statistics;
+        $gameStatistics ??= new PlayerGameStatisticsData(competitionWins: $user->competition_wins, exhibitionWins: $user->exhibition_wins);
 
         return new self(
             name: $user->name,
@@ -48,8 +49,8 @@ final readonly class PlayerProfileData implements Arrayable
             level: $levelProgress['level'],
             experience: $user->experience,
             dogsCount: $dogsCount,
-            exhibitionWins: $user->exhibition_wins,
-            competitionWins: $user->competition_wins,
+            exhibitionWins: $gameStatistics->exhibitionWins,
+            competitionWins: $gameStatistics->competitionWins,
             walksCount: $user->walks_count,
             trainingsCount: $user->trainings_count,
             joinedAt: $user->created_at?->toDateString(),
@@ -72,6 +73,7 @@ final readonly class PlayerProfileData implements Arrayable
                 'veterinaryCount' => array_sum(array_filter($statistics, static fn (string $code): bool => str_starts_with($code, 'veterinary.'), ARRAY_FILTER_USE_KEY)),
                 'activeDays' => $user->active_days,
                 'lastActionAt' => $user->last_pet_action_at?->toISOString(),
+                ...$gameStatistics->toArray(),
             ],
         );
     }

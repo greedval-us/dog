@@ -19,6 +19,7 @@ use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Pets\Services\GameEventProcessor;
 use App\Modules\Pets\Services\GameEventSchedule;
 use App\Modules\Pets\Services\PetEventReservation;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 function gameEventPlan(): array
@@ -263,19 +264,20 @@ test('a physically reserved dog can enter documentary progeny judging at the sam
 });
 
 test('three starts per Moscow day and eight humans per division are enforced before charging', function () {
-    $this->freezeSecond();
-    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
-    foreach ([1, 3, 5] as $hour) {
+    $this->travelTo(CarbonImmutable::parse('2026-10-04 05:00:00', 'UTC'));
+    $owner = User::factory()->create(['coins' => 500]);
+    $pets = Pet::factory()->count(3)->for($owner)->create();
+    foreach ([1, 3, 5] as $index => $hour) {
         $starts = now()->addHours($hour);
         $event = GameEvent::factory()->create(['starts_at' => $starts, 'closes_at' => $starts->subMinutes(15), 'ends_at' => $starts->addMinutes(10)]);
-        registerDogEvent($pet, $event);
+        registerDogEvent($pets[$index], $event);
     }
     $starts = now()->addHours(7);
     $fourth = GameEvent::factory()->create(['starts_at' => $starts, 'closes_at' => $starts->subMinutes(15), 'ends_at' => $starts->addMinutes(10)]);
 
-    expect(fn () => registerDogEvent($pet, $fourth))->toThrow(GameEventUnavailable::class, 'events.errors.daily_limit');
+    expect(fn () => registerDogEvent($pets->first(), $fourth))->toThrow(GameEventUnavailable::class, 'events.errors.daily_limit');
 
-    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 425]);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 425]);
     $full = GameEvent::factory()->create(['frequency' => 'weekly']);
     foreach (range(1, 8) as $index) {
         $competitor = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();

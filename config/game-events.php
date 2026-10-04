@@ -4,6 +4,8 @@ return [
     'timezone' => 'Europe/Moscow',
     'field_size' => 8,
     'daily_limit' => 3,
+    'pet_daily_limit' => 2,
+    'pet_rest_hours' => 2,
     'duration_minutes' => 10,
     'closing_minutes' => 15,
     'processing' => [

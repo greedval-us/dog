@@ -22,6 +22,11 @@ function eventFixture(): GameEventDetail {
         fee: 25,
         prizes: [70, 40, 25],
         entryCount: 0,
+        participationRules: {
+            playerDailyLimit: 3,
+            petDailyLimit: 2,
+            petRestHours: 2,
+        },
         canRegister: true,
         stages: ['approach', 'technical', 'finish'].map((key) => ({
             key,
@@ -138,6 +143,67 @@ it.each([
         } finally {
             vi.restoreAllMocks();
         }
+    },
+);
+
+it.each(['en', 'ru'])(
+    'uses the server participation limits and explains rest until preparation begins in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.participationRules = {
+            playerDailyLimit: 7,
+            petDailyLimit: 5,
+            petRestHours: 4,
+        };
+
+        const html = await renderEvent(event, null, locale);
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'до 7 участий в день по МСК'
+                : 'up to 7 events per Moscow day',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'до 5 физических выступлений в день по МСК'
+                : 'up to 5 physical competitions and exhibitions',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'должно пройти не менее 4 ч.' : 'at least 4 h',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'закрытием регистрации следующего, когда начинается подготовка'
+                : 'registration closes, when preparation begins',
+        );
+    },
+);
+
+it.each(['en', 'ru'])(
+    'exempts progeny from the physical dog limit and rest while retaining the player limit in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'progeny';
+        event.participationRules.playerDailyLimit = 7;
+
+        const html = await renderEvent(event, null, locale);
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'до 7 участий в день по МСК'
+                : 'up to 7 events per Moscow day',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'не учитывается в лимите физических выступлений собаки и не требует отдыха'
+                : 'does not count toward the dog’s physical event limit and does not require event rest',
+        );
+        expect(html).not.toContain(
+            locale === 'ru' ? 'должно пройти не менее' : 'Allow at least',
+        );
+        expect(html).not.toContain(
+            locale === 'ru' ? 'У собаки — до' : 'A dog may enter up to',
+        );
     },
 );
 

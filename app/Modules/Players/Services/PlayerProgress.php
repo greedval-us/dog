@@ -18,9 +18,10 @@ final class PlayerProgress
 {
     public function __construct(private PlayerAchievements $achievements) {}
 
-    public function refreshAchievements(User $user): void
+    /** @param list<AchievementMetric>|null $affectedMetrics */
+    public function refreshAchievements(User $user, ?array $affectedMetrics = null): void
     {
-        $this->achievements->synchronize($user);
+        $this->achievements->synchronize($user, $affectedMetrics);
     }
 
     /**
@@ -102,8 +103,12 @@ final class PlayerProgress
             'care.wash' => [AchievementMetric::Washes],
             'skill_training' => [AchievementMetric::Skills],
             'work' => [AchievementMetric::Jobs],
-            'competition' => [AchievementMetric::CompetitionWins],
-            'exhibition' => [AchievementMetric::ExhibitionWins],
+            'competition' => [AchievementMetric::CompetitionStarts, AchievementMetric::CompetitionPodiums,
+                AchievementMetric::CompetitionWins, AchievementMetric::AgilityWins, AchievementMetric::NoseworkWins,
+                AchievementMetric::CanicrossWins, AchievementMetric::WeeklyEventWins, AchievementMetric::MonthlyEventWins],
+            'exhibition' => [AchievementMetric::ExhibitionStarts, AchievementMetric::ExhibitionPodiums,
+                AchievementMetric::ExhibitionWins, AchievementMetric::ProgenyStarts,
+                AchievementMetric::WeeklyEventWins, AchievementMetric::MonthlyEventWins],
             default => str_starts_with($fact->code, 'veterinary.') ? [AchievementMetric::Veterinary] : [],
         };
         if ($fact->walk) {

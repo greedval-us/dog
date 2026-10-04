@@ -56,12 +56,17 @@ test('guests must sign in to view player achievements', function () {
     $this->assertDatabaseCount('player_achievements', 0);
 });
 
-test('the achievement catalogue seeds fifteen complete bilingual cards with available images', function () {
+test('the achievement catalogue preserves fifteen cards and adds exactly twenty bilingual cards with available images', function () {
     $this->seed(AchievementSeeder::class);
 
     $this->seed(AchievementSeeder::class);
 
-    $this->assertDatabaseCount('achievements', 15);
+    $this->assertDatabaseCount('achievements', 35);
+    expect(Achievement::query()->orderBy('sort_order')->limit(15)->pluck('code')->all())->toBe([
+        'first-dog', 'pack-leader', 'kennel-regular', 'first-training', 'training-50', 'training-100',
+        'first-meal', 'bottomless-bowl', 'first-walk', 'walk-50', 'first-wash', 'first-skill',
+        'first-job', 'vet-regular', 'week-together',
+    ]);
     foreach (Achievement::query()->get() as $achievement) {
         foreach (['ru', 'en'] as $locale) {
             expect($achievement->name[$locale])->toBeString()->not->toBeEmpty();
@@ -88,8 +93,8 @@ test('players can view another players achievements in their own language with i
             ->component('players/Achievements')
             ->where('player.username', $player->username)
             ->where('auth.user.id', $viewer->id)
-            ->has('achievements', 15)
-            ->where('totalCount', 15)
+            ->has('achievements', 35)
+            ->where('totalCount', 35)
             ->where('unlockedCount', 1)
             ->where('achievements.0.code', 'first-dog')
             ->where('achievements.0.name', $name)
@@ -404,7 +409,7 @@ test('bounded event progress avoids unrelated achievement history scans for a fi
     expect($measurements['full']['mealHistoryScans'])->toBe(8);
     expect($measurements['bounded']['mealHistoryScans'])->toBe(0);
     expect($measurements['bounded']['eventLoads'])->toBe(0);
-    expect($measurements['bounded']['queries'])->toBeLessThanOrEqual(64);
+    expect($measurements['bounded']['queries'])->toBeLessThanOrEqual(72);
     expect($measurements['full']['queries'] - $measurements['bounded']['queries'])->toBeGreaterThanOrEqual(24);
     foreach ($fields as $participants) {
         foreach ($participants as [$player, $entry]) {

@@ -5,6 +5,7 @@ import {
     History,
     PawPrint,
     Sparkles,
+    Trophy,
     TrendingUp,
 } from '@lucide/vue';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
@@ -13,6 +14,8 @@ import PetHistory from '@/components/PetHistory.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
 import PetSkills from '@/components/PetSkills.vue';
+import PetCareer from '@/components/PetCareer.vue';
+import { ref } from 'vue';
 import { Deferred, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -21,6 +24,7 @@ import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
 import type { PetSkills as PetSkillsData } from '@/types/pet-skill';
+import type { PetCareer as PetCareerData } from '@/types/pet-career';
 import { index as breeding } from '@/routes/breeding';
 import { index as puppies } from '@/routes/puppies';
 import { pedigree } from '@/routes/pets';
@@ -29,8 +33,10 @@ defineProps<{
     pet: PlayerPet;
     care: PetCare | null;
     skills: PetSkillsData | null;
+    career?: PetCareerData | null;
 }>();
 const { t } = useI18n();
+const selectedTab = ref('overview');
 const tabs = [
     { value: 'overview', label: 'Overview', icon: PawPrint },
     { value: 'attributes', label: 'Development', icon: TrendingUp },
@@ -38,6 +44,11 @@ const tabs = [
         value: 'skills',
         label: 'Skills',
         icon: Sparkles,
+    },
+    {
+        value: 'titles',
+        label: 'Titles',
+        icon: Trophy,
     },
     {
         value: 'pedigree',
@@ -58,7 +69,7 @@ const tabs = [
 </script>
 
 <template>
-    <TabsRoot default-value="overview" class="pet-details">
+    <TabsRoot v-model="selectedTab" class="pet-details">
         <TabsList class="pet-tabs" :aria-label="t('Pet sections')">
             <TabsTrigger
                 v-for="tab in tabs"
@@ -146,6 +157,9 @@ const tabs = [
         </TabsContent>
         <TabsContent value="history" class="pet-tab-panel">
             <PetHistory :key="pet.id" :pet="pet" />
+        </TabsContent>
+        <TabsContent value="titles" class="pet-tab-panel">
+            <PetCareer :pet-id="pet.id" :career="career" />
         </TabsContent>
         <TabsContent value="offspring" class="pet-tab-panel">
             <SurfaceCard

@@ -121,7 +121,7 @@ const events = [
                 }}<span class="coming-soon-badge">{{ t('Soon') }}</span></Button
             >
             <div
-                v-if="pet.exterior || pet.titles?.length"
+                v-if="pet.exterior || (readOnly && pet.titles?.length)"
                 class="pet-event-credentials"
             >
                 <div v-if="pet.exterior" class="event-exterior">
@@ -133,7 +133,10 @@ const events = [
                         </div>
                     </dl>
                 </div>
-                <div v-if="pet.titles?.length" class="event-exterior">
+                <div
+                    v-if="readOnly && pet.titles?.length"
+                    class="event-exterior"
+                >
                     <h3>{{ t('Dog titles') }}</h3>
                     <ul class="event-title-list">
                         <li

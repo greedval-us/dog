@@ -1,19 +1,10 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import {
-    BarChart3,
-    CalendarDays,
-    Crown,
-    Dumbbell,
-    Heart,
-    Leaf,
-    PawPrint,
-    Sparkles,
-    Trophy,
-} from '@lucide/vue';
+import { CalendarDays, Crown, Leaf, Sparkles, Trophy } from '@lucide/vue';
 import { computed } from 'vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
+import PlayerStatistics from '@/components/PlayerStatistics.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { petScene } from '@/routes';
@@ -31,17 +22,6 @@ const joined = computed(() =>
           }).format(new Date(props.player.joinedAt + 'T12:00:00'))
         : null,
 );
-const lastAction = computed(() =>
-    props.player.statistics.lastActionAt
-        ? new Intl.DateTimeFormat(locale.value, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-          }).format(new Date(props.player.statistics.lastActionAt))
-        : null,
-);
 const experienceFormatter = computed(() => new Intl.NumberFormat(locale.value));
 const experience = (value: string): string =>
     experienceFormatter.value.format(BigInt(value));
@@ -54,77 +34,6 @@ const progressText = computed(() =>
         required: experience(props.player.progress.requiredExperience),
     }),
 );
-const highlights = computed(() => [
-    {
-        label: 'Actions completed',
-        value: props.player.statistics.actionsCount,
-        icon: Heart,
-    },
-    {
-        label: 'Days with dog activities',
-        value: props.player.statistics.activeDays,
-        icon: CalendarDays,
-    },
-    { label: 'Dogs in care', value: props.player.dogsCount, icon: PawPrint },
-    {
-        label: 'Wins',
-        value: props.player.exhibitionWins + props.player.competitionWins,
-        icon: Trophy,
-    },
-]);
-const statisticGroups = computed(() => [
-    {
-        label: 'Care together',
-        icon: Heart,
-        entries: [
-            {
-                label: 'Feedings completed',
-                value: props.player.statistics.feedingCount,
-            },
-            {
-                label: 'Waterings completed',
-                value: props.player.statistics.wateringCount,
-            },
-            {
-                label: 'Play sessions completed',
-                value: props.player.statistics.playCount,
-            },
-            {
-                label: 'Grooming sessions completed',
-                value: props.player.statistics.groomingCount,
-            },
-            {
-                label: 'Rests completed',
-                value: props.player.statistics.restCount,
-            },
-            {
-                label: 'Veterinary visits',
-                value: props.player.statistics.veterinaryCount,
-            },
-        ],
-    },
-    {
-        label: 'Activities and achievements',
-        icon: Dumbbell,
-        entries: [
-            { label: 'Walks completed', value: props.player.walksCount },
-            {
-                label: 'Training sessions completed',
-                value: props.player.trainingsCount,
-            },
-            {
-                label: 'Skill lessons completed',
-                value: props.player.statistics.skillLessonsCount,
-            },
-            {
-                label: 'Dog work shifts completed',
-                value: props.player.statistics.workCount,
-            },
-            { label: 'Exhibition wins', value: props.player.exhibitionWins },
-            { label: 'Competition wins', value: props.player.competitionWins },
-        ],
-    },
-]);
 </script>
 
 <template>
@@ -239,56 +148,7 @@ const statisticGroups = computed(() => [
                 </p>
             </SurfaceCard>
         </div>
-        <SurfaceCard class="player-statistics-section">
-            <div class="player-statistics-heading">
-                <h3>
-                    <BarChart3 :size="24" aria-hidden="true" />{{
-                        t('Player statistics')
-                    }}
-                </h3>
-                <span>{{ t('Across all dogs, all time') }}</span>
-            </div>
-            <dl class="player-statistics">
-                <div v-for="stat in highlights" :key="stat.label">
-                    <dt>
-                        <component
-                            :is="stat.icon"
-                            :size="25"
-                            aria-hidden="true"
-                        /><span>{{ t(stat.label) }}</span>
-                    </dt>
-                    <dd>{{ number(stat.value) }}</dd>
-                </div>
-            </dl>
-            <div class="player-statistics-groups">
-                <section v-for="group in statisticGroups" :key="group.label">
-                    <h4>
-                        <component
-                            :is="group.icon"
-                            :size="18"
-                            aria-hidden="true"
-                        />
-                        {{ t(group.label) }}
-                    </h4>
-                    <dl class="player-statistics-details">
-                        <div v-for="stat in group.entries" :key="stat.label">
-                            <dt>{{ t(stat.label) }}</dt>
-                            <dd>{{ number(stat.value) }}</dd>
-                        </div>
-                    </dl>
-                </section>
-            </div>
-            <p v-if="lastAction" class="player-last-action">
-                <CalendarDays :size="17" aria-hidden="true" />
-                <span
-                    >{{ t('Last dog activity') }}:
-                    <time
-                        :datetime="player.statistics.lastActionAt ?? undefined"
-                        >{{ lastAction }}</time
-                    >
-                </span>
-            </p>
-        </SurfaceCard>
+        <PlayerStatistics :player="player" />
         <slot name="daily-work" />
         <div v-if="$slots.actions" class="player-card-actions">
             <slot name="actions" />

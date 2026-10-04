@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pets\Services;
 
+use App\Models\BreedingLitter;
 use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
@@ -12,9 +13,11 @@ use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\GameEventSimulator;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Players\DTO\PlayerProgressFact;
+use App\Modules\Players\Enums\AchievementMetric;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 final class GameEventSettlement
@@ -34,6 +37,7 @@ final class GameEventSettlement
      */
     public function settle(GameEvent $event, Collection $owners, Collection $pets, CarbonImmutable $at): void
     {
+        $winningPetIds = [];
         foreach ($event->entries()->where('status', 'frozen')->get()->groupBy('division') as $participants) {
             $results = [];
             foreach ($participants as $entry) {
@@ -59,6 +63,9 @@ final class GameEventSettlement
                         $this->wallet->change($owner, 'coins', $prize, 'event-entry:'.$entry->id.':prize', 'event_prize');
                     }
                     $this->recordCareer($event, $entry, $pet);
+                    if ($entry->rank === 1 && ! $entry->result['eliminated']) {
+                        $winningPetIds[] = $pet->id;
+                    }
                     $this->progress->award($owner, $entry, function (GameEventEntry $completed) use ($event): PlayerProgressFact {
                         $show = GameEventDiscipline::from($event->discipline)->isExhibition();
                         $won = $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true);
@@ -75,6 +82,17 @@ final class GameEventSettlement
                         $pet->last_activity_at = $event->ends_at;
                         $pet->save();
                     }
+                }
+            }
+        }
+        if ($winningPetIds !== []) {
+            $breederIds = BreedingLitter::query()->whereNotNull('delivered_at')
+                ->whereHas('puppies', fn (Builder $query): Builder => $query->whereIn('pet_id', $winningPetIds))
+                ->whereIn('initiator_id', $owners->keys())->pluck('initiator_id')->unique();
+            foreach ($breederIds as $breederId) {
+                $breeder = $owners->get($breederId);
+                if ($breeder !== null) {
+                    $this->progress->refreshAchievements($breeder, [AchievementMetric::TitledOffspring]);
                 }
             }
         }

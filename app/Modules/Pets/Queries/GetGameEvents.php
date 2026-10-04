@@ -10,6 +10,7 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\GameEventDivisionData;
 use App\Modules\Pets\DTO\PetTitleData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,6 +90,11 @@ final class GetGameEvents
             'fee' => $event->rules['fee'],
             'prizes' => $event->rules['prizes'],
             'entryCount' => (int) $event->getAttribute('entries_count'),
+            'participationRules' => [
+                'playerDailyLimit' => (int) config('game-events.daily_limit', 3),
+                'petDailyLimit' => (int) config('game-events.pet_daily_limit', 2),
+                'petRestHours' => (int) config('game-events.pet_rest_hours', 2),
+            ],
             'canRegister' => $event->status === 'registration' && $at->greaterThanOrEqualTo($event->registration_opens_at) && $at->lessThan($event->closes_at) && $own === null,
             'stages' => array_map(fn (string $key): array => ['key' => $key, 'label' => $key, 'options' => ['careful', 'balanced', 'bold']], $event->rules['stages']),
         ];
@@ -109,22 +115,11 @@ final class GetGameEvents
             'name' => $entry->snapshot['name'] ?? $entry->pet->name ?? __('events.club_dog', [], $locale),
             'ownerName' => $entry->is_npc ? null : $entry->user?->username,
             'isNpc' => $entry->is_npc, 'division' => $entry->division, 'status' => $entry->status,
-            'divisionLabel' => $this->divisionLabel($entry, $locale, $breed),
+            'divisionLabel' => GameEventDivisionData::label($entry->division, $locale, $breed),
             'plan' => $entry->user_id === $user->id || $entry->status !== 'registered' ? $entry->plan : ['stages' => [], 'offspring_ids' => []],
             'gearIds' => $entry->user_id === $user->id ? $entry->gear_ids : [],
             'rank' => $entry->rank, 'prize' => $entry->prize, 'result' => $result,
         ];
-    }
-
-    private function divisionLabel(GameEventEntry $entry, string $locale, ?Dog $breed): string
-    {
-        [$tier, $category] = array_pad(explode(':', $entry->division, 2), 2, 'all');
-        $label = __('events.classes.'.$tier, [], $locale);
-        if (str_starts_with($category, 'breed-')) {
-            return $label.' · '.($breed?->localizedName($locale) ?? $category);
-        }
-
-        return $label.' · '.__('events.sizes.'.$category, [], $locale);
     }
 
     /** @return list<array<string, mixed>> */

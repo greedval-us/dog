@@ -12,7 +12,9 @@ use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Inventory\DTO\PurchaseItemData;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
+use App\Modules\Players\Enums\AchievementMetric;
 use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +22,7 @@ use InvalidArgumentException;
 
 final class PurchaseItem
 {
-    public function __construct(private PlayerWallet $wallet, private CompetitionAmmunitionRules $ammunition) {}
+    public function __construct(private PlayerWallet $wallet, private CompetitionAmmunitionRules $ammunition, private PlayerProgress $progress) {}
 
     /** One token identifies one purchase of one instance, including after its destruction. */
     public function handle(User $user, PurchaseItemData $data): ItemPurchase
@@ -109,6 +111,9 @@ final class PurchaseItem
                 'item_purchase_id' => $purchase->id,
                 'remaining_uses' => $item->usage_limit,
             ]);
+            if ($this->ammunition->metadata($snapshot['characteristics']) !== null) {
+                $this->progress->refreshAchievements($owner, [AchievementMetric::AmmunitionPurchases]);
+            }
 
             return $purchase;
         }, attempts: 3);

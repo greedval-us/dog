@@ -3169,6 +3169,144 @@
     outline-offset: 3px;
     border-radius: 16px;
 }
+.pet-career > [data-slot='card-content'],
+.pet-career-awards,
+.pet-career-results {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+.pet-career-summary {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.pet-career-summary dl {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    min-width: 260px;
+}
+.pet-career-summary dl > div {
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+}
+.pet-career-summary dt,
+.pet-career-hint,
+.pet-career-notice p,
+.pet-career-title-list p,
+.pet-career-result-copy p,
+.player-statistics-hint {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.pet-career-summary dd {
+    margin-top: 4px;
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.pet-career h3,
+.pet-career-notice {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.pet-career h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+.pet-career h3 svg,
+.pet-career-title-list > li > svg {
+    color: var(--sage-ink);
+    flex-shrink: 0;
+}
+.pet-career-title-list,
+.pet-career-result-list {
+    display: grid;
+    gap: 12px;
+}
+.pet-career-title-list > li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--sage-surface);
+}
+.pet-career-title-list > li > div {
+    flex: 1;
+    min-width: 180px;
+}
+.pet-career h4 {
+    font-size: 14px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.pet-career-title-list h4 span {
+    display: inline-block;
+    margin-left: 10px;
+    color: var(--sage-ink);
+    font-size: 11px;
+    font-weight: 600;
+}
+.pet-career-result-list > li {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+}
+.pet-career-place {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.pet-career-result-list .is-winner .pet-career-place {
+    color: var(--sage-ink);
+}
+.pet-career-prize {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.player-statistics-hint {
+    margin-top: 24px;
+}
+@media (max-width: 760px) {
+    .pet-career-result-list > li {
+        grid-template-columns: 90px minmax(0, 1fr);
+    }
+    .pet-career-result-list .ui-button {
+        justify-self: start;
+    }
+}
+@media (max-width: 440px) {
+    .pet-career-summary dl {
+        min-width: 0;
+        width: 100%;
+        flex-basis: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .pet-career-title-list > li > div {
+        min-width: 0;
+        flex-basis: calc(100% - 40px);
+    }
+}
 .pet-history-content,
 .pet-history-panel,
 .pet-history-loading {

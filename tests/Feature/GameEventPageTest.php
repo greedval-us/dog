@@ -27,7 +27,26 @@ test('the calendar filters monthly shows and does not expose the event random se
         ->assertInertia(fn (Assert $page) => $page->component('GameEvents')
             ->has('events', 4)->where('events.0.frequency', 'monthly')
             ->where('filters.kind', 'exhibition')->missing('events.0.seed')
+            ->where('events.0.participationRules', ['playerDailyLimit' => 3, 'petDailyLimit' => 2, 'petRestHours' => 2])
             ->missing('dogs')->missing('equipment')->missing('disciplines'));
+});
+
+test('event participation rules use server configuration and remain present during partial polling', function () {
+    $this->freezeTime();
+    config(['game-events.daily_limit' => 7, 'game-events.pet_daily_limit' => 5, 'game-events.pet_rest_hours' => 4]);
+    $user = User::factory()->create();
+    $event = GameEvent::factory()->create();
+
+    $initial = $this->actingAs($user)->get(route('game-events.show', $event))
+        ->assertInertia(fn (Assert $page) => $page->component('GameEventShow')
+            ->where('event.participationRules', ['playerDailyLimit' => 7, 'petDailyLimit' => 5, 'petRestHours' => 4]));
+
+    $this->withHeaders([
+        'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'GameEventShow', 'X-Inertia-Partial-Data' => 'event,entry,serverNow',
+        'X-Inertia-Version' => $initial->viewData('page')['version'],
+    ])->get(route('game-events.show', $event))
+        ->assertJsonPath('props.event.participationRules', ['playerDailyLimit' => 7, 'petDailyLimit' => 5, 'petRestHours' => 4])
+        ->assertJsonMissingPath('props.dogs')->assertJsonMissingPath('props.equipment');
 });
 
 test('an entry can be registered edited and cancelled with its full fee returned', function () {

@@ -30,6 +30,8 @@ return [
         'token' => 'This operation has already been used with different details.',
         'entered' => 'You already have an entry in this event.',
         'daily_limit' => 'You already have three performances planned for this day. Choose another date.',
+        'pet_daily_limit' => 'This dog has reached its limit of :pet_daily_limit physical events on the selected Moscow calendar day. Choose another date.',
+        'rest_period' => 'Your dog needs at least :pet_rest_hours hours of rest between one event ending and preparation for the next beginning.',
         'reserved' => 'This time is already reserved for your dog’s performance.',
         'full' => 'This class has no places left.',
         'plan' => 'Choose a tactic for all three stages.',

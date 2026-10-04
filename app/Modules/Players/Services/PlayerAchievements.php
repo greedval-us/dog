@@ -8,10 +8,13 @@ use App\Models\PetCareAction;
 use App\Models\PlayerAchievement;
 use App\Models\User;
 use App\Modules\Players\Enums\AchievementMetric;
+use App\Modules\Players\Queries\GetPlayerGameStatistics;
 use Illuminate\Support\Facades\DB;
 
 final class PlayerAchievements
 {
+    public function __construct(private GetPlayerGameStatistics $gameStatistics) {}
+
     /**
      * Call within the gameplay transaction to preserve unlocks alongside their completed action.
      *
@@ -47,6 +50,11 @@ final class PlayerAchievements
                 'competition_wins' => $owner->competition_wins,
                 'exhibition_wins' => $owner->exhibition_wins,
             ];
+            $gameMetrics = array_values(array_filter(array_map(AchievementMetric::tryFrom(...), $pendingMetrics),
+                static fn (?AchievementMetric $metric): bool => $metric !== null && $metric->usesGameHistory()));
+            if ($gameMetrics !== []) {
+                $metrics = [...$metrics, ...$this->gameStatistics->handle($owner, $gameMetrics)->achievementMetrics()];
+            }
             if (in_array('active_dogs', $pendingMetrics, true)) {
                 $metrics['active_dogs'] = $owner->pets()->active()->count();
             }

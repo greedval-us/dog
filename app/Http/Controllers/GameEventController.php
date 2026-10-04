@@ -109,6 +109,9 @@ class GameEventController extends Controller
     {
         $key = $exception->getMessage();
 
-        return str_starts_with($key, 'events.') ? __($key) : __('events.errors.unavailable');
+        return str_starts_with($key, 'events.') ? __($key, [
+            'pet_daily_limit' => (int) config('game-events.pet_daily_limit', 2),
+            'pet_rest_hours' => (int) config('game-events.pet_rest_hours', 2),
+        ]) : __('events.errors.unavailable');
     }
 }

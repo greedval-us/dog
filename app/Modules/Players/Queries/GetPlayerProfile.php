@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class GetPlayerProfile
 {
+    public function __construct(private GetPlayerGameStatistics $gameStatistics) {}
+
     public function handle(User $user): PlayerProfileData
     {
         $player = User::query()->withCount(['pets' => $this->activePets(...)])->findOrFail($user->id);
 
-        return PlayerProfileData::fromModel($player, $player->pets_count);
+        return PlayerProfileData::fromModel($player, $player->pets_count, $this->gameStatistics->handle($player));
     }
 
     /** @param Builder<Pet> $query */

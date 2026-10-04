@@ -430,6 +430,53 @@ const {
             </form>
         </SurfaceCard>
         <aside class="event-rules">
+            <SurfaceCard :title="t('Participation rules')">
+                <p>
+                    {{
+                        t(
+                            'A player may enter up to {limit} events per Moscow day across all dogs and disciplines.',
+                            {
+                                limit: number(
+                                    event.participationRules.playerDailyLimit,
+                                ),
+                            },
+                        )
+                    }}
+                </p>
+                <p v-if="event.discipline === 'progeny'">
+                    {{
+                        t(
+                            'Progeny judging does not count toward the dog’s physical event limit and does not require event rest. The player’s daily limit still applies.',
+                        )
+                    }}
+                </p>
+                <template v-else>
+                    <p>
+                        {{
+                            t(
+                                'A dog may enter up to {limit} physical competitions and exhibitions combined per Moscow day.',
+                                {
+                                    limit: number(
+                                        event.participationRules.petDailyLimit,
+                                    ),
+                                },
+                            )
+                        }}
+                    </p>
+                    <p>
+                        {{
+                            t(
+                                'Allow at least {hours} h from the previous event’s end until the next event’s registration closes, when preparation begins.',
+                                {
+                                    hours: number(
+                                        event.participationRules.petRestHours,
+                                    ),
+                                },
+                            )
+                        }}
+                    </p>
+                </template>
+            </SurfaceCard>
             <SurfaceCard :title="t('How judging works')"
                 ><p>{{ t(`events.judging.${event.discipline}`) }}</p>
                 <p>

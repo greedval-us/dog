@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pets\Services;
 
+use App\Models\BreedingLitter;
 use App\Models\GameEvent;
 use App\Models\Pet;
 use App\Models\User;
@@ -70,7 +71,14 @@ final class GameEventProcessor
                 return false;
             }
             $entries = $event->entries()->orderBy('id')->get();
-            $owners = User::query()->whereIn('id', $entries->pluck('user_id')->filter())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $ownerIds = $entries->pluck('user_id')->filter();
+            if ($at->greaterThanOrEqualTo($event->ends_at)) {
+                $breeders = BreedingLitter::query()->whereNotNull('initiator_id')->whereNotNull('delivered_at')
+                    ->whereHas('puppies', fn (Builder $puppies): Builder => $puppies->whereIn('pet_id', $entries->pluck('pet_id')->filter()))
+                    ->distinct()->pluck('initiator_id');
+                $ownerIds = $ownerIds->merge($breeders);
+            }
+            $owners = User::query()->whereIn('id', $ownerIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $pets = Pet::query()->whereIn('id', $entries->pluck('pet_id')->filter())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($event->status === 'registration') {
                 $this->freezing->freeze($event, $entries, $owners, $pets, $at, $thresholds);

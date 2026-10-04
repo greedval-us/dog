@@ -53,7 +53,15 @@ test('other players can view the card by username without receiving private acco
                 'statistics' => ['actionsCount' => 97, 'feedingCount' => 8, 'wateringCount' => 9,
                     'playCount' => 10, 'groomingCount' => 8, 'restCount' => 9, 'skillLessonsCount' => 2,
                     'workCount' => 4, 'veterinaryCount' => 4, 'activeDays' => 11,
-                    'lastActionAt' => '2026-09-30T18:00:00.000000Z'],
+                    'lastActionAt' => '2026-09-30T18:00:00.000000Z',
+                    'competitionStarts' => 0, 'competitionPodiums' => 0, 'competitionWins' => 4,
+                    'exhibitionStarts' => 0, 'exhibitionPodiums' => 0, 'exhibitionWins' => 3,
+                    'agilityWins' => 0, 'noseworkWins' => 0, 'canicrossWins' => 0, 'conformationWins' => 0,
+                    'progenyStarts' => 0, 'progenyWins' => 0, 'weeklyEventWins' => 0, 'monthlyEventWins' => 0,
+                    'titlesCount' => 0, 'titledDogsCount' => 0, 'eventPrizeCoins' => 0, 'eventFeesCoins' => 0,
+                    'littersStarted' => 0, 'littersBorn' => 0, 'puppiesBorn' => 0, 'puppiesKept' => 0,
+                    'puppiesPurchased' => 0, 'puppiesSold' => 0, 'puppySalesCoins' => 0,
+                    'titledOffspring' => 0, 'ammunitionPurchases' => 0],
             ])
         )->assertDontSee($player->email);
 });
