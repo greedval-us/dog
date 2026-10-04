@@ -16,6 +16,9 @@ import { useI18n } from '@/composables/useI18n';
 import { sizeLabels } from '@/lib/petLabels';
 import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
+import { Link } from '@inertiajs/vue3';
+import { index as gameEvents } from '@/routes/game-events';
+import { index as veterinarian } from '@/routes/veterinarian';
 
 withDefaults(
     defineProps<{ pet: PlayerPet; care: PetCare | null; readOnly?: boolean }>(),
@@ -30,13 +33,29 @@ const traits: Record<string, string> = {
     fast_learner: 'Quick learner',
 };
 const events = [
-    { label: 'Dog shows', icon: Trophy, action: 'Apply', tone: 'amber' },
-    { label: 'Competitions', icon: Medal, action: 'Prepare', tone: 'blue' },
+    {
+        label: 'Dog shows',
+        icon: Trophy,
+        action: 'Apply',
+        tone: 'amber',
+        href: gameEvents({ query: { kind: 'exhibition' } }),
+        description: 'Show your dog’s breed type and earn titles.',
+    },
+    {
+        label: 'Competitions',
+        icon: Medal,
+        action: 'Prepare',
+        tone: 'blue',
+        href: gameEvents({ query: { kind: 'competition' } }),
+        description: 'Choose a discipline and prepare your next start.',
+    },
     {
         label: 'Veterinary checkup',
         icon: Stethoscope,
         action: 'Schedule',
         tone: 'rose',
+        href: veterinarian(),
+        description: 'Treatment and preventive care for your dog.',
     },
 ] as const;
 </script>
@@ -101,6 +120,44 @@ const events = [
                 ><Pencil :size="14" />{{ t('Edit description')
                 }}<span class="coming-soon-badge">{{ t('Soon') }}</span></Button
             >
+            <div
+                v-if="pet.exterior || pet.titles?.length"
+                class="pet-event-credentials"
+            >
+                <div v-if="pet.exterior" class="event-exterior">
+                    <h3>{{ t('Breed conformation') }}</h3>
+                    <dl class="event-exterior-values">
+                        <div v-for="(value, key) in pet.exterior" :key="key">
+                            <dt>{{ t(`events.exterior.${key}`) }}</dt>
+                            <dd>{{ number(value) }} / 100</dd>
+                        </div>
+                    </dl>
+                </div>
+                <div v-if="pet.titles?.length" class="event-exterior">
+                    <h3>{{ t('Dog titles') }}</h3>
+                    <ul class="event-title-list">
+                        <li
+                            v-for="(title, titleIndex) in pet.titles"
+                            :key="titleIndex"
+                        >
+                            <Trophy :size="16" aria-hidden="true" /><span
+                                >{{ title.name
+                                }}<small
+                                    >{{
+                                        t(
+                                            `events.discipline.${title.discipline}`,
+                                        )
+                                    }}
+                                    ·
+                                    {{
+                                        t(`events.frequency.${title.frequency}`)
+                                    }}</small
+                                ></span
+                            >
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </SurfaceCard>
         <SurfaceCard
             :title="t('Main attributes')"
@@ -138,7 +195,6 @@ const events = [
             </div>
             <div class="pet-section-heading pet-events-heading">
                 <h2>{{ t('Upcoming events') }}</h2>
-                <span class="coming-soon-badge">{{ t('Soon') }}</span>
             </div>
             <ul class="pet-events">
                 <li
@@ -149,24 +205,15 @@ const events = [
                     <component :is="event.icon" :size="20" aria-hidden="true" />
                     <span
                         >{{ t(event.label)
-                        }}<small>{{
-                            t('This feature is in development.')
-                        }}</small></span
+                        }}<small>{{ t(event.description) }}</small></span
                     >
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        disabled
-                        :title="
-                            t('{feature} — coming soon', {
-                                feature: t(event.label),
-                            })
-                        "
-                        ><CalendarDays
-                            v-if="event.action === 'Schedule'"
-                            :size="14"
-                        />{{ t(event.action) }}</Button
+                    <Button as-child variant="secondary" size="sm"
+                        ><Link :href="event.href"
+                            ><CalendarDays
+                                v-if="event.action === 'Schedule'"
+                                :size="14"
+                            />{{ t(event.action) }}</Link
+                        ></Button
                     >
                 </li>
             </ul>

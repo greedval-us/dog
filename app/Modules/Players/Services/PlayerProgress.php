@@ -3,6 +3,7 @@
 namespace App\Modules\Players\Services;
 
 use App\Models\DogWorkShift;
+use App\Models\GameEventEntry;
 use App\Models\PetCareAction;
 use App\Models\PetSkillLesson;
 use App\Models\User;
@@ -24,7 +25,7 @@ final class PlayerProgress
     }
 
     /** Call inside the gameplay transaction so the action, reward and counters commit together. */
-    public function award(User $user, PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit $receipt): int
+    public function award(User $user, PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): int
     {
         if (! $receipt->exists) {
             throw new InvalidArgumentException('Player progress requires a saved action receipt.');
@@ -32,7 +33,7 @@ final class PlayerProgress
 
         return DB::transaction(function () use ($user, $receipt): int {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
-            /** @var PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit $completed */
+            /** @var PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $completed */
             $completed = $receipt->newQuery()->lockForUpdate()->findOrFail($receipt->getKey());
 
             if ($completed->user_id !== $owner->id || $this->completedAt($completed) === null) {
@@ -64,6 +65,8 @@ final class PlayerProgress
                 'pet_statistics' => $statistics,
                 'walks_count' => $owner->walks_count + (int) ($completed instanceof PetCareAction && $completed->group === 'walk'),
                 'trainings_count' => $owner->trainings_count + (int) ($code === 'training' || $code === 'skill_training'),
+                'competition_wins' => $owner->competition_wins + (int) ($completed instanceof GameEventEntry && $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true) && ! in_array($completed->event->discipline, ['conformation', 'progeny'], true)),
+                'exhibition_wins' => $owner->exhibition_wins + (int) ($completed instanceof GameEventEntry && $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true) && in_array($completed->event->discipline, ['conformation', 'progeny'], true)),
                 'active_days' => $owner->active_days + (int) ($owner->last_pet_action_at?->setTimezone($dayTimezone)->toDateString() !== $awardedAt->setTimezone($dayTimezone)->toDateString()),
                 'last_pet_action_at' => $awardedAt,
             ])->save();
@@ -76,17 +79,18 @@ final class PlayerProgress
         }, attempts: 3);
     }
 
-    private function eventCode(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit $receipt): string
+    private function eventCode(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): string
     {
         return match (true) {
             $receipt instanceof PetCareAction => $receipt->group === 'training' ? 'training' : 'care.'.$receipt->variant,
             $receipt instanceof DogWorkShift => 'work',
             $receipt instanceof PetSkillLesson => 'skill_training',
             $receipt instanceof VeterinaryVisit => 'veterinary.'.$receipt->service->value,
+            $receipt instanceof GameEventEntry => in_array($receipt->event->discipline, ['conformation', 'progeny'], true) ? 'exhibition' : 'competition',
         };
     }
 
-    private function completedAt(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit $receipt): ?CarbonImmutable
+    private function completedAt(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): ?CarbonImmutable
     {
         if (($receipt instanceof PetCareAction || $receipt instanceof DogWorkShift) && $receipt->cancelled_at !== null) {
             return null;
@@ -96,6 +100,7 @@ final class PlayerProgress
             $receipt instanceof PetCareAction, $receipt instanceof DogWorkShift => $receipt->completed_at,
             $receipt instanceof PetSkillLesson => $receipt->trained_at,
             $receipt instanceof VeterinaryVisit => $receipt->performed_at,
+            $receipt instanceof GameEventEntry => $receipt->status === 'completed' && ! $receipt->is_npc ? $receipt->completed_at : null,
         };
     }
 }

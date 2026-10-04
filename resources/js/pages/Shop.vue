@@ -86,6 +86,9 @@ function buy() {
         !offer ||
         purchasing.value ||
         (offer.stock !== null && offer.stock < 1) ||
+        offer.soldOut ||
+        (offer.purchaseLimit != null &&
+            (offer.purchasedThisPeriod ?? 0) >= offer.purchaseLimit) ||
         Number(page.props.auth.user.coins) < offer.price
     )
         return;
@@ -180,9 +183,14 @@ function buy() {
                     >
                         <span class="shop-item-image">
                             <ItemArtwork :category="offer.categoryCode" />
-                            <span class="shop-quality"
+                            <span v-if="!offer.competition" class="shop-quality"
                                 >{{ t('Quality') }}
                                 {{ number(offer.quality) }}/10</span
+                            >
+                            <span
+                                v-if="offer.soldOut || offer.stock === 0"
+                                class="shop-stock-badge"
+                                >{{ t('Sold out') }}</span
                             >
                             <span
                                 v-if="selectedOffer?.id === offer.id"
@@ -197,6 +205,15 @@ function buy() {
                             <strong class="shop-item-name">{{
                                 offer.name
                             }}</strong>
+                            <span
+                                v-if="offer.stock !== null"
+                                class="shop-stock-count"
+                                >{{
+                                    t('In stock: {count}', {
+                                        count: number(offer.stock),
+                                    })
+                                }}</span
+                            >
                             <span class="shop-item-uses"
                                 >{{
                                     t('Uses: {count}', {

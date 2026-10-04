@@ -117,6 +117,21 @@ test('litter generation rejects missing parent characteristics', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
+test('generated puppies inherit distinct exterior qualities from both parents', function () {
+    $generator = new PuppyGenerator(new Randomizer(new Mt19937(42)), new BreedingGeneticsCalculator);
+    $puppies = $generator->generate(
+        puppyGeneratorParentStats(50, 100), puppyGeneratorParentStats(50, 100), ['black' => 1],
+        ['type' => 90, 'structure' => 40, 'movement' => 60],
+        ['type' => 70, 'structure' => 80, 'movement' => 30],
+    );
+
+    foreach ($puppies as $puppy) {
+        expect($puppy['exterior']['type'])->toBeBetween(75, 85);
+        expect($puppy['exterior']['structure'])->toBeBetween(55, 65);
+        expect($puppy['exterior']['movement'])->toBeBetween(40, 50);
+    }
+});
+
 test('litter generation rejects empty or nonpositive color weights', function (array $weights) {
     $generator = new PuppyGenerator(new Randomizer(new Mt19937(123)), new BreedingGeneticsCalculator);
 

@@ -1,4 +1,5 @@
 import type { StatusEffect, ItemRisk } from '@/types/pet-care';
+import type { EventCompetitionGear } from '@/types/game-event';
 export type ShopCategory = {
     id: number;
     code: string;
@@ -17,9 +18,14 @@ export type ShopOffer = {
     bonuses: Record<string, number>;
     grantedEffects: StatusEffect[];
     risks: ItemRisk[];
-    characteristics: Record<string, number | string | boolean>;
+    characteristics: Record<string, unknown>;
     currency: 'coins';
     price: number;
     stock: number | null;
     owned: number;
+    competition?: EventCompetitionGear | null;
+    nextRestockAt?: string | null;
+    purchaseLimit?: number | null;
+    purchasedThisPeriod?: number;
+    soldOut?: boolean;
 };

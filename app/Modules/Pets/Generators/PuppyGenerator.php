@@ -3,6 +3,7 @@
 namespace App\Modules\Pets\Generators;
 
 use App\Modules\Pets\Calculators\BreedingGeneticsCalculator;
+use App\Modules\Pets\Calculators\ExteriorGeneticsCalculator;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use InvalidArgumentException;
@@ -10,15 +11,17 @@ use Random\Randomizer;
 
 final class PuppyGenerator
 {
-    public function __construct(private Randomizer $randomizer, private BreedingGeneticsCalculator $genetics) {}
+    public function __construct(private Randomizer $randomizer, private BreedingGeneticsCalculator $genetics, private ExteriorGeneticsCalculator $exterior = new ExteriorGeneticsCalculator) {}
 
     /**
      * @param  array<string, array{value: int, potential: int}>  $fatherStats
      * @param  array<string, array{value: int, potential: int}>  $motherStats
      * @param  array<string, int>  $colorWeights
-     * @return list<array{sex: string, coat_color: string, potentials: array<string, int>}>
+     * @param  array{type: int, structure: int, movement: int}  $fatherExterior
+     * @param  array{type: int, structure: int, movement: int}  $motherExterior
+     * @return list<array{sex: string, coat_color: string, potentials: array<string, int>, exterior: array{type: int, structure: int, movement: int}}>
      */
-    public function generate(array $fatherStats, array $motherStats, array $colorWeights): array
+    public function generate(array $fatherStats, array $motherStats, array $colorWeights, array $fatherExterior = ['type' => 75, 'structure' => 75, 'movement' => 75], array $motherExterior = ['type' => 75, 'structure' => 75, 'movement' => 75]): array
     {
         if ($colorWeights === [] || array_filter($colorWeights, static fn (int $weight): bool => $weight < 1) !== []) {
             throw new InvalidArgumentException('A positive offspring coat distribution is required.');
@@ -58,6 +61,11 @@ final class PuppyGenerator
                 'sex' => $sexes[$this->randomizer->getInt(0, count($sexes) - 1)]->value,
                 'coat_color' => $this->drawCoat($colorWeights),
                 'potentials' => $potentials,
+                'exterior' => $this->exterior->inherit($fatherExterior, $motherExterior, [
+                    'type' => $this->randomizer->getInt(-5, 5),
+                    'structure' => $this->randomizer->getInt(-5, 5),
+                    'movement' => $this->randomizer->getInt(-5, 5),
+                ]),
             ];
         }
 

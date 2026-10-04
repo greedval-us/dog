@@ -15,12 +15,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int $item_id
  * @property int $shop_offer_id
  * @property int|null $currency_transaction_id
+ * @property int|null $shop_delivery_id
  * @property string $token
  * @property string $currency
  * @property int $price_paid
- * @property array{name: array<string, string>, quality: int, usage_limit: int, characteristics: array<string, int|float|string|bool>} $item_snapshot
+ * @property array{name: array<string, string>, quality: int, usage_limit: int, characteristics: array<string, mixed>} $item_snapshot
  */
-#[Fillable(['user_id', 'item_id', 'shop_offer_id', 'currency_transaction_id', 'token', 'currency', 'price_paid', 'item_snapshot'])]
+#[Fillable(['user_id', 'item_id', 'shop_offer_id', 'shop_delivery_id', 'currency_transaction_id', 'token', 'currency', 'price_paid', 'item_snapshot'])]
 class ItemPurchase extends Model
 {
     /** @use HasFactory<ItemPurchaseFactory> */
@@ -44,6 +45,12 @@ class ItemPurchase extends Model
         return $this->belongsTo(ShopOffer::class, 'shop_offer_id');
     }
 
+    /** @return BelongsTo<ShopDelivery, $this> */
+    public function delivery(): BelongsTo
+    {
+        return $this->belongsTo(ShopDelivery::class, 'shop_delivery_id');
+    }
+
     /** @return HasOne<InventoryItem, $this> */
     public function inventoryItem(): HasOne
     {
@@ -63,6 +70,7 @@ class ItemPurchase extends Model
             'user_id' => 'integer',
             'item_id' => 'integer',
             'shop_offer_id' => 'integer',
+            'shop_delivery_id' => 'integer',
             'currency_transaction_id' => 'integer',
             'price_paid' => 'integer',
             'item_snapshot' => 'array',

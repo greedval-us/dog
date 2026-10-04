@@ -9,6 +9,7 @@ import {
     Leaf,
     Mars,
     ShieldCheck,
+    Trophy,
     Venus,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -190,5 +191,30 @@ const traits: Record<string, string> = {
                 <DogStats :values="profile.stats" variant="bars" />
             </SurfaceCard>
         </div>
+        <SurfaceCard v-if="profile.exterior" :title="t('Breed conformation')">
+            <dl class="event-exterior-values">
+                <div v-for="(value, key) in profile.exterior" :key="key">
+                    <dt>{{ t(`events.exterior.${key}`) }}</dt>
+                    <dd>{{ number(value) }} / 100</dd>
+                </div>
+            </dl>
+        </SurfaceCard>
+        <SurfaceCard v-if="profile.titles?.length" :title="t('Dog titles')">
+            <ul class="event-title-list">
+                <li
+                    v-for="(title, titleIndex) in profile.titles"
+                    :key="titleIndex"
+                >
+                    <Trophy :size="18" aria-hidden="true" /><span
+                        >{{ title.name
+                        }}<small
+                            >{{ t(`events.discipline.${title.discipline}`) }} ·
+                            {{ t(`events.frequency.${title.frequency}`) }} ·
+                            {{ date(title.awardedAt) }}</small
+                        ></span
+                    >
+                </li>
+            </ul>
+        </SurfaceCard>
     </div>
 </template>

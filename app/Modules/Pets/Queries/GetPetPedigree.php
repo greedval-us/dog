@@ -16,7 +16,7 @@ final class GetPetPedigree
     /** @return array{root: array<string, mixed>, hasAncestors: bool, generations: int} */
     public function handle(int $petId, string $locale): array
     {
-        $root = Pet::query()->with('dog')->findOrFail($petId);
+        $root = Pet::query()->with(['dog', 'titles'])->findOrFail($petId);
         $pets = [$root->id => $root];
         $frontier = [$root];
 
@@ -35,7 +35,7 @@ final class GetPetPedigree
                 break;
             }
 
-            $frontier = Pet::query()->with('dog')->whereIn('id', array_values($parentIds))->get()->all();
+            $frontier = Pet::query()->with(['dog', 'titles'])->whereIn('id', array_values($parentIds))->get()->all();
 
             foreach ($frontier as $parent) {
                 $pets[$parent->id] = $parent;

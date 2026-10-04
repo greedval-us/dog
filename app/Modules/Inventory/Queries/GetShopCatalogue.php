@@ -5,17 +5,21 @@ namespace App\Modules\Inventory\Queries;
 use App\Models\ItemCategory;
 use App\Models\ShopOffer;
 use App\Models\User;
+use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 
-/** @phpstan-import-type Risk from ItemEffectRules */
+/**
+ * @phpstan-import-type Risk from ItemEffectRules
+ * @phpstan-import-type Ammunition from CompetitionAmmunitionRules
+ */
 final class GetShopCatalogue
 {
-    public function __construct(private GetShopOffers $offers, private ItemEffectRules $riskRules) {}
+    public function __construct(private GetShopOffers $offers, private ItemEffectRules $riskRules, private CompetitionAmmunitionRules $ammunition) {}
 
     /**
      * @return array{
      *     categories: array<int, array{id: int, code: string, name: string}>,
-     *     offers: array<int, array{id: int, itemId: int, name: string, description: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, characteristics: array<string, int|float|string|bool>, currency: string, price: int, stock: int|null, owned: int}>,
+     *     offers: array<int, array{id: int, itemId: int, name: string, description: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, characteristics: array<string, mixed>, currency: string, price: int, stock: int|null, owned: int, competition: Ammunition|null, soldOut: bool, nextRestockAt: string|null, purchaseLimit: int|null, purchasedThisPeriod: int}>,
      *     nextCursor: string|null, previousCursor: string|null, inventoryCount: int
      * }
      */
@@ -26,12 +30,15 @@ final class GetShopCatalogue
             ->whereIn('item_id', $offers->getCollection()->pluck('item_id'))
             ->selectRaw('item_id, COUNT(*) as quantity')
             ->groupBy('item_id')->pluck('quantity', 'item_id');
+        $periodPurchases = $user->itemPurchases()->whereIn('shop_offer_id', $offers->getCollection()->pluck('id'))
+            ->whereIn('shop_delivery_id', $offers->getCollection()->pluck('current_delivery_id')->filter())
+            ->selectRaw('shop_delivery_id, COUNT(*) as quantity')->groupBy('shop_delivery_id')->pluck('quantity', 'shop_delivery_id');
 
         return [
             'categories' => ItemCategory::query()->where('is_active', true)
                 ->orderBy('sort_order')->orderBy('id')->get()
                 ->map(fn (ItemCategory $category): array => CatalogueLabels::category($category, $locale))->all(),
-            'offers' => $offers->getCollection()->map(function (ShopOffer $offer) use ($locale, $owned): array {
+            'offers' => $offers->getCollection()->map(function (ShopOffer $offer) use ($locale, $owned, $periodPurchases): array {
                 $item = $offer->item;
                 $category = $item->category;
                 $outcomes = $this->riskRules->forItem($item->effectRuleSnapshots(), $item->quality, $item->name);
@@ -53,6 +60,11 @@ final class GetShopCatalogue
                     'price' => $offer->price,
                     'stock' => $offer->stock,
                     'owned' => (int) ($owned[$item->id] ?? 0),
+                    'competition' => $this->ammunition->metadata($item->characteristics),
+                    'soldOut' => $offer->stock === 0,
+                    'nextRestockAt' => $offer->next_restock_at?->toIso8601String(),
+                    'purchaseLimit' => $offer->purchase_limit,
+                    'purchasedThisPeriod' => (int) ($periodPurchases[$offer->getAttribute('current_delivery_id')] ?? 0),
                 ];
             })->all(),
             'nextCursor' => $offers->nextCursor()?->encode(),

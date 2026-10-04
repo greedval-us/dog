@@ -6,8 +6,10 @@ use App\Models\CurrencyTransaction;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemPurchase;
+use App\Models\ShopDelivery;
 use App\Models\ShopOffer;
 use App\Models\User;
+use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Inventory\DTO\PurchaseItemData;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -18,7 +20,7 @@ use InvalidArgumentException;
 
 final class PurchaseItem
 {
-    public function __construct(private PlayerWallet $wallet) {}
+    public function __construct(private PlayerWallet $wallet, private CompetitionAmmunitionRules $ammunition) {}
 
     /** One token identifies one purchase of one instance, including after its destruction. */
     public function handle(User $user, PurchaseItemData $data): ItemPurchase
@@ -65,6 +67,19 @@ final class PurchaseItem
                 throw new ItemUnavailable('The offer has changed. Refresh the shop before purchasing.');
             }
 
+            $deliveryId = null;
+            if ($category->code === 'ammunition') {
+                $deliveryId = ShopDelivery::query()->where('shop_offer_id', $offer->id)
+                    ->where('scheduled_at', $offer->last_restock_at)->value('id');
+                if ($this->ammunition->metadata($item->characteristics) === null || $offer->stock === null
+                    || $offer->purchase_limit === null || $deliveryId === null) {
+                    throw new ItemUnavailable('This item is not available in the shop.');
+                }
+                if ($owner->itemPurchases()->where('shop_offer_id', $offer->id)->where('shop_delivery_id', $deliveryId)->count() >= $offer->purchase_limit) {
+                    throw new ItemUnavailable('The ammunition purchase limit for this delivery has been reached.');
+                }
+            }
+
             $entry = $this->wallet->change($owner, $offer->currency, -$offer->price, $operationKey, 'item_purchase');
 
             if ($offer->stock !== null) {
@@ -79,6 +94,7 @@ final class PurchaseItem
             $snapshot = $item->inventorySnapshot();
             $purchase = $owner->itemPurchases()->create([
                 'shop_offer_id' => $offer->id,
+                'shop_delivery_id' => $deliveryId,
                 'item_id' => $item->id,
                 'currency_transaction_id' => $entry->id,
                 'token' => $token,

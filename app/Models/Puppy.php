@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PetSex $sex
  * @property string $coat_color
  * @property int $generation
+ * @property array{type: int, structure: int, movement: int} $exterior
  * @property int $endurance_potential
  * @property int $speed_potential
  * @property int $strength_potential
@@ -42,7 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Pet|null $pet
  * @property Collection<int, PuppyPlacement> $placements
  */
-#[Fillable(['litter_id', 'dog_id', 'father_id', 'mother_id', 'user_id', 'pet_id', 'status', 'name', 'sex', 'coat_color', 'generation', 'endurance_potential', 'speed_potential', 'strength_potential', 'agility_potential', 'obedience_potential', 'intelligence_potential', 'sale_price', 'expires_at', 'placed_at'])]
+#[Fillable(['litter_id', 'dog_id', 'father_id', 'mother_id', 'user_id', 'pet_id', 'status', 'name', 'sex', 'coat_color', 'generation', 'exterior', 'endurance_potential', 'speed_potential', 'strength_potential', 'agility_potential', 'obedience_potential', 'intelligence_potential', 'sale_price', 'expires_at', 'placed_at'])]
 class Puppy extends Model
 {
     /** @use HasFactory<PuppyFactory> */
@@ -102,6 +103,7 @@ class Puppy extends Model
             'pet_id' => 'integer',
             'sex' => PetSex::class,
             'generation' => 'integer',
+            'exterior' => 'array',
             'endurance_potential' => 'integer',
             'speed_potential' => 'integer',
             'strength_potential' => 'integer',

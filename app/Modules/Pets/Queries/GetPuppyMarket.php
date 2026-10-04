@@ -17,7 +17,7 @@ final class GetPuppyMarket
         if (! in_array($source, ['players', 'kennel'], true) || $perPage < 1 || $perPage > 100) {
             throw new InvalidArgumentException('Invalid puppy market filter.');
         }
-        $query = Puppy::query()->with(['dog', 'user:id,name,username'])->where('status', $source === 'kennel' ? 'kennel' : 'listed');
+        $query = Puppy::query()->with(['dog', 'user:id,name,username', 'father.titles', 'mother.titles'])->where('status', $source === 'kennel' ? 'kennel' : 'listed');
         if ($source === 'players') {
             $query->where('expires_at', '>', now())->whereHas('user', fn (Builder $owner): Builder => $owner->where('status', PlayerStatus::Active));
         }

@@ -5,18 +5,22 @@ namespace App\Modules\Inventory\Queries;
 use App\Models\InventoryItem;
 use App\Models\ItemCategory;
 use App\Models\User;
+use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\ItemEffectRules;
 use Illuminate\Database\Eloquent\Builder;
 
-/** @phpstan-import-type Risk from ItemEffectRules */
+/**
+ * @phpstan-import-type Risk from ItemEffectRules
+ * @phpstan-import-type Ammunition from CompetitionAmmunitionRules
+ */
 final class GetInventoryCatalogue
 {
-    public function __construct(private GetPlayerInventory $inventory, private ItemEffectRules $riskRules) {}
+    public function __construct(private GetPlayerInventory $inventory, private ItemEffectRules $riskRules, private CompetitionAmmunitionRules $ammunition) {}
 
     /**
      * @return array{
      *     categories: array<int, array{id: int, code: string, name: string}>,
-     *     items: array<int, array{id: int, name: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, remainingUses: int, characteristics: array<string, int|float|string|bool>, acquiredAt: string|null}>,
+     *     items: array<int, array{id: int, name: string, category: string, categoryCode: string, risks: list<Risk>, bonuses: array<string, int>, grantedEffects: list<array<string, mixed>>, quality: int, usageLimit: int, remainingUses: int, characteristics: array<string, mixed>, competition: Ammunition|null, acquiredAt: string|null}>,
      *     inventoryCount: int, itemTypesCount: int, nextCursor: string|null, previousCursor: string|null
      * }
      */
@@ -42,6 +46,7 @@ final class GetInventoryCatalogue
                     'usageLimit' => $instance->usage_limit,
                     'remainingUses' => $instance->remaining_uses,
                     'characteristics' => $instance->characteristics,
+                    'competition' => $this->ammunition->metadata($instance->characteristics),
                     'risks' => $this->riskRules->uncertain($outcomes),
                     'bonuses' => $instance->bonuses ?? [],
                     'grantedEffects' => $this->riskRules->guaranteed($outcomes),

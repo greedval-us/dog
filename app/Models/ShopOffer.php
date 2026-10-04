@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\ShopOfferFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,8 +18,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $stock
  * @property bool $is_active
  * @property int $sort_order
+ * @property int|null $restock_interval_hours
+ * @property int|null $restock_target
+ * @property int|null $purchase_limit
+ * @property CarbonImmutable|null $next_restock_at
+ * @property CarbonImmutable|null $last_restock_at
  */
-#[Fillable(['item_id', 'currency', 'price', 'stock', 'is_active', 'sort_order'])]
+#[Fillable(['item_id', 'currency', 'price', 'stock', 'is_active', 'sort_order', 'restock_interval_hours', 'restock_target', 'purchase_limit', 'next_restock_at', 'last_restock_at'])]
 class ShopOffer extends Model
 {
     /** @use HasFactory<ShopOfferFactory> */
@@ -36,6 +42,12 @@ class ShopOffer extends Model
         return $this->hasMany(ItemPurchase::class);
     }
 
+    /** @return HasMany<ShopDelivery, $this> */
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(ShopDelivery::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
@@ -45,6 +57,11 @@ class ShopOffer extends Model
             'stock' => 'integer',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
+            'restock_interval_hours' => 'integer',
+            'restock_target' => 'integer',
+            'purchase_limit' => 'integer',
+            'next_restock_at' => 'immutable_datetime',
+            'last_restock_at' => 'immutable_datetime',
         ];
     }
 }

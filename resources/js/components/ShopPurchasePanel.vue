@@ -19,7 +19,7 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ buy: [] }>();
-const { t, number } = useI18n();
+const { t, number, locale } = useI18n();
 const page = usePage();
 const id = useId();
 const balance = computed(() => Number(page.props.auth.user.coins));
@@ -27,13 +27,27 @@ const shortfall = computed(() =>
     purchaseShortfall(props.offer.price, balance.value),
 );
 const actionReason = computed(() =>
-    props.offer.stock !== null && props.offer.stock < 1
+    props.offer.soldOut || (props.offer.stock !== null && props.offer.stock < 1)
         ? t('This item is out of stock. Choose another item.')
-        : shortfall.value > 0
-          ? t('You need {amount} more coins.', {
-                amount: number(shortfall.value),
-            })
-          : null,
+        : props.offer.purchaseLimit != null &&
+            (props.offer.purchasedThisPeriod ?? 0) >= props.offer.purchaseLimit
+          ? t('You have reached the purchase limit for this delivery.')
+          : shortfall.value > 0
+            ? t('You need {amount} more coins.', {
+                  amount: number(shortfall.value),
+              })
+            : null,
+);
+const restockDate = computed(() =>
+    props.offer.nextRestockAt
+        ? new Intl.DateTimeFormat(locale.value, {
+              day: 'numeric',
+              month: 'long',
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Europe/Moscow',
+          }).format(new Date(props.offer.nextRestockAt))
+        : null,
 );
 const errorSummary = useTemplateRef<HTMLDivElement>('errorSummary');
 watch(
@@ -60,8 +74,9 @@ watch(
             :bonuses="offer.bonuses"
             :granted-effects="offer.grantedEffects"
             :risks="offer.risks"
+            :competition="offer.competition"
         >
-            <div>
+            <div v-if="!offer.competition">
                 <dt>{{ t('Quality') }}</dt>
                 <dd>{{ number(offer.quality) }} / 10</dd>
             </div>
@@ -72,6 +87,21 @@ watch(
             <div v-if="offer.stock !== null">
                 <dt>{{ t('In stock') }}</dt>
                 <dd>{{ number(offer.stock) }}</dd>
+            </div>
+            <div v-if="restockDate">
+                <dt>{{ t('Next delivery') }}</dt>
+                <dd>{{ t('{date} (Moscow time)', { date: restockDate }) }}</dd>
+            </div>
+            <div v-if="offer.purchaseLimit != null">
+                <dt>{{ t('Purchase limit per delivery') }}</dt>
+                <dd>
+                    {{
+                        t('{used} / {limit}', {
+                            used: number(offer.purchasedThisPeriod ?? 0),
+                            limit: number(offer.purchaseLimit),
+                        })
+                    }}
+                </dd>
             </div>
         </ItemCharacteristics>
         <p class="shop-owned">
@@ -135,7 +165,9 @@ watch(
             <p class="shop-purchase-note">
                 {{
                     t(
-                        'Care items can be used in Quick actions on your dog’s page.',
+                        offer.competition
+                            ? 'Select competition equipment when preparing your event entry.'
+                            : 'Care items can be used in Quick actions on your dog’s page.',
                     )
                 }}
             </p>

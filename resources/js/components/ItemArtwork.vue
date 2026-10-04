@@ -22,6 +22,8 @@ const icons = {
     leashes: Footprints,
     care: Sparkles,
     toys: CircleDot,
+    ammunition: Ribbon,
+    competition: Ribbon,
 };
 const icon = computed(
     () => icons[props.category as keyof typeof icons] ?? Package,

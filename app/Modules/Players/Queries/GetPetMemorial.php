@@ -56,7 +56,7 @@ final class GetPetMemorial
     public function pet(User $user, int $petId, string $locale): array
     {
         $pet = $user->pets()->where(fn (Builder $query) => $query->whereNotNull('retired_at')->orWhereNotNull('died_at'))
-            ->with(['dog', 'characterTraits', 'skills'])->findOrFail($petId);
+            ->with(['dog', 'characterTraits', 'skills', 'titles'])->findOrFail($petId);
         $appearance = $this->appearance(new Collection([$pet]), $user, $locale)[$pet->id];
 
         return [

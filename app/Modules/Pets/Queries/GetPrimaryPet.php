@@ -12,7 +12,7 @@ final class GetPrimaryPet
 
     public function handle(User $user, string $locale, ?int $petId = null): ?PetProfileData
     {
-        $query = $user->pets()->with(['dog', 'characterTraits'])->oldest('id');
+        $query = $user->pets()->with(['dog', 'characterTraits', 'titles'])->oldest('id');
         $pet = $petId === null ? $query->active()->first() : $query->findOrFail($petId);
         $pet?->advanceTo(now(), $this->states);
 

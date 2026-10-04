@@ -40,6 +40,11 @@ final class StarterPetGenerator
             sex: $sex,
             coatColor: $coatColor,
             potentials: $potentials,
+            exterior: [
+                'type' => $this->randomizer->getInt(65, 90),
+                'structure' => $this->randomizer->getInt(65, 90),
+                'movement' => $this->randomizer->getInt(65, 90),
+            ],
         );
     }
 }

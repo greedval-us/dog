@@ -13,9 +13,11 @@ use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\BreedingUnavailable;
+use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Generators\PuppyGenerator;
 use App\Modules\Pets\Queries\BreedingEligibility;
 use App\Modules\Pets\Queries\GetInheritedCoatWeights;
+use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Calculators\PlayerLevelRules;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -27,7 +29,7 @@ use Random\Randomizer;
 
 final class StartBreeding
 {
-    public function __construct(private PetLifecycle $lifecycle, private BreedingEligibility $eligibility, private PuppyGenerator $generator, private PlayerWallet $wallet, private Randomizer $randomizer, private GetInheritedCoatWeights $coatWeights, private PetDecayCalculator $states) {}
+    public function __construct(private PetLifecycle $lifecycle, private BreedingEligibility $eligibility, private PuppyGenerator $generator, private PlayerWallet $wallet, private Randomizer $randomizer, private GetInheritedCoatWeights $coatWeights, private PetDecayCalculator $states, private PetEventReservation $reservations) {}
 
     public function handle(User $user, int $petId, string $kind, int $partnerId, int $expectedPrice, string $token): BreedingLitter
     {
@@ -93,6 +95,13 @@ final class StartBreeding
                 $other->advanceTo($at, $this->states);
             }
             foreach ([[$own, false], [$other, $kind === 'partner']] as [$pet, $system]) {
+                if (! $system) {
+                    try {
+                        $this->reservations->assertAvailable($pet, $at->toImmutable(), $at->toImmutable()->addSecond());
+                    } catch (PetUnavailable) {
+                        throw new BreedingUnavailable('breeding.errors.unavailable');
+                    }
+                }
                 $reason = $this->eligibility->reason($pet, $at, $system);
                 if ($reason !== null) {
                     throw new BreedingUnavailable($reason);
@@ -112,9 +121,9 @@ final class StartBreeding
             }
             $fatherStats = $this->stats($father);
             $motherStats = $this->stats($mother);
-            $rollKey = hash('sha256', serialize([$fatherStats, $motherStats, $weights]));
+            $rollKey = hash('sha256', serialize([$fatherStats, $motherStats, $weights, $father->exterior, $mother->exterior]));
             if (! isset($rolls[$rollKey])) {
-                $puppies = $this->generator->generate($fatherStats, $motherStats, $weights);
+                $puppies = $this->generator->generate($fatherStats, $motherStats, $weights, $father->exterior, $mother->exterior);
                 $rolls[$rollKey] = ['puppies' => $puppies, 'sirePuppyIndex' => $this->randomizer->getInt(0, count($puppies) - 1)];
             }
             $puppies = $rolls[$rollKey]['puppies'];
@@ -135,7 +144,7 @@ final class StartBreeding
                 'operation_token' => $token, 'initiator_id' => $owner->id, 'own_pet_id' => $own->id,
                 'listing_id' => $kind === 'listing' ? $offer->id : null, 'partner_id' => $kind === 'partner' ? $offer->id : null,
                 'father_id' => $father->id, 'mother_id' => $mother->id, 'price' => $expectedPrice,
-                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex],
+                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex, 'exterior' => ['father' => $father->exterior, 'mother' => $mother->exterior]],
                 'born_at' => $bornAt, 'expires_at' => $expiresAt,
             ]);
             foreach ($puppies as $index => $puppy) {
@@ -147,7 +156,7 @@ final class StartBreeding
                     'litter_id' => $litter->id, 'dog_id' => $own->dog_id, 'father_id' => $father->id, 'mother_id' => $mother->id,
                     'user_id' => $index === $sirePuppyIndex ? $father->user_id : $mother->user_id,
                     'status' => 'unborn', 'name' => '№'.($index + 1), 'sex' => $puppy['sex'], 'coat_color' => $puppy['coat_color'],
-                    'generation' => max($father->generation, $mother->generation) + 1, 'expires_at' => $expiresAt, ...$caps,
+                    'generation' => max($father->generation, $mother->generation) + 1, 'exterior' => $puppy['exterior'], 'expires_at' => $expiresAt, ...$caps,
                 ]);
             }
             $own->breeding_available_at = $at->addDays(config('doglive.breeding_cooldown_days', 7));

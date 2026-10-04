@@ -1,4 +1,5 @@
 import type { DogSize, DogStat } from '@/types/pet';
+import type { EventExterior, EventTitle } from '@/types/game-event';
 
 export type PetLifecycleStatus = 'active' | 'retired' | 'deceased';
 
@@ -20,6 +21,8 @@ export type PetPublicProfile = {
         archivedAt: string | null;
     };
     hasPedigree: boolean;
+    exterior?: EventExterior;
+    titles?: EventTitle[];
 };
 
 export type PedigreeNode = {
@@ -32,7 +35,11 @@ export type PedigreeNode = {
         | 'coatColor'
         | 'generation'
         | 'hasPedigree'
-    > & { status: PetLifecycleStatus };
+    > & {
+        status: PetLifecycleStatus;
+        exterior?: EventExterior;
+        titles?: EventTitle[];
+    };
     father: PedigreeNode | null;
     mother: PedigreeNode | null;
 };

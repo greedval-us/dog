@@ -16,6 +16,8 @@ return [
         'training' => 10,
         'skill_training' => 10,
         'work' => 10,
+        'competition' => 20,
+        'exhibition' => 20,
         'veterinary.checkup' => 10,
         'veterinary.vaccination' => 10,
         'veterinary.treatment' => 10,

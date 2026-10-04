@@ -37,7 +37,7 @@ final class PuppyPlacementService
             $potentials[$stat->potentialColumn()] = $puppy->getAttribute($stat->potentialColumn());
         }
         $dog = Dog::query()->findOrFail($puppy->dog_id);
-        $pet = $dog->newPet(new NewPetData(name: $name, sex: $puppy->sex, coatColor: $puppy->coat_color, potentials: $potentials));
+        $pet = $dog->newPet(new NewPetData(name: $name, sex: $puppy->sex, coatColor: $puppy->coat_color, potentials: $potentials, exterior: $puppy->exterior));
         $pet->forceFill(['father_id' => $puppy->father_id, 'mother_id' => $puppy->mother_id, 'generation' => $puppy->generation]);
         $pet->user()->associate($owner);
         $pet->save();

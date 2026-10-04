@@ -1,3 +1,5 @@
+import type { EventExterior, EventTitle } from '@/types/game-event';
+
 export type DogStat =
     | 'endurance'
     | 'speed'
@@ -48,4 +50,6 @@ export type PlayerPet = {
     states: Record<DogState, number>;
     energy: { value: number; maximum: number };
     stats: Record<DogStat, { value: number; potential: number }>;
+    exterior?: EventExterior;
+    titles?: EventTitle[];
 };

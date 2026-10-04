@@ -13,6 +13,8 @@ use InvalidArgumentException;
 
 final class PetActivityManager
 {
+    public function __construct(private PetEventReservation $reservations) {}
+
     public function start(User $owner, int $petId, PetActivity $activity, CarbonImmutable $endsAt, int $energyCost): PetActivityData
     {
         if ($energyCost < 0) {
@@ -24,6 +26,11 @@ final class PetActivityManager
 
         if ($endsAt->lessThanOrEqualTo($startedAt)) {
             throw new InvalidArgumentException('The activity must end after it starts.');
+        }
+
+        if (! in_array($activity, [PetActivity::Competition, PetActivity::Exhibition], true)) {
+            $pet = $owner->pets()->findOrFail($petId);
+            $this->reservations->assertAvailable($pet, $startedAt, $endsAt);
         }
 
         $data = new PetActivityData((string) Str::uuid(), $activity, $startedAt, $endsAt);

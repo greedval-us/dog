@@ -19,6 +19,8 @@ final readonly class PetProfileData implements Arrayable
      * @param  array{value: float, maximum: int}  $energy
      * @param  array<string, array{value: int, potential: int}>  $stats
      * @param  array{status: string, archivedAt: string|null, canRetire: bool, retirementEligibleAt: string, automaticRetirementAt: string}  $lifecycle
+     * @param  array{type: int, structure: int, movement: int}  $exterior
+     * @param  list<array{name: string, discipline: string, frequency: string, awardedAt: string}>  $titles
      */
     public function __construct(
         public int $id,
@@ -38,6 +40,8 @@ final readonly class PetProfileData implements Arrayable
         public array $stats,
         public array $lifecycle,
         public bool $hasPedigree = false,
+        public array $exterior = ['type' => 75, 'structure' => 75, 'movement' => 75],
+        public array $titles = [],
     ) {}
 
     public static function fromModel(Pet $pet, Dog $dog, string $locale): self
@@ -76,10 +80,12 @@ final readonly class PetProfileData implements Arrayable
             ],
             hasPedigree: ($pet->father_id !== null && $pet->father_id !== $pet->id)
                 || ($pet->mother_id !== null && $pet->mother_id !== $pet->id),
+            exterior: $pet->exterior,
+            titles: PetTitleData::fromPet($pet, $locale),
         );
     }
 
-    /** @return array{id: int, name: string, sex: string, size: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, isFavorite: bool, traits: list<string>, breed: string, coatColor: string, states: array<string, float>, energy: array{value: float, maximum: int}, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null, canRetire: bool, retirementEligibleAt: string, automaticRetirementAt: string}, hasPedigree: bool} */
+    /** @return array{id: int, name: string, sex: string, size: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, isFavorite: bool, traits: list<string>, breed: string, coatColor: string, states: array<string, float>, energy: array{value: float, maximum: int}, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null, canRetire: bool, retirementEligibleAt: string, automaticRetirementAt: string}, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>} */
     public function toArray(): array
     {
         return [
@@ -100,6 +106,8 @@ final readonly class PetProfileData implements Arrayable
             'stats' => $this->stats,
             'lifecycle' => $this->lifecycle,
             'hasPedigree' => $this->hasPedigree,
+            'exterior' => $this->exterior,
+            'titles' => $this->titles,
         ];
     }
 }

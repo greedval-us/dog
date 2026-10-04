@@ -78,7 +78,7 @@ class Dog extends Model
      * Snapshot breed defaults so later catalogue changes do not change existing pets.
      * Food and water use game units; satiety and hydration are remaining reserves.
      *
-     * @return array<string, int|string|\DateTimeInterface>
+     * @return array<string, mixed>
      */
     public function petDefaults(): array
     {
@@ -86,6 +86,7 @@ class Dog extends Model
         $attributes = [
             'size' => $this->size->value,
             'generation' => 1,
+            'exterior' => ['type' => 75, 'structure' => 75, 'movement' => 75],
             'food_per_day' => $this->food_per_day,
             'water_per_day' => $this->water_per_day,
             'born_at' => $initializedAt,
@@ -115,6 +116,7 @@ class Dog extends Model
             'sex' => $data->sex,
             'coat_color' => $data->coatColor,
             'description' => $data->description,
+            'exterior' => $data->exterior ?? ['type' => 75, 'structure' => 75, 'movement' => 75],
         ]);
 
         foreach (PetStat::cases() as $stat) {

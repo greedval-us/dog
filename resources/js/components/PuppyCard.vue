@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PawPrint } from '@lucide/vue';
 import DogStats from '@/components/DogStats.vue';
+import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { useI18n } from '@/composables/useI18n';
 import { useBreedingMessages } from '@/composables/useBreedingMessages';
@@ -38,6 +39,30 @@ const { date } = useBreedingMessages();
         <p v-else class="field-hint">
             {{ t('Waiting for a home at the kennel') }}
         </p>
+        <DogCompetitionCredentials :exterior="puppy.exterior" />
+        <div
+            v-if="
+                puppy.parentTitles?.father.length ||
+                puppy.parentTitles?.mother.length
+            "
+            class="puppy-parent-titles"
+        >
+            <DogCompetitionCredentials
+                :titles="puppy.parentTitles?.father"
+                title-label="Father’s titles"
+            />
+            <DogCompetitionCredentials
+                :titles="puppy.parentTitles?.mother"
+                title-label="Mother’s titles"
+            />
+            <p class="field-hint">
+                {{
+                    t(
+                        'Parent achievements add to the pedigree’s reputation. The puppy’s conformation is its own inherited quality.',
+                    )
+                }}
+            </p>
+        </div>
         <details class="puppy-potential">
             <summary>{{ t('Genetic potential') }}</summary>
             <DogStats :values="puppy.potentials" />

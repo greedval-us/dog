@@ -1,6 +1,480 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+.events-page,
+.events-calendar,
+.events-calendar-day,
+.event-entry-form,
+.event-rules {
+    display: grid;
+    gap: 24px;
+    min-width: 0;
+}
+.events-intro > [data-slot='card-content'],
+.event-overview > [data-slot='card-content'],
+.event-card > [data-slot='card-content'],
+.event-replay > [data-slot='card-content'] {
+    display: grid;
+    gap: 16px;
+}
+.events-intro-heading,
+.events-page-heading,
+.events-day-heading,
+.event-card-heading,
+.event-gear-heading,
+.event-gear-title,
+.event-replay-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.events-page-heading,
+.event-card-heading,
+.event-gear-heading,
+.event-gear-title {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.events-icon {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 15px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+}
+.events-intro h2,
+.event-card h3,
+.events-day-heading,
+.event-plan-heading h3,
+.event-gear-heading h3,
+.event-exterior h3,
+.event-division h3,
+.event-replay h3,
+.equipment-details h4 {
+    font-weight: 700;
+}
+.events-intro p,
+.event-note,
+.event-rules p,
+.event-exterior p,
+.event-status,
+.event-overview .event-card-heading > span:last-child {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.65;
+}
+.event-rules p + p {
+    margin-top: 12px;
+}
+.events-filters,
+.events-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+.events-select {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--foreground);
+}
+.events-select:focus-visible,
+.event-gear:focus-visible,
+.event-tactic:has(input:focus-visible),
+.event-offspring-choice:has(input:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.event-card,
+.event-preparation,
+.event-rules,
+.event-results,
+.event-replay {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.event-badge,
+.event-prizes > span,
+.event-gear-modifiers > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 9px;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    font-size: 12px;
+    font-weight: 600;
+}
+.event-facts,
+.event-overview-facts {
+    display: grid;
+    gap: 12px;
+}
+.event-facts > div,
+.event-overview-facts > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+.event-facts dt,
+.event-overview-facts dt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.event-facts dd,
+.event-overview-facts dd {
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+}
+.event-overview-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+}
+.event-prizes,
+.event-gear-modifiers,
+.event-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.event-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 24px;
+    align-items: start;
+}
+.event-plan-heading,
+.event-exterior,
+.event-offspring {
+    display: grid;
+    gap: 10px;
+}
+.event-stage {
+    min-width: 0;
+}
+.event-stage legend,
+.event-offspring legend {
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 700;
+}
+.event-stage legend > span {
+    display: inline-grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--surface-soft);
+    color: var(--primary);
+}
+.event-tactics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+.event-tactic,
+.event-gear {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.18s,
+        background 0.18s;
+}
+.event-tactic.is-selected,
+.event-gear.is-selected {
+    border-color: var(--primary);
+    background: var(--sage-surface);
+}
+.event-tactic strong,
+.event-gear strong {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.event-tactic > span,
+.event-gear-meta,
+.event-title-list small,
+.event-offspring-choice small {
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.6;
+}
+.event-stage:disabled .event-tactic,
+.event-gear:disabled,
+.events-select:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+.event-gear-list,
+.event-title-list {
+    display: grid;
+    gap: 12px;
+}
+.event-gear-modifiers > span {
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 500;
+}
+.event-offspring-choice,
+.event-title-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.event-offspring-choice input,
+.event-tactic input {
+    accent-color: var(--primary);
+}
+.event-exterior-values,
+.event-replay-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.event-exterior-values dt,
+.event-replay-metrics dt {
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.event-exterior-values dd,
+.event-replay-metrics dd {
+    font-size: 14px;
+    font-weight: 600;
+}
+.event-errors {
+    display: grid;
+    gap: 6px;
+}
+.event-success {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--success);
+    font-size: 13px;
+}
+.event-division + .event-division {
+    margin-top: 24px;
+}
+.event-division h3 {
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+.event-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+.event-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+.event-table th,
+.event-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    vertical-align: top;
+}
+.event-table th {
+    color: var(--muted-foreground);
+    font-weight: 600;
+}
+.event-table small {
+    display: block;
+    color: var(--muted-foreground);
+    margin-top: 4px;
+    min-width: 130px;
+}
+.event-table td:nth-child(3) > span,
+.event-table td:nth-child(3) > button {
+    display: block;
+}
+.event-table .is-own td {
+    background: var(--sage-surface);
+}
+.event-replay-stages {
+    display: grid;
+    gap: 20px;
+    list-style: none;
+}
+.event-replay-stages li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+.event-replay-number {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+    font-weight: 700;
+}
+.event-replay-body {
+    display: grid;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.event-replay-body > strong,
+.event-replay-body > p {
+    font-size: 13px;
+    line-height: 1.6;
+}
+.event-replay-metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+.event-replay-total {
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-weight: 700;
+}
+.events-empty > [data-slot='card-content'] {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    text-align: center;
+}
+.equipment-details {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+}
+.pet-event-credentials {
+    display: grid;
+    gap: 20px;
+    margin-top: 20px;
+}
+.dog-competition-credentials,
+.puppy-parent-titles {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+.dog-conformation-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.dog-conformation-chips > span,
+.dog-title-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 7px;
+    border-radius: 8px;
+    background: var(--surface-soft);
+    font-size: 11px;
+    color: var(--muted-foreground);
+}
+.dog-conformation-chips strong {
+    color: var(--foreground);
+}
+.dog-title-chip {
+    justify-self: start;
+    background: var(--sage-surface);
+    color: var(--sage-ink);
+}
+.dog-titles-details summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    cursor: pointer;
+}
+.dog-titles-details .event-title-list {
+    padding-top: 10px;
+    font-size: 12px;
+}
+.dog-titles-details summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+.shop-stock-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: var(--danger-surface);
+    color: var(--foreground);
+    font-size: 12px;
+    font-weight: 700;
+}
+.shop-stock-count {
+    font-size: 12px;
+    color: var(--muted-foreground);
+}
+@media (max-width: 1100px) {
+    .event-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .event-rules {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 650px) {
+    .events-grid,
+    .events-filters,
+    .event-rules,
+    .event-overview-facts,
+    .event-tactics {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .event-tactic {
+        grid-template-columns: 20px minmax(0, 1fr);
+    }
+    .event-tactic > span {
+        grid-column: 2;
+    }
+    .event-replay-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .event-form-actions > button,
+    .events-page-heading > .ui-button {
+        width: 100%;
+    }
+    .event-facts > div,
+    .event-overview-facts > div {
+        flex-wrap: wrap;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .event-tactic,
+    .event-gear {
+        transition: none;
+    }
+}
+
 .dog-work-page,
 .dog-work-intro,
 .dog-work-active {

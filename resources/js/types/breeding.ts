@@ -1,4 +1,5 @@
 import type { DogStat } from '@/types/pet';
+import type { EventExterior, EventTitle } from '@/types/game-event';
 
 export type BreedingParent = {
     id: number;
@@ -12,6 +13,8 @@ export type BreedingParent = {
     stats: Record<DogStat, { value: number; potential: number }>;
     reason: string | null;
     cooldownUntil: string | null;
+    exterior?: EventExterior;
+    titles?: EventTitle[];
 };
 
 export type BreedingForecast = {
@@ -38,6 +41,8 @@ export type Puppy = {
     price: number | null;
     expiresAt: string;
     seller: { name: string; username: string } | null;
+    exterior?: EventExterior;
+    parentTitles?: { father: EventTitle[]; mother: EventTitle[] };
 };
 
 export type PuppyPagination = {

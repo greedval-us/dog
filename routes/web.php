@@ -8,6 +8,7 @@ use App\Http\Controllers\CareItemController;
 use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DogWorkController;
+use App\Http\Controllers\GameEventController;
 use App\Http\Controllers\GameImageController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KennelController;
@@ -46,6 +47,11 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('game-events', [GameEventController::class, 'index'])->name('game-events.index');
+    Route::get('game-events/{gameEvent}', [GameEventController::class, 'show'])->whereNumber('gameEvent')->name('game-events.show');
+    Route::post('game-events/{gameEvent}/register', [GameEventController::class, 'register'])->middleware('throttle:15,1')->name('game-events.register');
+    Route::put('game-events/{gameEvent}/entry', [GameEventController::class, 'update'])->middleware('throttle:15,1')->name('game-events.update');
+    Route::post('game-events/{gameEvent}/cancel', [GameEventController::class, 'cancel'])->middleware('throttle:15,1')->name('game-events.cancel');
     Route::get('breeding', [BreedingController::class, 'index'])->name('breeding.index');
     Route::post('breeding', [BreedingController::class, 'store'])->middleware('throttle:15,1')->name('breeding.store');
     Route::post('breeding/listings', [BreedingListingController::class, 'store'])->middleware('throttle:15,1')->name('breeding.listings.store');

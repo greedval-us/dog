@@ -15,7 +15,7 @@ final class GetPetProfile
     /** @return Profile */
     public function handle(int $petId, string $locale): array
     {
-        $pet = Pet::query()->with(['dog', 'characterTraits'])->findOrFail($petId);
+        $pet = Pet::query()->with(['dog', 'characterTraits', 'titles'])->findOrFail($petId);
 
         if (! BreedingPartner::query()->where('pet_id', $pet->id)->exists()) {
             $pet->advanceTo(now(), $this->states);

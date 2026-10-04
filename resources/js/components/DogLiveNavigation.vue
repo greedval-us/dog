@@ -10,6 +10,7 @@ import {
     Settings,
     ShoppingBag,
     Stethoscope,
+    Trophy,
     UserRound,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -21,6 +22,7 @@ import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
 import { index as veterinarian } from '@/routes/veterinarian';
 import { index as breeding } from '@/routes/breeding';
+import { index as gameEvents } from '@/routes/game-events';
 import { edit } from '@/routes/profile';
 import { show as playerProfile } from '@/routes/players';
 
@@ -39,6 +41,12 @@ const items = computed(() => [
     { label: 'Inventory', icon: Backpack, href: inventory(), settings: false },
     { label: 'Breeding', icon: Heart, href: breeding(), settings: false },
     {
+        label: 'Events and shows',
+        icon: Trophy,
+        href: gameEvents(),
+        settings: false,
+    },
+    {
         label: 'Veterinarian',
         icon: Stethoscope,
         href: veterinarian(),
@@ -55,7 +63,9 @@ const items = computed(() => [
 const isActive = (item: (typeof items.value)[number]) =>
     item.settings
         ? currentUrl.value.startsWith('/settings')
-        : isCurrentUrl(item.href);
+        : item.label === 'Events and shows'
+          ? currentUrl.value.startsWith(gameEvents.url())
+          : isCurrentUrl(item.href);
 const { t } = useI18n();
 </script>
 

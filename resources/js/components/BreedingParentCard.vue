@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PawPrint } from '@lucide/vue';
 import DogStats from '@/components/DogStats.vue';
+import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
 import { useI18n } from '@/composables/useI18n';
 import type { BreedingParent } from '@/types/breeding';
 
@@ -27,6 +28,11 @@ const { t, number } = useI18n();
             }}</span>
         </div>
         <DogStats v-if="!compact" :values="pet.stats" variant="compact" />
+        <DogCompetitionCredentials
+            :exterior="pet.exterior"
+            :titles="pet.titles"
+            :compact="compact"
+        />
         <slot />
     </div>
 </template>

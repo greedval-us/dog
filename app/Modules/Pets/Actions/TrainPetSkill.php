@@ -13,6 +13,7 @@ use App\Modules\Pets\DTO\PetHistoryChange;
 use App\Modules\Pets\DTO\TrainPetSkillData;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPetStatSnapshot;
+use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -26,7 +27,7 @@ final class TrainPetSkill
 {
     public function __construct(private PlayerWallet $wallet, private SkillRules $rules, private PetDecayCalculator $decay,
         private GetPetStatSnapshot $getAttributes, private PetHistoryRecorder $history, private PlayerProgress $progress,
-        private PetLifecycleSynchronization $lifecycle) {}
+        private PetLifecycleSynchronization $lifecycle, private PetEventReservation $reservations) {}
 
     public function handle(User $user, int $petId, TrainPetSkillData $data): PetSkillLesson
     {
@@ -83,6 +84,7 @@ final class TrainPetSkill
             }
 
             $at = now()->startOfSecond();
+            $this->reservations->assertAvailable($pet, $at->toImmutable(), $at->toImmutable()->addSecond());
             if ($progress?->cooldown_until?->greaterThan($at)) {
                 throw new PetUnavailable('Wait 24 hours between lessons for the same skill.');
             }

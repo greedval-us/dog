@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { ArrowUpRight, CircleHelp, GitBranch, Mars, Venus } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
+import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
 import { show } from '@/routes/pets';
 import type { PedigreeNode } from '@/types/pet-pedigree';
 
@@ -45,6 +46,11 @@ const relations = { root: 'Selected dog', father: 'Father', mother: 'Mother' };
             <strong>{{ node.pet.name }}</strong>
             <span class="pedigree-breed">{{ node.pet.breed }}</span>
             <span class="pedigree-coat">{{ node.pet.coatColor }}</span>
+            <DogCompetitionCredentials
+                :exterior="node.pet.exterior"
+                :titles="node.pet.titles"
+                compact
+            />
             <span class="pedigree-dog-footer">
                 <span>{{
                     t('Generation {generation}', {

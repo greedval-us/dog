@@ -7,8 +7,8 @@ use App\Models\Pet;
 use App\Modules\Pets\Enums\PetStat;
 
 /**
- * @phpstan-type Summary array{id: int, name: string, breed: string, sex: string, coatColor: string, generation: int, status: string, hasPedigree: bool}
- * @phpstan-type Profile array{id: int, name: string, breed: string, sex: string, size: string, coatColor: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, traits: list<string>, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null}, hasPedigree: bool}
+ * @phpstan-type Summary array{id: int, name: string, breed: string, sex: string, coatColor: string, generation: int, status: string, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
+ * @phpstan-type Profile array{id: int, name: string, breed: string, sex: string, size: string, coatColor: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, traits: list<string>, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null}, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
  */
 final readonly class PublicPetProfileData
 {
@@ -42,6 +42,8 @@ final readonly class PublicPetProfileData
                 'archivedAt' => $pet->archivedAt()?->toIso8601String(),
             ],
             'hasPedigree' => self::hasPedigree($pet),
+            'exterior' => $pet->exterior,
+            'titles' => PetTitleData::fromPet($pet, $locale),
         ];
     }
 
@@ -57,6 +59,8 @@ final readonly class PublicPetProfileData
             'generation' => $pet->generation,
             'status' => self::status($pet),
             'hasPedigree' => self::hasPedigree($pet),
+            'exterior' => $pet->exterior,
+            'titles' => PetTitleData::fromPet($pet, $locale),
         ];
     }
 

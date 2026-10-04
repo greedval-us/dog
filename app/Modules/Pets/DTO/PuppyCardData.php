@@ -6,7 +6,7 @@ use App\Models\Puppy;
 use App\Modules\Pets\Enums\PetStat;
 
 /**
- * @phpstan-type Card array{id: int, name: string, breed: string, breedCode: string, illustration: string|null, sex: string, coatColor: string, coatLabel: string, generation: int, potentials: array<string, int>, status: string, price: int|null, expiresAt: string, seller: array{name: string, username: string}|null}
+ * @phpstan-type Card array{id: int, name: string, breed: string, breedCode: string, illustration: string|null, sex: string, coatColor: string, coatLabel: string, generation: int, potentials: array<string, int>, status: string, price: int|null, expiresAt: string, seller: array{name: string, username: string}|null, exterior: array{type: int, structure: int, movement: int}, parentTitles: array{father: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>, mother: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}}
  */
 final readonly class PuppyCardData
 {
@@ -31,6 +31,11 @@ final readonly class PuppyCardData
             'coatLabel' => $coat[$locale] ?? $coat['en'] ?? $puppy->coat_color,
             'generation' => $puppy->generation,
             'potentials' => $potentials,
+            'exterior' => $puppy->exterior,
+            'parentTitles' => [
+                'father' => $puppy->relationLoaded('father') ? PetTitleData::fromPet($puppy->father, $locale) : [],
+                'mother' => $puppy->relationLoaded('mother') ? PetTitleData::fromPet($puppy->mother, $locale) : [],
+            ],
             'status' => $puppy->status,
             'price' => $puppy->status === 'kennel' ? (int) config('doglive.kennel_price') : $puppy->sale_price,
             'expiresAt' => $puppy->expires_at->toIso8601String(),

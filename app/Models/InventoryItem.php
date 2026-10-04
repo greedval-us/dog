@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $quality
  * @property int $usage_limit
  * @property int $remaining_uses
- * @property array<string, int|float|string|bool> $characteristics
+ * @property array<string, mixed> $characteristics
  *
  * @phpstan-import-type Rule from \App\Modules\Pets\Calculators\ItemEffectRules
  */

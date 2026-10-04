@@ -6,12 +6,16 @@ use App\Modules\Pets\Enums\PetSex;
 
 final readonly class NewPetData
 {
-    /** @param array<string, int> $potentials */
+    /**
+     * @param  array<string, int>  $potentials
+     * @param  array{type: int, structure: int, movement: int}|null  $exterior
+     */
     public function __construct(
         public string $name,
         public PetSex $sex,
         public string $coatColor,
         public ?string $description = null,
         public array $potentials = [],
+        public ?array $exterior = null,
     ) {}
 }

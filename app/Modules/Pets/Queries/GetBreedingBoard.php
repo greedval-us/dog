@@ -8,6 +8,7 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Calculators\BreedingGeneticsCalculator;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\PetTitleData;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Calculators\PlayerLevelRules;
@@ -22,13 +23,13 @@ final class GetBreedingBoard
     public function handle(User $user, string $locale, ?int $petId = null, ?string $kind = null, ?int $partnerId = null): array
     {
         $level = PlayerLevelRules::progress($user->experience)['level'];
-        $dogs = $user->pets()->active()->with('dog')->orderBy('id')->get();
+        $dogs = $user->pets()->active()->with(['dog', 'titles'])->orderBy('id')->get();
         foreach ($dogs as $dog) {
             $dog->advanceTo(now(), $this->states);
         }
         $selected = $dogs->firstWhere('id', $petId);
-        $listingQuery = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog'])->orderBy('id');
-        $partnerQuery = BreedingPartner::query()->where('is_active', true)->with('pet.dog')->orderBy('id');
+        $listingQuery = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog', 'pet.titles'])->orderBy('id');
+        $partnerQuery = BreedingPartner::query()->where('is_active', true)->with(['pet.dog', 'pet.titles'])->orderBy('id');
         if ($selected !== null) {
             $listingQuery->whereHas('pet', fn ($query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value));
             $partnerQuery->whereHas('pet', fn ($query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value));
@@ -36,7 +37,7 @@ final class GetBreedingBoard
         $listingPage = $listingQuery->cursorPaginate(12);
         $listings = $listingPage->getCollection()->filter(fn (BreedingListing $listing): bool => $listing->pet->user_id === $listing->user_id && PlayerLevelRules::progress($listing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5))->values();
         if ($kind === 'listing' && $partnerId !== null && ! $listings->contains('id', $partnerId)) {
-            $chosenListing = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog'])->find($partnerId);
+            $chosenListing = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog', 'pet.titles'])->find($partnerId);
             if ($chosenListing !== null && $chosenListing->pet->user_id === $chosenListing->user_id && PlayerLevelRules::progress($chosenListing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5)) {
                 $listings->push($chosenListing);
             }
@@ -97,6 +98,6 @@ final class GetBreedingBoard
             $stats[$stat->value] = ['value' => (int) $pet->getAttribute($stat->value), 'potential' => (int) $pet->getAttribute($stat->potentialColumn())];
         }
 
-        return ['id' => $pet->id, 'name' => $pet->name, 'sex' => $pet->sex->value, 'breed' => $pet->dog->breed, 'breedName' => $pet->dog->localizedName($locale), 'coatColor' => $pet->coat_color, 'coatColorLabel' => $pet->dog->coat_colors[$pet->coat_color][$locale] ?? $pet->coat_color, 'generation' => $pet->generation, 'stats' => $stats, 'reason' => $this->eligibility->reason($pet, now(), $system), 'cooldownUntil' => $pet->breeding_available_at?->toIso8601String()];
+        return ['id' => $pet->id, 'name' => $pet->name, 'sex' => $pet->sex->value, 'breed' => $pet->dog->breed, 'breedName' => $pet->dog->localizedName($locale), 'coatColor' => $pet->coat_color, 'coatColorLabel' => $pet->dog->coat_colors[$pet->coat_color][$locale] ?? $pet->coat_color, 'generation' => $pet->generation, 'stats' => $stats, 'exterior' => $pet->exterior, 'titles' => PetTitleData::fromPet($pet, $locale), 'reason' => $this->eligibility->reason($pet, now(), $system), 'cooldownUntil' => $pet->breeding_available_at?->toIso8601String()];
     }
 }

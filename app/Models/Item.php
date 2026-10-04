@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, int>|null $bonuses
  * @property int $quality
  * @property int $usage_limit
- * @property array<string, int|float|string|bool> $characteristics
+ * @property array<string, mixed> $characteristics
  * @property bool $is_active
  *
  * @phpstan-import-type Rule from \App\Modules\Pets\Calculators\ItemEffectRules
@@ -60,7 +60,7 @@ class Item extends Model
             ->map(fn (ItemEffectRule $rule): array => $rule->snapshot())->all());
     }
 
-    /** @return array{name: array<string, string>, quality: int, usage_limit: int, bonuses: array<string, int>, effect_rules: list<Rule>, characteristics: array<string, int|float|string|bool>} */
+    /** @return array{name: array<string, string>, quality: int, usage_limit: int, bonuses: array<string, int>, effect_rules: list<Rule>, characteristics: array<string, mixed>} */
     public function inventorySnapshot(): array
     {
         return [

@@ -19,7 +19,7 @@ final class GetPlayerPuppies
             throw new InvalidArgumentException('Page size must be between 1 and 100.');
         }
         $query = Puppy::query()->where('user_id', $user->id)->whereIn('status', ['pending', 'listed'])
-            ->where('expires_at', '>', now())->with(['dog', 'user:id,name,username']);
+            ->where('expires_at', '>', now())->with(['dog', 'user:id,name,username', 'father.titles', 'mother.titles']);
         $pregnancies = BreedingLitter::query()->whereNull('delivered_at')->whereHas('puppies',
             fn (Builder $puppies): Builder => $puppies->where('user_id', $user->id)->where('status', 'unborn')
         )->with(['father:id,name', 'mother:id,name']);

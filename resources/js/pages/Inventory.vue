@@ -132,6 +132,7 @@ const pageLink = (cursor: string) =>
                 >
                     <div class="shop-item-image">
                         <ItemArtwork :category="item.categoryCode" /><span
+                            v-if="!item.competition"
                             class="shop-quality"
                             >{{ t('Quality') }}
                             {{ number(item.quality) }}/10</span
@@ -169,7 +170,10 @@ const pageLink = (cursor: string) =>
                             }}
                         </p>
                         <details
-                            v-if="Object.keys(item.characteristics).length"
+                            v-if="
+                                Object.keys(item.characteristics).length ||
+                                item.competition
+                            "
                             class="inventory-characteristics"
                         >
                             <summary>
@@ -181,6 +185,7 @@ const pageLink = (cursor: string) =>
                                 :bonuses="item.bonuses"
                                 :granted-effects="item.grantedEffects"
                                 :risks="item.risks"
+                                :competition="item.competition"
                             />
                         </details>
                     </div>

@@ -45,6 +45,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Collection<int, PetDisease> $diseaseEpisodes
  * @property Collection<int, PetDisease> $activeDiseaseEpisodes
  * @property int $generation
+ * @property array{type: int, structure: int, movement: int} $exterior
+ * @property Collection<int, PetTitle> $titles
+ * @property Collection<int, PetSportRecord> $sportRecords
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
  * @property CarbonImmutable|null $died_at
@@ -88,7 +91,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property float $bond
  * @property int $bond_max
  */
-#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'stat_decay_remainders', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
+#[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'exterior', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'stat_decay_remainders', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
 class Pet extends Model
 {
     /** @use HasFactory<PetFactory> */
@@ -140,6 +143,18 @@ class Pet extends Model
     public function maternalOffspring(): HasMany
     {
         return $this->hasMany(self::class, 'mother_id');
+    }
+
+    /** @return HasMany<PetTitle, $this> */
+    public function titles(): HasMany
+    {
+        return $this->hasMany(PetTitle::class)->orderByDesc('awarded_at')->orderByDesc('id');
+    }
+
+    /** @return HasMany<PetSportRecord, $this> */
+    public function sportRecords(): HasMany
+    {
+        return $this->hasMany(PetSportRecord::class);
     }
 
     /** @return BelongsToMany<CharacterTrait, $this> */
@@ -308,6 +323,7 @@ class Pet extends Model
             'portrait_asset_id' => 'integer',
             'background_asset_id' => 'integer',
             'generation' => 'integer',
+            'exterior' => 'array',
             'is_purebred' => 'boolean',
             'is_favorite' => 'boolean',
             'endurance' => 'integer',
