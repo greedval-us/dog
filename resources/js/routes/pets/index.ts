@@ -32,7 +32,7 @@ show.url = (args: { pet: number | { id: number } } | [pet: number | { id: number
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { pet: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -104,7 +104,7 @@ show.head = (args: { pet: number | { id: number } } | [pet: number | { id: numbe
                     }),
             method: 'get',
         })
-
+    
     show.form = showForm
 /**
 * @see \App\Http\Controllers\PetPedigreeController::__invoke
@@ -134,7 +134,7 @@ pedigree.url = (args: { pet: number | { id: number } } | [pet: number | { id: nu
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { pet: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -206,7 +206,7 @@ pedigree.head = (args: { pet: number | { id: number } } | [pet: number | { id: n
                     }),
             method: 'get',
         })
-
+    
     pedigree.form = pedigreeForm
 /**
 * @see \App\Http\Controllers\RetirePetController::__invoke
@@ -233,7 +233,7 @@ retire.url = (args: { pet: string | number } | [pet: string | number ] | string 
         args = { pet: args }
     }
 
-
+    
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -280,7 +280,7 @@ retire.post = (args: { pet: string | number } | [pet: string | number ] | string
             action: retire.url(args, options),
             method: 'post',
         })
-
+    
     retire.form = retireForm
 const pets = {
     show: Object.assign(show, show),

@@ -75,7 +75,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PuppyController::market
@@ -153,7 +153,7 @@ market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
                     }),
             method: 'get',
         })
-
+    
     market.form = marketForm
 /**
 * @see \App\Http\Controllers\PuppyController::keep
@@ -183,7 +183,7 @@ keep.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: nu
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { puppy: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     puppy: args[0],
@@ -232,7 +232,7 @@ keep.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
             action: keep.url(args, options),
             method: 'post',
         })
-
+    
     keep.form = keepForm
 /**
 * @see \App\Http\Controllers\PuppyController::list
@@ -262,7 +262,7 @@ list.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: nu
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { puppy: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     puppy: args[0],
@@ -311,7 +311,7 @@ list.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
             action: list.url(args, options),
             method: 'post',
         })
-
+    
     list.form = listForm
 /**
 * @see \App\Http\Controllers\PuppyController::unlist
@@ -341,7 +341,7 @@ unlist.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: 
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { puppy: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     puppy: args[0],
@@ -400,7 +400,7 @@ unlist.delete = (args: { puppy: number | { id: number } } | [puppy: number | { i
                     }),
             method: 'post',
         })
-
+    
     unlist.form = unlistForm
 /**
 * @see \App\Http\Controllers\PuppyController::surrender
@@ -430,7 +430,7 @@ surrender.url = (args: { puppy: number | { id: number } } | [puppy: number | { i
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { puppy: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     puppy: args[0],
@@ -479,7 +479,7 @@ surrender.post = (args: { puppy: number | { id: number } } | [puppy: number | { 
             action: surrender.url(args, options),
             method: 'post',
         })
-
+    
     surrender.form = surrenderForm
 /**
 * @see \App\Http\Controllers\PuppyController::purchase
@@ -509,7 +509,7 @@ purchase.url = (args: { puppy: number | { id: number } } | [puppy: number | { id
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { puppy: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     puppy: args[0],
@@ -558,7 +558,7 @@ purchase.post = (args: { puppy: number | { id: number } } | [puppy: number | { i
             action: purchase.url(args, options),
             method: 'post',
         })
-
+    
     purchase.form = purchaseForm
 const PuppyController = { index, market, keep, list, unlist, surrender, purchase }
 

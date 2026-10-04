@@ -27,7 +27,7 @@ PetPedigreeController.url = (args: { pet: number | { id: number } } | [pet: numb
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { pet: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -99,6 +99,6 @@ PetPedigreeController.head = (args: { pet: number | { id: number } } | [pet: num
                     }),
             method: 'get',
         })
-
+    
     PetPedigreeController.form = PetPedigreeControllerForm
 export default PetPedigreeController

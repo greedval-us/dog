@@ -52,7 +52,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
             action: store.url(options),
             method: 'post',
         })
-
+    
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\BreedingListingController::destroy
@@ -82,7 +82,7 @@ destroy.url = (args: { listing: number | { id: number } } | [listing: number | {
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { listing: args.id }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     listing: args[0],
@@ -141,7 +141,7 @@ destroy.delete = (args: { listing: number | { id: number } } | [listing: number 
                     }),
             method: 'post',
         })
-
+    
     destroy.form = destroyForm
 const BreedingListingController = { store, destroy }
 

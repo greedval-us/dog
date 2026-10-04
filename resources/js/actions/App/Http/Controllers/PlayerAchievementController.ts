@@ -27,7 +27,7 @@ PlayerAchievementController.url = (args: { user: string | { username: string } }
             if (typeof args === 'object' && !Array.isArray(args) && 'username' in args) {
             args = { user: args.username }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     user: args[0],
@@ -99,6 +99,6 @@ PlayerAchievementController.head = (args: { user: string | { username: string } 
                     }),
             method: 'get',
         })
-
+    
     PlayerAchievementController.form = PlayerAchievementControllerForm
 export default PlayerAchievementController

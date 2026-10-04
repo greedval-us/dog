@@ -29,7 +29,7 @@ achievements.url = (args: { user: string | { username: string } } | [user: strin
             if (typeof args === 'object' && !Array.isArray(args) && 'username' in args) {
             args = { user: args.username }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     user: args[0],
@@ -101,7 +101,7 @@ achievements.head = (args: { user: string | { username: string } } | [user: stri
                     }),
             method: 'get',
         })
-
+    
     achievements.form = achievementsForm
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
@@ -131,7 +131,7 @@ show.url = (args: { user: string | { username: string } } | [user: string | { us
             if (typeof args === 'object' && !Array.isArray(args) && 'username' in args) {
             args = { user: args.username }
         }
-
+    
     if (Array.isArray(args)) {
         args = {
                     user: args[0],
@@ -203,7 +203,7 @@ show.head = (args: { user: string | { username: string } } | [user: string | { u
                     }),
             method: 'get',
         })
-
+    
     show.form = showForm
 const players = {
     avatar: Object.assign(avatar, avatar),
