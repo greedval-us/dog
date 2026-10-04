@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PuppyController::store
- * @see app/Http/Controllers/PuppyController.php:77
+ * @see app/Http/Controllers/PuppyController.php:73
  * @route '/puppies/{puppy}/listing'
  */
 export const store = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::store
- * @see app/Http/Controllers/PuppyController.php:77
+ * @see app/Http/Controllers/PuppyController.php:73
  * @route '/puppies/{puppy}/listing'
  */
 store.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
 
 /**
 * @see \App\Http\Controllers\PuppyController::store
- * @see app/Http/Controllers/PuppyController.php:77
+ * @see app/Http/Controllers/PuppyController.php:73
  * @route '/puppies/{puppy}/listing'
  */
 store.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: 
 
     /**
 * @see \App\Http\Controllers\PuppyController::store
- * @see app/Http/Controllers/PuppyController.php:77
+ * @see app/Http/Controllers/PuppyController.php:73
  * @route '/puppies/{puppy}/listing'
  */
     const storeForm = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ store.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: 
 
             /**
 * @see \App\Http\Controllers\PuppyController::store
- * @see app/Http/Controllers/PuppyController.php:77
+ * @see app/Http/Controllers/PuppyController.php:73
  * @route '/puppies/{puppy}/listing'
  */
         storeForm.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -80,7 +80,7 @@ store.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: 
     store.form = storeForm
 /**
 * @see \App\Http\Controllers\PuppyController::destroy
- * @see app/Http/Controllers/PuppyController.php:88
+ * @see app/Http/Controllers/PuppyController.php:84
  * @route '/puppies/{puppy}/listing'
  */
 export const destroy = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -95,7 +95,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::destroy
- * @see app/Http/Controllers/PuppyController.php:88
+ * @see app/Http/Controllers/PuppyController.php:84
  * @route '/puppies/{puppy}/listing'
  */
 destroy.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -128,7 +128,7 @@ destroy.url = (args: { puppy: number | { id: number } } | [puppy: number | { id:
 
 /**
 * @see \App\Http\Controllers\PuppyController::destroy
- * @see app/Http/Controllers/PuppyController.php:88
+ * @see app/Http/Controllers/PuppyController.php:84
  * @route '/puppies/{puppy}/listing'
  */
 destroy.delete = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -138,7 +138,7 @@ destroy.delete = (args: { puppy: number | { id: number } } | [puppy: number | { 
 
     /**
 * @see \App\Http\Controllers\PuppyController::destroy
- * @see app/Http/Controllers/PuppyController.php:88
+ * @see app/Http/Controllers/PuppyController.php:84
  * @route '/puppies/{puppy}/listing'
  */
     const destroyForm = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -153,7 +153,7 @@ destroy.delete = (args: { puppy: number | { id: number } } | [puppy: number | { 
 
             /**
 * @see \App\Http\Controllers\PuppyController::destroy
- * @see app/Http/Controllers/PuppyController.php:88
+ * @see app/Http/Controllers/PuppyController.php:84
  * @route '/puppies/{puppy}/listing'
  */
         destroyForm.delete = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

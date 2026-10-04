@@ -21,7 +21,7 @@ class BreedingController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         $user->refresh();
-        $puppies->synchronize();
+        $puppies->synchronizeForOwner($user, (int) config('doglive.puppy_http_batch_size', 20));
         $selection = $request->validate(['pet' => ['nullable', 'integer', 'min:1'], 'kind' => ['nullable', 'in:listing,partner'], 'partner' => ['nullable', 'integer', 'min:1'], 'cursor' => ['nullable', 'string', 'max:1000']]);
 
         return Inertia::render('breeding/Index', $board->handle($user, app()->getLocale(), isset($selection['pet']) ? (int) $selection['pet'] : null, $selection['kind'] ?? null, isset($selection['partner']) ? (int) $selection['partner'] : null));

@@ -112,6 +112,7 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
 
         <GameEventEntryForm
             :event="event"
+            :server-now="serverNow"
             :dogs="dogs"
             :equipment="equipment"
             :entry="ownEntry"

@@ -9,7 +9,6 @@ import {
     Users,
     Zap,
 } from '@lucide/vue';
-import { useIntervalFn } from '@vueuse/core';
 import { computed, nextTick, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -17,6 +16,7 @@ import OwnedDogSelector from '@/components/OwnedDogSelector.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { useServerClock } from '@/composables/useServerClock';
 import { index, store, complete } from '@/routes/dog-work';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
@@ -32,9 +32,7 @@ const form = useForm({
 const finish = useForm({ token: '' });
 const moving = ref(false);
 const errorPanel = ref<HTMLElement | null>(null);
-const localNow = ref(Date.now());
-const offset = ref(Date.parse(props.board.serverNow) - Date.now());
-const timestamp = computed(() => localNow.value + offset.value);
+const { now: timestamp } = useServerClock(() => props.board.serverNow);
 const pending = computed(
     () => form.processing || finish.processing || moving.value,
 );
@@ -52,9 +50,6 @@ const resetsAt = computed(() =>
         timeZone: props.board.timezone,
     }).format(new Date(props.board.resetsAt)),
 );
-useIntervalFn(() => {
-    localNow.value = Date.now();
-}, 1000);
 const poll = usePoll(30_000, { only: ['board'] }, { mode: 'rest' });
 watch(pending, (value) => {
     if (value) poll.stop();
@@ -63,7 +58,6 @@ watch(pending, (value) => {
 watch(
     () => props.board,
     (board) => {
-        offset.value = Date.parse(board.serverNow) - Date.now();
         form.pet_id = board.selectedPetId;
         form.token = board.token;
     },

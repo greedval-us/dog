@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ChevronRight, Clock3, ShieldAlert, Sparkles } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
+import { useServerClock } from '@/composables/useServerClock';
 import type { StatusEffect } from '@/types/pet-care';
 
 const props = defineProps<{
@@ -25,24 +26,9 @@ const filter = ref<'all' | 'buff' | 'debuff'>('all');
 watch(open, (value) => {
     if (value) filter.value = 'all';
 });
-const now = ref(props.serverNow ? Date.parse(props.serverNow) : Date.now());
-let anchor = now.value;
-let localAnchor = Date.now();
-let timer: ReturnType<typeof setInterval> | undefined;
-watch(
-    () => props.serverNow,
-    (value) => {
-        anchor = value ? Date.parse(value) : Date.now();
-        localAnchor = Date.now();
-        now.value = anchor;
-    },
+const { now } = useServerClock(() =>
+    props.preview ? undefined : props.serverNow,
 );
-onMounted(() => {
-    timer = setInterval(() => {
-        now.value = anchor + Date.now() - localAnchor;
-    }, 1000);
-});
-onUnmounted(() => clearInterval(timer));
 const visible = computed(() =>
     props.effects.filter(
         (effect) =>

@@ -10,6 +10,7 @@ return [
     'breeding_cooldown_days' => 7,
     'breeding_birth_hours' => 24,
     'puppy_decision_days' => 7,
+    'puppy_http_batch_size' => 20,
     'breeding_rare_colors' => ['liver', 'blue', 'cream'],
     'illustrated_breeds' => ['german_shepherd', 'pit_bull', 'dachshund'],
     'avatar' => [

@@ -65,8 +65,9 @@ async function renderEvent(
     entry: GameEventEntry | null,
     locale = 'en',
     dog = dogFixture(),
+    serverNow = '2026-10-04T12:00:00Z',
 ): Promise<string> {
-    const props = { event, entry, dogs: [dog], equipment: [] };
+    const props = { event, entry, dogs: [dog], equipment: [], serverNow };
     const panel = defineComponent({
         setup: () => () => h(GameEventShow, props),
     });
@@ -99,6 +100,46 @@ async function renderEvent(
         }),
     );
 }
+
+it.each([
+    {
+        deviceNow: '2099-01-01T00:00:00Z',
+        serverNow: '2026-10-04T12:00:00Z',
+        open: true,
+    },
+    {
+        deviceNow: '1999-01-01T00:00:00Z',
+        serverNow: '2026-10-04T18:00:00Z',
+        open: false,
+    },
+])(
+    'uses server registration time when the device clock reads $deviceNow',
+    async ({ deviceNow, serverNow, open }) => {
+        vi.spyOn(Date, 'now').mockReturnValue(Date.parse(deviceNow));
+        try {
+            const event = eventFixture();
+            const entry = open ? null : entryFixture();
+            const html = await renderEvent(
+                event,
+                entry,
+                'en',
+                dogFixture(),
+                serverNow,
+            );
+
+            if (open) {
+                expect(html).toContain('type="submit"');
+            } else {
+                expect(html).not.toContain('type="submit"');
+                expect(html).toContain(
+                    'Registration is closed. Saved plans are ready for the start.',
+                );
+            }
+        } finally {
+            vi.restoreAllMocks();
+        }
+    },
+);
 
 it('keeps a withdrawn entry as a refunded receipt without offering registration again', async () => {
     vi.setSystemTime(new Date('2026-10-04T12:00:00Z'));

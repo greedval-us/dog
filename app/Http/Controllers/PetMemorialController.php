@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Pet;
 use App\Models\User;
-use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Queries\GetPetMemorial;
 use App\Modules\Players\Queries\GetPlayerProfile;
 use Illuminate\Http\Request;
@@ -13,10 +12,9 @@ use Inertia\Response;
 
 class PetMemorialController extends Controller
 {
-    public function index(Request $request, User $user, GetPlayerProfile $profile, GetPetMemorial $memorial, PetLifecycle $lifecycle): Response
+    public function index(Request $request, User $user, GetPlayerProfile $profile, GetPetMemorial $memorial): Response
     {
         $request->validate(['cursor' => ['nullable', 'string', 'max:1000']]);
-        $lifecycle->synchronizeOwner($user);
 
         return Inertia::render('PetMemorial', [
             'player' => $profile->handle($user)->toArray(),
@@ -25,9 +23,8 @@ class PetMemorialController extends Controller
         ]);
     }
 
-    public function show(Request $request, User $user, Pet $pet, GetPlayerProfile $profile, GetPetMemorial $memorial, PetLifecycle $lifecycle): Response
+    public function show(Request $request, User $user, Pet $pet, GetPlayerProfile $profile, GetPetMemorial $memorial): Response
     {
-        $lifecycle->synchronizeOwner($user);
         $snapshot = $memorial->pet($user, $pet->id, app()->getLocale());
 
         return Inertia::render('PetMemorialShow', [

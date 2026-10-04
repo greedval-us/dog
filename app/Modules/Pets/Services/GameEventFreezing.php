@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Calculators\GameEventRandomness;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Generators\GameEventNpcGenerator;
@@ -42,15 +43,16 @@ final class GameEventFreezing
      */
     public function freeze(GameEvent $event, Collection $entries, Collection $owners, Collection $pets, CarbonImmutable $at, array &$thresholds): void
     {
+        $discipline = GameEventDiscipline::from($event->discipline);
         foreach ($entries->where('status', 'registered') as $entry) {
             $owner = $owners->get($entry->user_id);
             $pet = $pets->get($entry->pet_id);
-            if ($owner !== null && $owner->status === PlayerStatus::Active && $pet !== null && $event->discipline !== 'progeny') {
+            if ($owner !== null && $owner->status === PlayerStatus::Active && $pet !== null && ! $discipline->isDocumentary()) {
                 $this->completePriorActivity($owner, $pet, $event->closes_at, $thresholds);
             }
             $reason = $owner === null || $owner->status !== PlayerStatus::Active || $pet === null || $pet->user_id !== $owner->id
                 ? 'events.errors.unavailable' : $this->admission->reason($event, $pet, $event->closes_at);
-            if ($reason === null && $event->discipline !== 'progeny' && $pet->isBusy()) {
+            if ($reason === null && ! $discipline->isDocumentary() && $pet->isBusy()) {
                 $reason = 'events.errors.busy';
             }
             $gear = [];
@@ -118,9 +120,10 @@ final class GameEventFreezing
         foreach ($gear as $item) {
             $this->inventory->handle($owner, $item['id'], $this->randomness->token($event->seed.':usage:'.$entry->id.':'.$item['id']));
         }
-        if ($event->discipline !== 'progeny') {
+        $discipline = GameEventDiscipline::from($event->discipline);
+        if (! $discipline->isDocumentary()) {
             $pet->energy = max(0, $pet->energy - $event->rules['energy_cost']);
-            $pet->activity = $event->discipline === 'conformation' ? PetActivity::Exhibition : PetActivity::Competition;
+            $pet->activity = $discipline->isExhibition() ? PetActivity::Exhibition : PetActivity::Competition;
             $pet->activity_token = $entry->operation_token;
             $pet->activity_started_at = $event->closes_at;
             $pet->activity_ends_at = $event->ends_at;

@@ -15,7 +15,6 @@ use App\Modules\Pets\Actions\SurrenderPuppy;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetPlayerPuppies;
 use App\Modules\Pets\Queries\GetPuppyMarket;
-use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Pets\Services\PuppyLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Http\RedirectResponse;
@@ -26,14 +25,13 @@ use Inertia\Response;
 
 class PuppyController extends Controller
 {
-    public function index(Request $request, GetPlayerPuppies $puppies, PuppyLifecycle $puppyLifecycle, PetLifecycle $lifecycle): Response
+    public function index(Request $request, GetPlayerPuppies $puppies, PuppyLifecycle $puppyLifecycle): Response
     {
         $user = $this->player($request);
         $validated = $request->validate(['parent' => ['nullable', 'integer', 'min:1'], 'cursor' => ['nullable', 'string', 'max:1000']]);
         $parentId = isset($validated['parent']) ? (int) $validated['parent'] : null;
         abort_if($parentId !== null && ! $user->pets()->whereKey($parentId)->exists(), 404);
-        $puppyLifecycle->synchronize();
-        $lifecycle->synchronizeOwner($user);
+        $puppyLifecycle->synchronizeForOwner($user, (int) config('doglive.puppy_http_batch_size', 20));
         $user->refresh();
 
         return Inertia::render('puppies/Index', [
@@ -44,13 +42,11 @@ class PuppyController extends Controller
         ]);
     }
 
-    public function market(Request $request, GetPuppyMarket $puppies, PuppyLifecycle $puppyLifecycle, PetLifecycle $lifecycle): Response
+    public function market(Request $request, GetPuppyMarket $puppies): Response
     {
         $user = $this->player($request);
         $validated = $request->validate(['source' => ['nullable', 'in:players,kennel'], 'cursor' => ['nullable', 'string', 'max:1000']]);
         $source = $validated['source'] ?? 'players';
-        $puppyLifecycle->synchronize();
-        $lifecycle->synchronizeOwner($user);
         $user->refresh();
 
         return Inertia::render('puppies/Market', [

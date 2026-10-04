@@ -228,6 +228,40 @@ test('event schedule repeats safely and uses Sunday and the calendar month end i
     expect($monthly->starts_at->setTimezone('Europe/Moscow')->format('Y-m-d H:i'))->toBe('2026-10-31 20:30');
 });
 
+test('documentary progeny judging does not reserve the parent for physical activities', function () {
+    $this->freezeSecond();
+    $parent = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $children = Pet::factory()->count(3)->create(['dog_id' => $parent->dog_id, 'father_id' => $parent->id]);
+    $documentary = GameEvent::factory()->create(['discipline' => 'progeny']);
+    $physical = GameEvent::factory()->create();
+    app(RegisterGameEvent::class)->handle($parent->user, $documentary->id, $parent->id,
+        [...gameEventPlan(), 'offspring_ids' => $children->modelKeys()], [], 25, (string) Str::uuid());
+    app(PetEventReservation::class)->assertAvailable($parent, $documentary->closes_at, $documentary->ends_at);
+    expect(app(PetEventReservation::class)->nextStartsAt($parent, now()))->toBeNull();
+
+    registerDogEvent($parent, $physical);
+
+    expect(GameEventEntry::query()->where('pet_id', $parent->id)->count())->toBe(2);
+    expect(app(PetEventReservation::class)->nextStartsAt($parent, now()))->toEqual($physical->closes_at);
+    expect($parent->fresh()->energy)->toBe(100.0);
+});
+
+test('a physically reserved dog can enter documentary progeny judging at the same time', function () {
+    $this->freezeSecond();
+    $parent = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $children = Pet::factory()->count(3)->create(['dog_id' => $parent->dog_id, 'father_id' => $parent->id]);
+    $physical = GameEvent::factory()->create();
+    registerDogEvent($parent, $physical);
+    $documentary = GameEvent::factory()->create(['discipline' => 'progeny']);
+
+    $entry = app(RegisterGameEvent::class)->handle($parent->user, $documentary->id, $parent->id,
+        [...gameEventPlan(), 'offspring_ids' => $children->modelKeys()], [], 25, (string) Str::uuid());
+
+    expect($entry->status)->toBe('registered');
+    expect(app(PetEventReservation::class)->nextStartsAt($parent, now()))->toEqual($physical->closes_at);
+    expect($parent->fresh()->energy)->toBe(100.0);
+});
+
 test('three starts per Moscow day and eight humans per division are enforced before charging', function () {
     $this->freezeSecond();
     $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();

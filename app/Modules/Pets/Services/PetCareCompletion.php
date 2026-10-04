@@ -12,6 +12,7 @@ use App\Modules\Pets\Enums\CareRefusal;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Enums\PetState;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Services\PlayerProgress;
 use Carbon\CarbonImmutable;
 
@@ -84,7 +85,12 @@ final class PetCareCompletion
         $pet->save();
         $care->completed_at = $confirmedAt;
         $care->save();
-        $experienceAwarded = $this->progress->award($owner, $care);
+        $experienceAwarded = $this->progress->award($owner, $care, fn (PetCareAction $completed): PlayerProgressFact => new PlayerProgressFact(
+            code: $completed->group === 'training' ? 'training' : 'care.'.$completed->variant,
+            completedAt: $completed->cancelled_at === null ? $completed->completed_at : null,
+            walk: $completed->group === 'walk',
+            training: $completed->group === 'training',
+        ));
         $this->history->record($pet, $care->group === 'training' ? 'training' : 'care.'.$care->variant,
             'care:'.$care->id.':completed', $endedAt, [
                 'stage' => 'completed', 'name' => $care->training_name, 'experienceAwarded' => $experienceAwarded,

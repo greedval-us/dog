@@ -7,6 +7,7 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\GameEventAdmission;
@@ -72,10 +73,12 @@ final class RegisterGameEvent
             if (($reason = $this->admission->reason($event, $pet, $at)) !== null) {
                 throw new GameEventUnavailable($reason);
             }
-            try {
-                $this->reservations->assertAvailable($pet, $event->closes_at, $event->ends_at);
-            } catch (PetUnavailable) {
-                throw new GameEventUnavailable('events.errors.reserved');
+            if (! GameEventDiscipline::from($event->discipline)->isDocumentary()) {
+                try {
+                    $this->reservations->assertAvailable($pet, $event->closes_at, $event->ends_at);
+                } catch (PetUnavailable) {
+                    throw new GameEventUnavailable('events.errors.reserved');
+                }
             }
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
             $division = $this->admission->division($event, $pet);

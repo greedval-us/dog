@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
 const PlayerAchievementController = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ PlayerAchievementController.definition = {
 
 /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
 PlayerAchievementController.url = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ PlayerAchievementController.url = (args: { user: string | { username: string } }
 
 /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
 PlayerAchievementController.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -58,7 +58,7 @@ PlayerAchievementController.get = (args: { user: string | { username: string } }
 })
 /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
 PlayerAchievementController.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -68,7 +68,7 @@ PlayerAchievementController.head = (args: { user: string | { username: string } 
 
     /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
     const PlayerAchievementControllerForm = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -78,7 +78,7 @@ PlayerAchievementController.head = (args: { user: string | { username: string } 
 
             /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
         PlayerAchievementControllerForm.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -87,7 +87,7 @@ PlayerAchievementController.head = (args: { user: string | { username: string } 
         })
             /**
 * @see \App\Http\Controllers\PlayerAchievementController::__invoke
- * @see app/Http/Controllers/PlayerAchievementController.php:18
+ * @see app/Http/Controllers/PlayerAchievementController.php:17
  * @route '/players/{user}/achievements'
  */
         PlayerAchievementControllerForm.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

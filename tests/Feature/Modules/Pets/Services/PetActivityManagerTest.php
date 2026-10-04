@@ -6,6 +6,7 @@ use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 test('new pets have separate calculation clocks and no gameplay activity', function () {
@@ -60,7 +61,7 @@ test('players cannot claim another players pet', function () {
     $other = User::factory()->create();
 
     expect(fn () => app(PetActivityManager::class)->start($other, $pet->id, PetActivity::Training, now()->addHour(), energyCost: 10))
-        ->toThrow(PetUnavailable::class);
+        ->toThrow(ModelNotFoundException::class);
 
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity' => null, 'last_activity_at' => null, 'energy' => 100]);
 });

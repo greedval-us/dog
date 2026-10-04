@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Queries\GetPlayerAchievements;
 use App\Modules\Players\Queries\GetPlayerProfile;
 use App\Modules\Players\Services\PlayerProgress;
@@ -15,9 +14,8 @@ class PlayerAchievementController extends Controller
     /**
      * Handle the incoming request.
      */
-    public function __invoke(User $user, GetPlayerAchievements $achievements, GetPlayerProfile $profile, PlayerProgress $progress, PetLifecycle $lifecycle): Response
+    public function __invoke(User $user, GetPlayerAchievements $achievements, GetPlayerProfile $profile, PlayerProgress $progress): Response
     {
-        $lifecycle->synchronizeOwner($user);
         $progress->refreshAchievements($user);
         $items = $achievements->handle($user, app()->getLocale());
 

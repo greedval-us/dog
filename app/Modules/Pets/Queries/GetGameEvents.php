@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\DTO\PetTitleData;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
@@ -33,7 +34,7 @@ final class GetGameEvents
             $query->where('frequency', $filters['frequency']);
         }
         if (isset($filters['kind'])) {
-            $disciplines = ['conformation', 'progeny'];
+            $disciplines = GameEventDiscipline::exhibitions();
             $filters['kind'] === 'exhibition' ? $query->whereIn('discipline', $disciplines) : $query->whereNotIn('discipline', $disciplines);
         }
         $page = $query->orderBy('starts_at')->orderBy('id')->cursorPaginate(30);
@@ -48,6 +49,16 @@ final class GetGameEvents
     /** @return array<string, mixed> */
     public function show(User $user, GameEvent $event, string $locale): array
     {
+        return [
+            ...$this->showState($user, $event, $locale),
+            'dogs' => $this->registrationDogs($user, $locale),
+            'equipment' => $this->registrationEquipment($user, $locale),
+        ];
+    }
+
+    /** @return array{event:array<string, mixed>, entry:array<string, mixed>|null} */
+    public function showState(User $user, GameEvent $event, string $locale): array
+    {
         $event->load(['entries.pet.dog', 'entries.user:id,name,username'])->loadCount('entries');
         $breeds = Dog::query()->whereIn('id', $event->entries->map(fn (GameEventEntry $entry) => $entry->snapshot['breed_id'] ?? $entry->pet?->dog_id)->filter()->unique())->get()->keyBy('id');
         $entries = $event->entries->sortBy(fn (GameEventEntry $entry): int => $entry->rank ?? PHP_INT_MAX);
@@ -56,8 +67,6 @@ final class GetGameEvents
         return [
             'event' => [...$this->summary($event, $user), 'entries' => array_values($entries->map(fn (GameEventEntry $entry): array => $this->entry($entry, $user, $locale, $breeds->get($entry->snapshot['breed_id'] ?? $entry->pet?->dog_id)))->all())],
             'entry' => $own === null ? null : $this->entry($own, $user, $locale, $breeds->get($own->snapshot['breed_id'] ?? $own->pet?->dog_id)),
-            'dogs' => $this->dogs($user, $locale),
-            'equipment' => $this->equipment($user, $locale),
         ];
     }
 
@@ -119,7 +128,7 @@ final class GetGameEvents
     }
 
     /** @return list<array<string, mixed>> */
-    private function dogs(User $user, string $locale): array
+    public function registrationDogs(User $user, string $locale): array
     {
         $pets = $user->pets()->with(['dog', 'titles'])->orderBy('id')->get();
         $ids = $pets->modelKeys();
@@ -141,7 +150,7 @@ final class GetGameEvents
     }
 
     /** @return list<array<string, mixed>> */
-    private function equipment(User $user, string $locale): array
+    public function registrationEquipment(User $user, string $locale): array
     {
         $items = InventoryItem::query()->where('user_id', $user->id)->where('remaining_uses', '>', 0)
             ->whereNotNull('characteristics->competition')->orderBy('id')->get();

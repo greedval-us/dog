@@ -11,7 +11,9 @@ use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
+use App\Modules\Pets\DTO\GameEventProtocol;
 use App\Modules\Pets\DTO\PetStatSnapshot;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use Carbon\CarbonImmutable;
@@ -45,7 +47,7 @@ final class GameEventAdmission
             throw new GameEventUnavailable('events.errors.plan');
         }
         $result = ['stages' => $stages];
-        if ($event->discipline === 'progeny') {
+        if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
             $ids = $plan['offspring_ids'] ?? [];
             if (! is_array($ids) || ! array_is_list($ids) || count($ids) < 3 || count($ids) > 5
                 || count(array_unique($ids)) !== count($ids) || count(array_filter($ids, fn ($id): bool => is_int($id) && $id > 0)) !== count($ids)) {
@@ -65,7 +67,7 @@ final class GameEventAdmission
 
     public function reason(GameEvent $event, Pet $pet, CarbonImmutable $at): ?string
     {
-        if ($event->discipline === 'progeny') {
+        if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
             return null;
         }
         $pet->advanceTo($at, $this->decay);
@@ -92,7 +94,7 @@ final class GameEventAdmission
      */
     public function gear(User $user, GameEvent $event, Pet $pet, array $ids, bool $lock = false): array
     {
-        if ($event->discipline === 'progeny' && $ids !== []) {
+        if (GameEventDiscipline::from($event->discipline)->isDocumentary() && $ids !== []) {
             throw new GameEventUnavailable('events.errors.gear');
         }
         if (! array_is_list($ids) || count($ids) > 4 || count(array_unique($ids)) !== count($ids)
@@ -130,11 +132,7 @@ final class GameEventAdmission
     {
         $tier = PetSportRecord::query()->where('pet_id', $pet->id)->where('discipline', $event->discipline)->value('tier') ?? 0;
         $class = ['novice', 'open', 'champion'][min(2, (int) $tier)];
-        $group = match ($event->discipline) {
-            'agility' => $pet->size->value,
-            'conformation', 'progeny' => 'breed-'.$pet->dog_id,
-            default => 'all',
-        };
+        $group = GameEventDiscipline::from($event->discipline)->divisionGroup($pet->size->value, $pet->dog_id);
 
         return $class.':'.$group;
     }
@@ -169,7 +167,7 @@ final class GameEventAdmission
             $modifiers[$key] = max(-0.2, min(0.2, $value));
         }
         $offspring = [];
-        if ($event->discipline === 'progeny') {
+        if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
             $children = Pet::query()->whereIn('id', $plan['offspring_ids'])->orderBy('id')
                 ->with(['titles' => fn ($query) => $query->reorder()->orderBy('id')->select(['pet_id', 'discipline', 'frequency', 'code'])])->get();
             foreach ($children as $child) {
@@ -181,6 +179,7 @@ final class GameEventAdmission
         }
 
         return [
+            'version' => GameEventProtocol::SNAPSHOT_VERSION,
             'name' => $pet->name, 'breed' => $pet->dog->breed, 'breed_id' => $pet->dog_id, 'size' => $pet->size->value,
             'stats' => $stats, 'potentials' => $potentials, 'states' => $pet->statePercentages(null),
             'skills' => $skills, 'exterior' => $pet->getAttribute('exterior') ?? [],

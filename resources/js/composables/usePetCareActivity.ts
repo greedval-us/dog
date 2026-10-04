@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useServerClock } from '@/composables/useServerClock';
 import { complete } from '@/routes/pets/care';
 import type { PetCare } from '@/types/pet-care';
 
@@ -8,32 +9,17 @@ export function usePetCareActivity(
     care: () => PetCare,
     autoComplete: () => boolean,
 ) {
-    const now = ref(Date.parse(care().serverNow));
+    const { now } = useServerClock(() => care().serverNow);
     const mounted = ref(false);
     const completionFailed = ref(false);
     const finish = useForm({ token: '' });
     let lastCompletionAttempt: string | null = null;
-    let clock: ReturnType<typeof setInterval> | undefined;
-    let serverAnchor = now.value;
-    let localAnchor = Date.now();
     onMounted(() => {
         mounted.value = true;
-        clock = setInterval(() => {
-            now.value = serverAnchor + Date.now() - localAnchor;
-        }, 1000);
     });
     onUnmounted(() => {
-        clearInterval(clock);
         finish.cancel();
     });
-    watch(
-        () => care().serverNow,
-        (value) => {
-            serverAnchor = Date.parse(value);
-            localAnchor = Date.now();
-            now.value = serverAnchor;
-        },
-    );
     const secondsLeft = (date?: string): number =>
         date
             ? Math.max(0, Math.ceil((Date.parse(date) - now.value) / 1000))

@@ -10,6 +10,7 @@ use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Services\PetActivityManager;
 use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetLifecycleSynchronization;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
@@ -70,7 +71,9 @@ final class CompleteDogWork
                 $this->wallet->change($owner, 'gems', $shift->gems_reward, $operation.':gems', 'dog_work');
             }
             $shift->update(['completed_at' => $confirmedAt]);
-            $experienceAwarded = $this->progress->award($owner, $shift);
+            $experienceAwarded = $this->progress->award($owner, $shift, fn (DogWorkShift $completed): PlayerProgressFact => new PlayerProgressFact(
+                code: 'work', completedAt: $completed->cancelled_at === null ? $completed->completed_at : null,
+            ));
             $this->history->record($pet, 'work', 'work:'.$shift->id.':completed', $shift->ends_at, [
                 'stage' => 'completed', 'name' => $shift->name, 'experienceAwarded' => $experienceAwarded,
                 'durationSeconds' => $shift->ends_at->getTimestamp() - $shift->started_at->getTimestamp(),

@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import listing from './listing'
 /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
 index.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
     const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
         indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -64,7 +64,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\PuppyController::index
- * @see app/Http/Controllers/PuppyController.php:29
+ * @see app/Http/Controllers/PuppyController.php:28
  * @route '/puppies'
  */
         indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -80,7 +80,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
 export const market = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -95,7 +95,7 @@ market.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
 market.url = (options?: RouteQueryOptions) => {
@@ -104,7 +104,7 @@ market.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
 market.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -113,7 +113,7 @@ market.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
 market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -123,7 +123,7 @@ market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
     const marketForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -133,7 +133,7 @@ market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
         marketForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -142,7 +142,7 @@ market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\PuppyController::market
- * @see app/Http/Controllers/PuppyController.php:47
+ * @see app/Http/Controllers/PuppyController.php:45
  * @route '/puppies/market'
  */
         marketForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -158,7 +158,7 @@ market.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     market.form = marketForm
 /**
 * @see \App\Http\Controllers\PuppyController::keep
- * @see app/Http/Controllers/PuppyController.php:65
+ * @see app/Http/Controllers/PuppyController.php:61
  * @route '/puppies/{puppy}/keep'
  */
 export const keep = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -173,7 +173,7 @@ keep.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::keep
- * @see app/Http/Controllers/PuppyController.php:65
+ * @see app/Http/Controllers/PuppyController.php:61
  * @route '/puppies/{puppy}/keep'
  */
 keep.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -206,7 +206,7 @@ keep.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: nu
 
 /**
 * @see \App\Http\Controllers\PuppyController::keep
- * @see app/Http/Controllers/PuppyController.php:65
+ * @see app/Http/Controllers/PuppyController.php:61
  * @route '/puppies/{puppy}/keep'
  */
 keep.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -216,7 +216,7 @@ keep.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
 
     /**
 * @see \App\Http\Controllers\PuppyController::keep
- * @see app/Http/Controllers/PuppyController.php:65
+ * @see app/Http/Controllers/PuppyController.php:61
  * @route '/puppies/{puppy}/keep'
  */
     const keepForm = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -226,7 +226,7 @@ keep.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
 
             /**
 * @see \App\Http\Controllers\PuppyController::keep
- * @see app/Http/Controllers/PuppyController.php:65
+ * @see app/Http/Controllers/PuppyController.php:61
  * @route '/puppies/{puppy}/keep'
  */
         keepForm.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -237,7 +237,7 @@ keep.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: n
     keep.form = keepForm
 /**
 * @see \App\Http\Controllers\PuppyController::surrender
- * @see app/Http/Controllers/PuppyController.php:99
+ * @see app/Http/Controllers/PuppyController.php:95
  * @route '/puppies/{puppy}/surrender'
  */
 export const surrender = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -252,7 +252,7 @@ surrender.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::surrender
- * @see app/Http/Controllers/PuppyController.php:99
+ * @see app/Http/Controllers/PuppyController.php:95
  * @route '/puppies/{puppy}/surrender'
  */
 surrender.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -285,7 +285,7 @@ surrender.url = (args: { puppy: number | { id: number } } | [puppy: number | { i
 
 /**
 * @see \App\Http\Controllers\PuppyController::surrender
- * @see app/Http/Controllers/PuppyController.php:99
+ * @see app/Http/Controllers/PuppyController.php:95
  * @route '/puppies/{puppy}/surrender'
  */
 surrender.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -295,7 +295,7 @@ surrender.post = (args: { puppy: number | { id: number } } | [puppy: number | { 
 
     /**
 * @see \App\Http\Controllers\PuppyController::surrender
- * @see app/Http/Controllers/PuppyController.php:99
+ * @see app/Http/Controllers/PuppyController.php:95
  * @route '/puppies/{puppy}/surrender'
  */
     const surrenderForm = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -305,7 +305,7 @@ surrender.post = (args: { puppy: number | { id: number } } | [puppy: number | { 
 
             /**
 * @see \App\Http\Controllers\PuppyController::surrender
- * @see app/Http/Controllers/PuppyController.php:99
+ * @see app/Http/Controllers/PuppyController.php:95
  * @route '/puppies/{puppy}/surrender'
  */
         surrenderForm.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -316,7 +316,7 @@ surrender.post = (args: { puppy: number | { id: number } } | [puppy: number | { 
     surrender.form = surrenderForm
 /**
 * @see \App\Http\Controllers\PuppyController::purchase
- * @see app/Http/Controllers/PuppyController.php:110
+ * @see app/Http/Controllers/PuppyController.php:106
  * @route '/puppies/{puppy}/purchase'
  */
 export const purchase = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -331,7 +331,7 @@ purchase.definition = {
 
 /**
 * @see \App\Http\Controllers\PuppyController::purchase
- * @see app/Http/Controllers/PuppyController.php:110
+ * @see app/Http/Controllers/PuppyController.php:106
  * @route '/puppies/{puppy}/purchase'
  */
 purchase.url = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -364,7 +364,7 @@ purchase.url = (args: { puppy: number | { id: number } } | [puppy: number | { id
 
 /**
 * @see \App\Http\Controllers\PuppyController::purchase
- * @see app/Http/Controllers/PuppyController.php:110
+ * @see app/Http/Controllers/PuppyController.php:106
  * @route '/puppies/{puppy}/purchase'
  */
 purchase.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -374,7 +374,7 @@ purchase.post = (args: { puppy: number | { id: number } } | [puppy: number | { i
 
     /**
 * @see \App\Http\Controllers\PuppyController::purchase
- * @see app/Http/Controllers/PuppyController.php:110
+ * @see app/Http/Controllers/PuppyController.php:106
  * @route '/puppies/{puppy}/purchase'
  */
     const purchaseForm = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -384,7 +384,7 @@ purchase.post = (args: { puppy: number | { id: number } } | [puppy: number | { i
 
             /**
 * @see \App\Http\Controllers\PuppyController::purchase
- * @see app/Http/Controllers/PuppyController.php:110
+ * @see app/Http/Controllers/PuppyController.php:106
  * @route '/puppies/{puppy}/purchase'
  */
         purchaseForm.post = (args: { puppy: number | { id: number } } | [puppy: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

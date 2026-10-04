@@ -18,7 +18,9 @@ test('progress migration preserves experience and restores lifetime statistics f
         'trainings_count' => 0, 'bio' => 'Люблю прогулки с собакой.',
     ]);
     $inactive = User::factory()->create(['experience' => '700', 'level' => 1]);
-    $pet = Pet::factory()->for($owner)->create();
+    $pet = Pet::factory()->for($owner)->make();
+    $pet->offsetUnset('exterior');
+    $pet->save();
     $care = PetCareAction::factory()->count(6)->sequence(
         ['group' => 'feed', 'variant' => 'meal', 'completed_at' => '2026-10-01 20:55:00'],
         ['group' => 'feed', 'variant' => 'meal', 'completed_at' => '2026-10-01 20:57:00'],

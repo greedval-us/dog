@@ -2,6 +2,8 @@
 
 use App\Models\Achievement;
 use App\Models\Dog;
+use App\Models\GameEvent;
+use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\PlayerAchievement;
@@ -12,6 +14,7 @@ use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Services\PlayerProgress;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AchievementSeeder;
@@ -34,6 +37,15 @@ function achievementProgress(User $player, string $code): PlayerAchievement
 {
     return PlayerAchievement::query()->where('user_id', $player->id)
         ->where('achievement_id', achievementForCode($code)->id)->sole();
+}
+
+function achievementCareProgressFact(PetCareAction $receipt): PlayerProgressFact
+{
+    return new PlayerProgressFact(
+        code: $receipt->group === 'training' ? 'training' : 'care.'.$receipt->variant,
+        completedAt: $receipt->cancelled_at === null ? $receipt->completed_at : null,
+        walk: $receipt->group === 'walk', training: $receipt->group === 'training',
+    );
 }
 
 test('guests must sign in to view player achievements', function () {
@@ -283,7 +295,7 @@ test('care completion unlocks its achievement once and replay grants no extra pr
     $unlockedAt = achievementProgress($player, 'first-wash')->unlocked_at->toISOString();
     $this->travel(1)->minutes();
     expect(app(CompletePetCare::class)->handle($player, $pet->id, $care->token))->toBeFalse();
-    expect(app(PlayerProgress::class)->award($player, $care))->toBe(10);
+    expect(app(PlayerProgress::class)->award($player, $care, achievementCareProgressFact(...)))->toBe(10);
 
     expect(achievementProgress($player, 'first-wash')->unlocked_at->toISOString())->toBe($unlockedAt);
     expect($player->fresh()->pet_statistics)->toBe(['care.wash' => 1]);
@@ -302,7 +314,7 @@ test('a failed achievement unlock rolls back the action reward and receipt marke
     DB::unprepared("CREATE FUNCTION reject_achievement_unlock() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN IF NEW.unlocked_at IS NOT NULL THEN RAISE EXCEPTION ''Simulated achievement failure''; END IF; RETURN NEW; END'; CREATE TRIGGER reject_achievement_unlock BEFORE INSERT OR UPDATE ON player_achievements FOR EACH ROW EXECUTE FUNCTION reject_achievement_unlock()");
 
     try {
-        expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt))->toThrow(QueryException::class);
+        expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt, achievementCareProgressFact(...)))->toThrow(QueryException::class);
     } finally {
         DB::unprepared('DROP TRIGGER reject_achievement_unlock ON player_achievements; DROP FUNCTION reject_achievement_unlock()');
     }
@@ -311,7 +323,96 @@ test('a failed achievement unlock rolls back the action reward and receipt marke
     expect($pet->user->fresh()->pet_statistics)->toBe([]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'experience_awarded' => null]);
     $this->assertDatabaseCount('player_achievements', 0);
-    expect(app(PlayerProgress::class)->award($pet->user, $receipt))->toBe(10);
+    expect(app(PlayerProgress::class)->award($pet->user, $receipt, achievementCareProgressFact(...)))->toBe(10);
     expect(achievementProgress($pet->user, 'first-wash')->unlocked_at)->not->toBeNull();
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
+});
+
+test('bounded event achievement updates include custom wins active days and the first dog', function (string $code, string $metric, bool $exhibition) {
+    $this->seed(AchievementSeeder::class);
+    $achievement = Achievement::factory()->create(['rules' => ['metric' => $metric, 'target' => 2]]);
+    $player = User::factory()->create([
+        'competition_wins' => 1, 'exhibition_wins' => 1, 'active_days' => 6,
+        'last_pet_action_at' => now()->subDay(), 'coins' => 317, 'gems' => 9,
+    ]);
+    $entry = GameEventEntry::factory()->for($player)->create([
+        'status' => 'completed', 'completed_at' => now(), 'rank' => 1, 'result' => ['eliminated' => false],
+    ]);
+
+    app(PlayerProgress::class)->award($player, $entry, fn (GameEventEntry $completed): PlayerProgressFact => new PlayerProgressFact(
+        code: $code, completedAt: $completed->status === 'completed' && ! $completed->is_npc ? $completed->completed_at : null,
+        competitionWin: ! $exhibition && $completed->rank === 1 && ! $completed->result['eliminated'],
+        exhibitionWin: $exhibition && $completed->rank === 1 && ! $completed->result['eliminated'],
+    ), onlyAffectedAchievements: true);
+
+    $this->assertDatabaseHas('player_achievements', ['user_id' => $player->id, 'achievement_id' => $achievement->id, 'progress' => 2]);
+    expect(PlayerAchievement::query()->where('user_id', $player->id)->where('achievement_id', $achievement->id)->sole()->unlocked_at)->not->toBeNull();
+    expect(achievementProgress($player, 'week-together')->unlocked_at)->not->toBeNull();
+    expect(achievementProgress($player, 'first-dog')->unlocked_at)->not->toBeNull();
+    $this->assertDatabaseHas('users', ['id' => $player->id, $metric => 2, 'experience' => '20', 'coins' => 317, 'gems' => 9]);
+    $this->assertDatabaseCount('currency_transactions', 0);
+})->with([
+    'sport win' => ['competition', 'competition_wins', false],
+    'show win' => ['exhibition', 'exhibition_wins', true],
+]);
+
+test('bounded event progress avoids unrelated achievement history scans for a field of eight players', function () {
+    $this->seed(AchievementSeeder::class);
+    $winnerAchievement = Achievement::factory()->create(['rules' => ['metric' => 'competition_wins', 'target' => 1]]);
+    $event = GameEvent::factory()->create(['status' => 'settled']);
+    $fields = [];
+    foreach (['full', 'bounded'] as $mode) {
+        $fields[$mode] = [];
+        for ($index = 0; $index < 8; $index++) {
+            $player = User::factory()->create(['starter_pet_claimed_at' => now(), 'pet_statistics' => ['care.meal' => 100]]);
+            $pet = Pet::factory()->for($player)->create();
+            PetCareAction::factory()->count(100)->create([
+                'user_id' => $player->id, 'pet_id' => $pet->id, 'group' => 'feed', 'variant' => 'meal',
+                'ends_at' => now()->subDay(), 'completed_at' => now()->subDay(), 'experience_awarded' => 10,
+            ]);
+            $entry = GameEventEntry::factory()->for($event, 'event')->for($player)->for($pet)->create([
+                'status' => 'completed', 'completed_at' => now(), 'rank' => 1, 'result' => ['eliminated' => false],
+            ]);
+            $fields[$mode][] = [$player, $entry];
+        }
+    }
+    $measurements = [];
+
+    foreach ($fields as $mode => $participants) {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            foreach ($participants as [$player, $entry]) {
+                app(PlayerProgress::class)->award($player, $entry, fn (GameEventEntry $completed): PlayerProgressFact => new PlayerProgressFact(
+                    code: 'competition', completedAt: $completed->status === 'completed' && ! $completed->is_npc ? $completed->completed_at : null,
+                    competitionWin: $completed->rank === 1 && ! $completed->result['eliminated'],
+                ), onlyAffectedAchievements: $mode === 'bounded');
+            }
+            $queries = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+        $measurements[$mode] = [
+            'queries' => count($queries),
+            'sqlMilliseconds' => round(array_sum(array_column($queries, 'time')), 2),
+            'mealHistoryScans' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'daily_feeding'))),
+            'eventLoads' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from "game_events"'))),
+        ];
+    }
+
+    expect($measurements['full']['mealHistoryScans'])->toBe(8);
+    expect($measurements['bounded']['mealHistoryScans'])->toBe(0);
+    expect($measurements['bounded']['eventLoads'])->toBe(0);
+    expect($measurements['bounded']['queries'])->toBeLessThanOrEqual(64);
+    expect($measurements['full']['queries'] - $measurements['bounded']['queries'])->toBeGreaterThanOrEqual(24);
+    foreach ($fields as $participants) {
+        foreach ($participants as [$player, $entry]) {
+            $this->assertDatabaseHas('users', ['id' => $player->id, 'experience' => '20', 'competition_wins' => 1, 'active_days' => 1]);
+            $this->assertDatabaseHas('game_event_entries', ['id' => $entry->id, 'experience_awarded' => 20]);
+            $this->assertDatabaseHas('player_achievements', ['user_id' => $player->id, 'achievement_id' => $winnerAchievement->id, 'progress' => 1]);
+            expect(achievementProgress($player, 'first-dog')->unlocked_at)->not->toBeNull();
+        }
+    }
+    fwrite(STDERR, PHP_EOL.'Player progress query measurements: '.json_encode($measurements, JSON_THROW_ON_ERROR).PHP_EOL);
 });

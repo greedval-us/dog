@@ -7,29 +7,35 @@ use App\Models\KennelPurchase;
 use App\Models\PetCareAction;
 use App\Models\PlayerAchievement;
 use App\Models\User;
+use App\Modules\Players\Enums\AchievementMetric;
 use Illuminate\Support\Facades\DB;
 
 final class PlayerAchievements
 {
-    /** Call within the gameplay transaction to preserve unlocks alongside their completed action. */
-    public function synchronize(User $user): void
+    /**
+     * Call within the gameplay transaction to preserve unlocks alongside their completed action.
+     *
+     * @param  list<AchievementMetric>|null  $affectedMetrics  Null preserves the complete backfill.
+     */
+    public function synchronize(User $user, ?array $affectedMetrics = null): void
     {
-        DB::transaction(function () use ($user): void {
+        DB::transaction(function () use ($user, $affectedMetrics): void {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
-            $catalogue = Achievement::query()->where('is_active', true)->orderBy('id')->get();
+            $query = Achievement::query()->where('is_active', true)->orderBy('id');
+            if ($affectedMetrics !== null) {
+                $query->whereIn('rules->metric', array_map(fn (AchievementMetric $metric): string => $metric->value, $affectedMetrics));
+            }
+            $catalogue = $query->get(['id', 'rules']);
 
             if ($catalogue->isEmpty()) {
                 return;
             }
 
             $states = PlayerAchievement::query()->where('user_id', $owner->id)->get()->keyBy('achievement_id');
+            $pending = $catalogue->filter(fn (Achievement $achievement): bool => $states->get($achievement->id)?->unlocked_at === null);
+            $pendingMetrics = $pending->map(fn (Achievement $achievement): string => $achievement->rules['metric'])->unique()->all();
             $statistics = $owner->pet_statistics;
-            $activeDogs = $owner->pets()->active()->count();
-            $purchases = KennelPurchase::query()->where('user_id', $owner->id)->count();
             $metrics = [
-                'first_dog' => (int) ($owner->starter_pet_claimed_at !== null || $activeDogs > 0 || $purchases > 0 || $owner->pets()->exists()),
-                'active_dogs' => $activeDogs,
-                'kennel_purchases' => $purchases,
                 'trainings' => $owner->trainings_count,
                 'walks' => $owner->walks_count,
                 'meals' => $statistics['care.meal'] ?? 0,
@@ -38,15 +44,24 @@ final class PlayerAchievements
                 'jobs' => $statistics['work'] ?? 0,
                 'veterinary' => array_sum(array_filter($statistics, static fn (string $code): bool => str_starts_with($code, 'veterinary.'), ARRAY_FILTER_USE_KEY)),
                 'active_days' => $owner->active_days,
+                'competition_wins' => $owner->competition_wins,
+                'exhibition_wins' => $owner->exhibition_wins,
             ];
+            if (in_array('active_dogs', $pendingMetrics, true)) {
+                $metrics['active_dogs'] = $owner->pets()->active()->count();
+            }
+            if (in_array('kennel_purchases', $pendingMetrics, true)) {
+                $metrics['kennel_purchases'] = KennelPurchase::query()->where('user_id', $owner->id)->count();
+            }
+            if (in_array('first_dog', $pendingMetrics, true)) {
+                $metrics['first_dog'] = (int) ($owner->starter_pet_claimed_at !== null
+                    || ($metrics['active_dogs'] ?? 0) > 0 || ($metrics['kennel_purchases'] ?? 0) > 0
+                    || $owner->pets()->exists() || KennelPurchase::query()->where('user_id', $owner->id)->exists());
+            }
             $updates = [];
 
-            foreach ($catalogue as $achievement) {
+            foreach ($pending as $achievement) {
                 $state = $states->get($achievement->id);
-
-                if ($state?->unlocked_at !== null) {
-                    continue;
-                }
 
                 $metric = $achievement->rules['metric'];
                 $target = $achievement->rules['target'];

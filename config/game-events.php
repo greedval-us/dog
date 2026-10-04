@@ -6,6 +6,10 @@ return [
     'daily_limit' => 3,
     'duration_minutes' => 10,
     'closing_minutes' => 15,
+    'processing' => [
+        'http_batch_size' => 0,
+        'background_batch_size' => 100,
+    ],
     'frequencies' => [
         'daily' => ['fee' => 25, 'prizes' => [100, 60, 40]],
         'weekly' => ['fee' => 100, 'prizes' => [500, 300, 150]],

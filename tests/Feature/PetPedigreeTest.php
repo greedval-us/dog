@@ -74,6 +74,7 @@ test('other players can read localized dog information without owner secrets or 
     expect(array_keys($response->inertiaProps('profile')))->toBe([
         'id', 'name', 'breed', 'sex', 'size', 'coatColor', 'generation', 'description',
         'bornAt', 'isPurebred', 'traits', 'stats', 'lifecycle', 'hasPedigree',
+        'exterior', 'titles',
     ]);
 })->with([['ru', 'Овчарка', 'Чёрный'], ['en', 'Shepherd', 'Black']]);
 

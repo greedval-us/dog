@@ -3,6 +3,8 @@
 namespace App\Modules\Pets\Services;
 
 use App\Models\GameEvent;
+use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use Carbon\CarbonImmutable;
 
 final class GameEventSchedule
@@ -11,6 +13,7 @@ final class GameEventSchedule
     {
         $at = ($at ?? CarbonImmutable::now())->setTimezone(config('game-events.timezone'));
         foreach (config('game-events.disciplines') as $discipline => $settings) {
+            $discipline = GameEventDiscipline::from($discipline)->value;
             foreach (range(0, 7) as $offset) {
                 $this->create($discipline, 'daily', $at->startOfDay()->addDays($offset)->setTimeFromTimeString($settings['daily_time']), $at, $settings);
             }
@@ -42,7 +45,7 @@ final class GameEventSchedule
             'status' => 'registration', 'registration_opens_at' => $opensAt->utc(), 'closes_at' => $closesAt->utc(),
             'ends_at' => $startsAt->addMinutes(config('game-events.duration_minutes', 10))->utc(),
             'seed' => bin2hex(random_bytes(16)),
-            'rules' => ['version' => 1, 'fee' => $fees['fee'], 'prizes' => $fees['prizes'], 'stages' => $settings['stages'], 'energy_cost' => $settings['energy_cost'], 'field_size' => config('game-events.field_size', 8), 'time_limit' => 360],
+            'rules' => ['version' => GameEventSimulator::VERSION, 'fee' => $fees['fee'], 'prizes' => $fees['prizes'], 'stages' => $settings['stages'], 'energy_cost' => $settings['energy_cost'], 'field_size' => config('game-events.field_size', 8), 'time_limit' => 360],
         ]);
     }
 }

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
 export const index = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
 index.url = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ index.url = (args: { user: string | { username: string } } | [user: string | { u
 
 /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
 index.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -58,7 +58,7 @@ index.get = (args: { user: string | { username: string } } | [user: string | { u
 })
 /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
 index.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -68,7 +68,7 @@ index.head = (args: { user: string | { username: string } } | [user: string | { 
 
     /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
     const indexForm = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -78,7 +78,7 @@ index.head = (args: { user: string | { username: string } } | [user: string | { 
 
             /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
         indexForm.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -87,7 +87,7 @@ index.head = (args: { user: string | { username: string } } | [user: string | { 
         })
             /**
 * @see \App\Http\Controllers\PetMemorialController::index
- * @see app/Http/Controllers/PetMemorialController.php:16
+ * @see app/Http/Controllers/PetMemorialController.php:15
  * @route '/players/{user}/memorial'
  */
         indexForm.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -103,7 +103,7 @@ index.head = (args: { user: string | { username: string } } | [user: string | { 
     index.form = indexForm
 /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
 export const show = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -118,7 +118,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
 show.url = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions) => {
@@ -148,7 +148,7 @@ show.url = (args: { user: string | { username: string }, pet: number | { id: num
 
 /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
 show.get = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -157,7 +157,7 @@ show.get = (args: { user: string | { username: string }, pet: number | { id: num
 })
 /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
 show.head = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -167,7 +167,7 @@ show.head = (args: { user: string | { username: string }, pet: number | { id: nu
 
     /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
     const showForm = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -177,7 +177,7 @@ show.head = (args: { user: string | { username: string }, pet: number | { id: nu
 
             /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
         showForm.get = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -186,7 +186,7 @@ show.head = (args: { user: string | { username: string }, pet: number | { id: nu
         })
             /**
 * @see \App\Http\Controllers\PetMemorialController::show
- * @see app/Http/Controllers/PetMemorialController.php:28
+ * @see app/Http/Controllers/PetMemorialController.php:26
  * @route '/players/{user}/memorial/{pet}'
  */
         showForm.head = (args: { user: string | { username: string }, pet: number | { id: number } } | [user: string | { username: string }, pet: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

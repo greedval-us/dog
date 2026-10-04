@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
 const PlayerProfileController = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ PlayerProfileController.definition = {
 
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
 PlayerProfileController.url = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ PlayerProfileController.url = (args: { user: string | { username: string } } | [
 
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
 PlayerProfileController.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -58,7 +58,7 @@ PlayerProfileController.get = (args: { user: string | { username: string } } | [
 })
 /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
 PlayerProfileController.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -68,7 +68,7 @@ PlayerProfileController.head = (args: { user: string | { username: string } } | 
 
     /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
     const PlayerProfileControllerForm = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -78,7 +78,7 @@ PlayerProfileController.head = (args: { user: string | { username: string } } | 
 
             /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
         PlayerProfileControllerForm.get = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -87,7 +87,7 @@ PlayerProfileController.head = (args: { user: string | { username: string } } | 
         })
             /**
 * @see \App\Http\Controllers\PlayerProfileController::__invoke
- * @see app/Http/Controllers/PlayerProfileController.php:16
+ * @see app/Http/Controllers/PlayerProfileController.php:15
  * @route '/players/{user}'
  */
         PlayerProfileControllerForm.head = (args: { user: string | { username: string } } | [user: string | { username: string } ] | string | { username: string }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

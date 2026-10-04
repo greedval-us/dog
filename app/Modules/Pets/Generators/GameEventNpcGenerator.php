@@ -3,6 +3,7 @@
 namespace App\Modules\Pets\Generators;
 
 use App\Modules\Pets\Calculators\GameEventRandomness;
+use App\Modules\Pets\DTO\GameEventProtocol;
 use App\Modules\Pets\Enums\PetStat;
 
 final class GameEventNpcGenerator
@@ -24,6 +25,7 @@ final class GameEventNpcGenerator
         $exterior = ['type' => 60 + $draws[6] * 25, 'structure' => 60 + $draws[7] * 25, 'movement' => 60 + $draws[8] * 25];
 
         return [
+            'version' => GameEventProtocol::SNAPSHOT_VERSION,
             'name' => 'NPC #'.($index + 1), 'breed' => $reference['breed'], 'breed_id' => $reference['breed_id'], 'size' => $reference['size'],
             'stats' => $stats, 'potentials' => array_fill_keys(array_keys($stats), 140),
             'states' => ['health' => 100, 'energy' => 90, 'satiety' => 90, 'hydration' => 90, 'mood' => 85, 'cleanliness' => 90, 'bond' => 70],

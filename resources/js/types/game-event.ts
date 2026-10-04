@@ -70,6 +70,7 @@ export type GameEventPlan = {
 
 export type GameEventEntryProps = {
     event: GameEventDetail;
+    serverNow: string;
     dogs: EventDog[];
     equipment: EventEquipment[];
     entry: GameEventEntry | null;

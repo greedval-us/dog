@@ -22,6 +22,7 @@ return [
     'errors' => [
         'invalid' => 'Check your entry details.',
         'unavailable' => 'The event or dog is no longer available. Refresh the page.',
+        'processing' => 'Competitions are being processed. Please try again in a minute.',
         'blocked' => 'Your account is blocked.',
         'closed' => 'Registration has not opened yet or has already closed.',
         'fee' => 'The fee has changed. Refresh the page.',

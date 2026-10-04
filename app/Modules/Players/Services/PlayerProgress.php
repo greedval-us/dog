@@ -2,15 +2,14 @@
 
 namespace App\Modules\Players\Services;
 
-use App\Models\DogWorkShift;
-use App\Models\GameEventEntry;
-use App\Models\PetCareAction;
-use App\Models\PetSkillLesson;
 use App\Models\User;
-use App\Models\VeterinaryVisit;
 use App\Modules\Players\Calculators\PlayerLevelRules;
+use App\Modules\Players\DTO\PlayerProgressFact;
+use App\Modules\Players\Enums\AchievementMetric;
 use Brick\Math\BigInteger;
 use Carbon\CarbonImmutable;
+use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -24,27 +23,42 @@ final class PlayerProgress
         $this->achievements->synchronize($user);
     }
 
-    /** Call inside the gameplay transaction so the action, reward and counters commit together. */
-    public function award(User $user, PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): int
+    /**
+     * Call inside the gameplay transaction so the action, reward and counters commit together.
+     * Build facts from the locked receipt supplied to the callback, never the caller's instance.
+     *
+     * @template TReceipt of Model
+     *
+     * @param  TReceipt  $receipt
+     * @param  Closure(TReceipt): PlayerProgressFact  $facts
+     */
+    public function award(User $user, Model $receipt, Closure $facts, bool $onlyAffectedAchievements = false): int
     {
         if (! $receipt->exists) {
             throw new InvalidArgumentException('Player progress requires a saved action receipt.');
         }
 
-        return DB::transaction(function () use ($user, $receipt): int {
+        return DB::transaction(function () use ($user, $receipt, $facts, $onlyAffectedAchievements): int {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
-            /** @var PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $completed */
-            $completed = $receipt->newQuery()->lockForUpdate()->findOrFail($receipt->getKey());
+            $completed = $receipt->newQuery()->whereKey($receipt->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($completed->user_id !== $owner->id || $this->completedAt($completed) === null) {
+            if ($completed->getAttribute('user_id') !== $owner->id) {
+                throw new InvalidArgumentException('Player progress requires a completed action owned by the player.');
+            }
+            $fact = $facts($completed);
+            if ($fact->completedAt === null) {
                 throw new InvalidArgumentException('Player progress requires a completed action owned by the player.');
             }
 
-            if ($completed->experience_awarded !== null) {
-                return $completed->experience_awarded;
+            if (! array_key_exists('experience_awarded', $completed->getAttributes())) {
+                throw new InvalidArgumentException('Player progress requires a durable experience receipt marker.');
+            }
+            $awarded = $completed->getAttribute('experience_awarded');
+            if ($awarded !== null) {
+                return $awarded;
             }
 
-            $code = $this->eventCode($completed);
+            $code = $fact->code;
             $rewards = config('player-progress.rewards', []);
             $experience = $rewards[$code] ?? config('player-progress.default_experience', 10);
 
@@ -63,44 +77,48 @@ final class PlayerProgress
                 'experience' => $totalExperience,
                 'level' => $progress['level'],
                 'pet_statistics' => $statistics,
-                'walks_count' => $owner->walks_count + (int) ($completed instanceof PetCareAction && $completed->group === 'walk'),
-                'trainings_count' => $owner->trainings_count + (int) ($code === 'training' || $code === 'skill_training'),
-                'competition_wins' => $owner->competition_wins + (int) ($completed instanceof GameEventEntry && $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true) && ! in_array($completed->event->discipline, ['conformation', 'progeny'], true)),
-                'exhibition_wins' => $owner->exhibition_wins + (int) ($completed instanceof GameEventEntry && $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true) && in_array($completed->event->discipline, ['conformation', 'progeny'], true)),
+                'walks_count' => $owner->walks_count + (int) $fact->walk,
+                'trainings_count' => $owner->trainings_count + (int) $fact->training,
+                'competition_wins' => $owner->competition_wins + (int) $fact->competitionWin,
+                'exhibition_wins' => $owner->exhibition_wins + (int) $fact->exhibitionWin,
                 'active_days' => $owner->active_days + (int) ($owner->last_pet_action_at?->setTimezone($dayTimezone)->toDateString() !== $awardedAt->setTimezone($dayTimezone)->toDateString()),
                 'last_pet_action_at' => $awardedAt,
             ])->save();
 
             $completed->forceFill(['experience_awarded' => $experience])->save();
             $receipt->setAttribute('experience_awarded', $experience);
-            $this->achievements->synchronize($owner);
+            $this->achievements->synchronize($owner, $onlyAffectedAchievements ? $this->affectedMetrics($fact) : null);
 
             return $experience;
         }, attempts: 3);
     }
 
-    private function eventCode(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): string
+    /** @return list<AchievementMetric> */
+    private function affectedMetrics(PlayerProgressFact $fact): array
     {
-        return match (true) {
-            $receipt instanceof PetCareAction => $receipt->group === 'training' ? 'training' : 'care.'.$receipt->variant,
-            $receipt instanceof DogWorkShift => 'work',
-            $receipt instanceof PetSkillLesson => 'skill_training',
-            $receipt instanceof VeterinaryVisit => 'veterinary.'.$receipt->service->value,
-            $receipt instanceof GameEventEntry => in_array($receipt->event->discipline, ['conformation', 'progeny'], true) ? 'exhibition' : 'competition',
+        $metrics = [AchievementMetric::FirstDog, AchievementMetric::ActiveDays];
+        $codeMetrics = match ($fact->code) {
+            'care.meal' => [AchievementMetric::Meals, AchievementMetric::DailyMeals],
+            'care.wash' => [AchievementMetric::Washes],
+            'skill_training' => [AchievementMetric::Skills],
+            'work' => [AchievementMetric::Jobs],
+            'competition' => [AchievementMetric::CompetitionWins],
+            'exhibition' => [AchievementMetric::ExhibitionWins],
+            default => str_starts_with($fact->code, 'veterinary.') ? [AchievementMetric::Veterinary] : [],
         };
-    }
-
-    private function completedAt(PetCareAction|DogWorkShift|PetSkillLesson|VeterinaryVisit|GameEventEntry $receipt): ?CarbonImmutable
-    {
-        if (($receipt instanceof PetCareAction || $receipt instanceof DogWorkShift) && $receipt->cancelled_at !== null) {
-            return null;
+        if ($fact->walk) {
+            $metrics[] = AchievementMetric::Walks;
+        }
+        if ($fact->training) {
+            $metrics[] = AchievementMetric::Trainings;
+        }
+        if ($fact->competitionWin && ! in_array(AchievementMetric::CompetitionWins, $codeMetrics, true)) {
+            $metrics[] = AchievementMetric::CompetitionWins;
+        }
+        if ($fact->exhibitionWin && ! in_array(AchievementMetric::ExhibitionWins, $codeMetrics, true)) {
+            $metrics[] = AchievementMetric::ExhibitionWins;
         }
 
-        return match (true) {
-            $receipt instanceof PetCareAction, $receipt instanceof DogWorkShift => $receipt->completed_at,
-            $receipt instanceof PetSkillLesson => $receipt->trained_at,
-            $receipt instanceof VeterinaryVisit => $receipt->performed_at,
-            $receipt instanceof GameEventEntry => $receipt->status === 'completed' && ! $receipt->is_npc ? $receipt->completed_at : null,
-        };
+        return [...$metrics, ...$codeMetrics];
     }
 }

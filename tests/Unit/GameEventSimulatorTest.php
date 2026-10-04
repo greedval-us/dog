@@ -34,6 +34,46 @@ function eventSimulationSnapshot(): array
     ];
 }
 
+test('version one preserves the recorded replay for legacy and explicitly versioned snapshots', function () {
+    $simulator = new GameEventSimulator;
+    $snapshot = eventSimulationSnapshot();
+    $plan = ['stages' => ['careful', 'careful', 'careful']];
+    $rules = ['version' => 1, 'stages' => ['climb', 'turns', 'finish']];
+    $expected = [
+        'version' => 1, 'score' => -275.38, 'time' => 275.38, 'penalties' => 0, 'eliminated' => false,
+        'stages' => [
+            ['key' => 'climb', 'decision' => 'careful', 'time' => 82.91, 'penalties' => 0, 'score' => -82.91, 'fatigue' => 8.0, 'focus' => 75.72, 'note' => 'controlled'],
+            ['key' => 'turns', 'decision' => 'careful', 'time' => 91.79, 'penalties' => 0, 'score' => -91.79, 'fatigue' => 16.0, 'focus' => 82.72, 'note' => 'controlled'],
+            ['key' => 'finish', 'decision' => 'careful', 'time' => 100.68, 'penalties' => 0, 'score' => -100.68, 'fatigue' => 24.0, 'focus' => 89.72, 'note' => 'controlled'],
+        ],
+    ];
+
+    expect($simulator->simulate('canicross', $snapshot, $plan, $rules, array_fill(0, 6, 0.9)))->toBe($expected);
+    expect($simulator->simulate('canicross', [...$snapshot, 'version' => 1], $plan, $rules, array_fill(0, 6, 0.9)))->toBe($expected);
+});
+
+test('unsupported versions and malformed stage contracts cannot produce a result', function (array $snapshotChanges, array $ruleChanges, array $planChanges) {
+    $snapshot = [...eventSimulationSnapshot(), ...$snapshotChanges];
+    $rules = [...['version' => 1, 'stages' => ['climb', 'turns', 'finish']], ...$ruleChanges];
+    $plan = [...['stages' => ['balanced', 'balanced', 'balanced']], ...$planChanges];
+
+    expect(fn () => (new GameEventSimulator)->simulate('canicross', $snapshot, $plan, $rules, array_fill(0, 6, 0.9)))
+        ->toThrow(InvalidArgumentException::class);
+})->with([
+    'future calculation version' => [[], ['version' => 2], []],
+    'future snapshot version' => [['version' => 2], [], []],
+    'untyped calculation version' => [[], ['version' => '1'], []],
+    'null snapshot version' => [['version' => null], [], []],
+    'too many course stages' => [[], ['stages' => ['a', 'b', 'c', 'd']], []],
+    'sparse stage plan' => [[], [], ['stages' => [1 => 'balanced', 2 => 'balanced', 3 => 'balanced']]],
+    'missing characteristic object' => [['stats' => null], [], []],
+]);
+
+test('nonfinite and out of range draws cannot alter a recorded replay', function (float $draw) {
+    expect(fn () => (new GameEventSimulator)->simulate('canicross', eventSimulationSnapshot(), ['stages' => ['balanced', 'balanced', 'balanced']], ['version' => 1, 'stages' => ['climb', 'turns', 'finish']], array_fill(0, 6, $draw)))
+        ->toThrow(InvalidArgumentException::class);
+})->with(['not a number' => NAN, 'infinity' => INF, 'negative' => -0.1, 'above one' => 1.1]);
+
 test('tactical choices conserve fatigue and alter subsequent stages with reproducible replay', function () {
     $simulator = new GameEventSimulator;
     $snapshot = eventSimulationSnapshot();

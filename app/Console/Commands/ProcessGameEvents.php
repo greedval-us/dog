@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Modules\Pets\Services\GameEventProcessor;
 use App\Modules\Pets\Services\GameEventSchedule;
+use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
 class ProcessGameEvents extends Command
@@ -15,7 +16,12 @@ class ProcessGameEvents extends Command
     public function handle(GameEventSchedule $schedule, GameEventProcessor $processor): int
     {
         $schedule->ensureUpcoming();
-        $this->components->info('Processed '.$processor->processDue().' events.');
+        $at = CarbonImmutable::now()->startOfSecond();
+        $processed = 0;
+        do {
+            $processed += $processor->processDue($at);
+        } while ($processor->hasDueEvents($at));
+        $this->components->info('Processed '.$processed.' events.');
 
         return self::SUCCESS;
     }

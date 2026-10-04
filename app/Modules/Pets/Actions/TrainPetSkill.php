@@ -16,6 +16,7 @@ use App\Modules\Pets\Queries\GetPetStatSnapshot;
 use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetLifecycleSynchronization;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerProgress;
@@ -120,7 +121,9 @@ final class TrainPetSkill
                 'token' => $token, 'trained_at' => $at, 'cooldown_until' => $cooldownUntil,
                 'currency_transaction_id' => $entry->id,
             ]);
-            $experienceAwarded = $this->progress->award($owner, $lesson);
+            $experienceAwarded = $this->progress->award($owner, $lesson, fn (PetSkillLesson $completed): PlayerProgressFact => new PlayerProgressFact(
+                code: 'skill_training', completedAt: $completed->trained_at, training: true,
+            ));
             $this->history->record($pet, 'skill_training', 'skill:'.$lesson->id.':completed', $at, [
                 'stage' => 'completed', 'name' => $skill->name, 'level' => $data->level, 'experienceAwarded' => $experienceAwarded,
                 'durationSeconds' => 0, 'coins' => -$lesson->price_paid,

@@ -1,6 +1,7 @@
-import { useForm, usePage, usePoll } from '@inertiajs/vue3';
-import { useIntervalFn } from '@vueuse/core';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, ref, watch } from 'vue';
+import { useServerClock } from '@/composables/useServerClock';
+import { useGameEventPolling } from '@/composables/useGameEventPolling';
 import { entryWasWithdrawn } from '@/lib/gameEventEntries';
 import { register, update, cancel } from '@/routes/game-events';
 import type {
@@ -41,20 +42,13 @@ export function useGameEventEntry(props: GameEventEntryProps) {
     });
     const cancelForm = useForm({ token: '' });
     const errorPanel = ref<HTMLElement | null>(null);
-    const now = ref(Date.now());
-    useIntervalFn(() => {
-        now.value = Date.now();
-    }, 10_000);
+    const { now } = useServerClock(() => props.serverNow, 10_000);
     const pending = computed(() => form.processing || cancelForm.processing);
-    const poll = usePoll(
-        30_000,
-        { only: ['event', 'entry', 'dogs', 'equipment'] },
-        { mode: 'rest' },
+    useGameEventPolling(
+        () => props.event.status,
+        () => pending.value,
+        () => ownEntry.value?.status,
     );
-    watch(pending, (value) => {
-        if (value) poll.stop();
-        else poll.start();
-    });
     const selectedDog = computed(() =>
         props.dogs.find((dog) => dog.id === form.pet_id),
     );

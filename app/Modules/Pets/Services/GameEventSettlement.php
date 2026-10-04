@@ -10,6 +10,8 @@ use App\Models\PetTitle;
 use App\Models\User;
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\Enums\GameEventDiscipline;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Carbon\CarbonImmutable;
@@ -40,7 +42,7 @@ final class GameEventSettlement
                     $this->randomness->draws($event->seed.':entry:'.$entry->operation_token, 6),
                 );
             }
-            $ordered = $participants->sort(fn (GameEventEntry $first, GameEventEntry $second): int => $this->simulator->compareResults($event->discipline, $results[$first->id], $results[$second->id])
+            $ordered = $participants->sort(fn (GameEventEntry $first, GameEventEntry $second): int => $this->simulator->compareResults($event->discipline, $results[$first->id], $results[$second->id], $event->rules['version'])
                 ?: strcmp($first->operation_token, $second->operation_token))->values();
             foreach ($ordered as $index => $entry) {
                 $entry->result = $results[$entry->id];
@@ -57,7 +59,17 @@ final class GameEventSettlement
                         $this->wallet->change($owner, 'coins', $prize, 'event-entry:'.$entry->id.':prize', 'event_prize');
                     }
                     $this->recordCareer($event, $entry, $pet);
-                    $this->progress->award($owner, $entry);
+                    $this->progress->award($owner, $entry, function (GameEventEntry $completed) use ($event): PlayerProgressFact {
+                        $show = GameEventDiscipline::from($event->discipline)->isExhibition();
+                        $won = $completed->rank === 1 && ! ($completed->result['eliminated'] ?? true);
+
+                        return new PlayerProgressFact(
+                            $show ? 'exhibition' : 'competition',
+                            $completed->status === 'completed' && ! $completed->is_npc ? $completed->completed_at : null,
+                            competitionWin: $won && ! $show,
+                            exhibitionWin: $won && $show,
+                        );
+                    }, onlyAffectedAchievements: true);
                     if ($pet->activity_token === $entry->operation_token) {
                         $pet->clearActivity();
                         $pet->last_activity_at = $event->ends_at;

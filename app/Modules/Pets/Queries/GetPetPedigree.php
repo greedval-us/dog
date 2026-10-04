@@ -6,6 +6,7 @@ use App\Models\BreedingPartner;
 use App\Models\Pet;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\DTO\PublicPetProfileData;
+use Illuminate\Database\Eloquent\Collection;
 
 final class GetPetPedigree
 {
@@ -16,7 +17,7 @@ final class GetPetPedigree
     /** @return array{root: array<string, mixed>, hasAncestors: bool, generations: int} */
     public function handle(int $petId, string $locale): array
     {
-        $root = Pet::query()->with(['dog', 'titles'])->findOrFail($petId);
+        $root = Pet::query()->findOrFail($petId);
         $pets = [$root->id => $root];
         $frontier = [$root];
 
@@ -35,13 +36,14 @@ final class GetPetPedigree
                 break;
             }
 
-            $frontier = Pet::query()->with(['dog', 'titles'])->whereIn('id', array_values($parentIds))->get()->all();
+            $frontier = Pet::query()->whereIn('id', array_values($parentIds))->get()->all();
 
             foreach ($frontier as $parent) {
                 $pets[$parent->id] = $parent;
             }
         }
 
+        (new Collection(array_values($pets)))->load(['dog', 'titles']);
         $systemIds = BreedingPartner::query()->whereIn('pet_id', array_keys($pets))->pluck('pet_id')->all();
         $at = now();
 

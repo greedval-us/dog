@@ -16,6 +16,7 @@ use App\Modules\Pets\Queries\GetVeterinaryServices;
 use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetLifecycleSynchronization;
 use App\Modules\Pets\Services\VeterinaryCare;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerProgress;
@@ -118,7 +119,9 @@ final class PurchaseVeterinaryService
                 'token' => $token, 'price_paid' => $definition->price, 'currency_transaction_id' => $entry->id,
                 'performed_at' => $at, 'available_at' => $availableAt,
             ]);
-            $experienceAwarded = $this->progress->award($owner, $visit);
+            $experienceAwarded = $this->progress->award($owner, $visit, fn (VeterinaryVisit $completed): PlayerProgressFact => new PlayerProgressFact(
+                code: 'veterinary.'.$completed->service->value, completedAt: $completed->performed_at,
+            ));
             $this->history->record($pet, 'veterinary.'.$data->service->value, 'veterinary:'.$visit->id.':completed', $at, [
                 'stage' => 'completed', 'diseaseName' => $visit->disease_name, 'durationSeconds' => 0, 'experienceAwarded' => $experienceAwarded,
                 'coins' => -$visit->price_paid,

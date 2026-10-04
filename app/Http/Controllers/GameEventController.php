@@ -13,7 +13,6 @@ use App\Modules\Pets\Actions\UpdateGameEventEntry;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetGameEvents;
-use App\Modules\Pets\Services\GameEventProcessor;
 use App\Modules\Pets\Services\GameEventSchedule;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +23,7 @@ use Inertia\Response;
 
 class GameEventController extends Controller
 {
-    public function index(Request $request, GetGameEvents $events, GameEventSchedule $schedule, GameEventProcessor $processor): Response
+    public function index(Request $request, GetGameEvents $events, GameEventSchedule $schedule): Response
     {
         $user = $this->player($request);
         $filters = $request->validate([
@@ -32,18 +31,29 @@ class GameEventController extends Controller
             'kind' => ['nullable', 'in:competition,exhibition'],
             'cursor' => ['nullable', 'string', 'max:1000'],
         ]);
-        $schedule->ensureUpcoming();
-        $processor->processDue(owner: $user);
+        if ($request->header('X-Inertia-Partial-Component') !== 'GameEvents' || ! $request->hasHeader('X-Inertia-Partial-Data')) {
+            $schedule->ensureUpcoming();
+        }
 
-        return Inertia::render('GameEvents', $events->index($user, $filters));
+        return Inertia::render('GameEvents', [...$events->index($user, $filters), 'serverNow' => now()->toIso8601String()]);
     }
 
-    public function show(Request $request, GameEvent $gameEvent, GetGameEvents $events, GameEventProcessor $processor): Response
+    public function show(Request $request, GameEvent $gameEvent, GetGameEvents $events): Response
     {
         $user = $this->player($request);
-        $processor->processDue(owner: $user);
+        $locale = app()->getLocale();
+        $state = null;
+        $showState = function () use ($events, $user, $gameEvent, $locale, &$state): array {
+            return $state ??= $events->showState($user, $gameEvent->refresh(), $locale);
+        };
 
-        return Inertia::render('GameEventShow', $events->show($user, $gameEvent->fresh(), app()->getLocale()));
+        return Inertia::render('GameEventShow', [
+            'event' => fn () => $showState()['event'],
+            'entry' => fn () => $showState()['entry'],
+            'dogs' => fn () => $events->registrationDogs($user, $locale),
+            'equipment' => fn () => $events->registrationEquipment($user, $locale),
+            'serverNow' => fn () => now()->toIso8601String(),
+        ]);
     }
 
     public function register(RegisterGameEventRequest $request, GameEvent $gameEvent, RegisterGameEvent $register): RedirectResponse

@@ -22,6 +22,7 @@ use App\Modules\Pets\DTO\StartDogWorkData;
 use App\Modules\Pets\DTO\TrainPetSkillData;
 use App\Modules\Pets\Enums\VeterinaryService;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Services\PlayerProgress;
 use Database\Seeders\PetHistorySeeder;
 use Illuminate\Support\Str;
@@ -29,6 +30,15 @@ use Illuminate\Support\Str;
 beforeEach(function () {
     $this->freezeSecond();
 });
+
+function actionProgressCareFact(PetCareAction $receipt): PlayerProgressFact
+{
+    return new PlayerProgressFact(
+        code: $receipt->group === 'training' ? 'training' : 'care.'.$receipt->variant,
+        completedAt: $receipt->cancelled_at === null ? $receipt->completed_at : null,
+        walk: $receipt->group === 'walk', training: $receipt->group === 'training',
+    );
+}
 
 function progressActionItem(User $owner, string $category): InventoryItem
 {
@@ -288,7 +298,7 @@ test('the progress boundary refuses an unsaved receipt without changing player p
     $owner = User::factory()->create();
     $receipt = new PetCareAction;
 
-    expect(fn () => app(PlayerProgress::class)->award($owner, $receipt))
+    expect(fn () => app(PlayerProgress::class)->award($owner, $receipt, actionProgressCareFact(...)))
         ->toThrow(InvalidArgumentException::class, 'Player progress requires a saved action receipt.');
 
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'experience' => '0', 'active_days' => 0]);
@@ -300,11 +310,54 @@ test('the progress boundary checks saved completion instead of a changed receipt
     $receipt = PetCareAction::factory()->create(['pet_id' => $pet->id, 'user_id' => $pet->user_id]);
     $receipt->completed_at = now();
 
-    expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt))
+    expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))
         ->toThrow(InvalidArgumentException::class, 'Player progress requires a completed action owned by the player.');
 
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'completed_at' => null, 'experience_awarded' => null]);
+});
+
+test('progress facts use the locked saved action fields instead of a changed receipt instance', function () {
+    config(['player-progress.rewards' => ['care.attention' => 7, 'care.meal' => 99]]);
+    $pet = Pet::factory()->create();
+    $receipt = PetCareAction::factory()->create([
+        'pet_id' => $pet->id, 'user_id' => $pet->user_id, 'group' => 'play', 'variant' => 'attention',
+        'ends_at' => now(), 'completed_at' => now(),
+    ]);
+    $receipt->group = 'feed';
+    $receipt->variant = 'meal';
+
+    expect(app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))->toBe(7);
+
+    expect($pet->user->fresh()->pet_statistics)->toBe(['care.attention' => 1]);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '7', 'walks_count' => 0, 'trainings_count' => 0]);
+    $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'variant' => 'attention', 'experience_awarded' => 7]);
+});
+
+test('a saved cancellation refuses progress even when the caller clears it and a reward marker already exists', function () {
+    $pet = Pet::factory()->create();
+    $receipt = PetCareAction::factory()->create([
+        'pet_id' => $pet->id, 'user_id' => $pet->user_id, 'ends_at' => now(),
+        'completed_at' => now(), 'cancelled_at' => now(), 'experience_awarded' => 0,
+    ]);
+    $receipt->cancelled_at = null;
+
+    expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))
+        ->toThrow(InvalidArgumentException::class, 'Player progress requires a completed action owned by the player.');
+
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
+    expect($pet->user->fresh()->pet_statistics)->toBe([]);
+});
+
+test('the progress boundary requires a durable receipt marker before updating the player', function () {
+    $pet = Pet::factory()->create();
+
+    expect(fn () => app(PlayerProgress::class)->award($pet->user, $pet,
+        fn (Pet $saved): PlayerProgressFact => new PlayerProgressFact('work', now())))
+        ->toThrow(InvalidArgumentException::class, 'Player progress requires a durable experience receipt marker.');
+
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
+    expect($pet->user->fresh()->pet_statistics)->toBe([]);
 });
 
 test('the progress boundary checks saved ownership instead of a changed receipt instance', function () {
@@ -313,10 +366,18 @@ test('the progress boundary checks saved ownership instead of a changed receipt 
     $receipt = PetCareAction::factory()->create(['pet_id' => $pet->id, 'user_id' => $pet->user_id,
         'ends_at' => now(), 'completed_at' => now()]);
     $receipt->user_id = $viewer->id;
+    $called = false;
 
-    expect(fn () => app(PlayerProgress::class)->award($viewer, $receipt))
+    expect(function () use ($viewer, $receipt, &$called): int {
+        return app(PlayerProgress::class)->award($viewer, $receipt, function (PetCareAction $completed) use (&$called): PlayerProgressFact {
+            $called = true;
+
+            return actionProgressCareFact($completed);
+        });
+    })
         ->toThrow(InvalidArgumentException::class, 'Player progress requires a completed action owned by the player.');
 
+    expect($called)->toBeFalse();
     $this->assertDatabaseHas('users', ['id' => $viewer->id, 'experience' => '0', 'active_days' => 0]);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'experience_awarded' => null]);
@@ -328,9 +389,9 @@ test('replaying the progress boundary keeps its first reward after balance edits
     $receipt = PetCareAction::factory()->create(['pet_id' => $pet->id, 'user_id' => $pet->user_id,
         'ends_at' => now(), 'completed_at' => now()]);
 
-    expect(app(PlayerProgress::class)->award($pet->user, $receipt))->toBe($firstReward);
+    expect(app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))->toBe($firstReward);
     config(['player-progress.rewards' => ['care.attention' => 99]]);
-    expect(app(PlayerProgress::class)->award($pet->user, $receipt))->toBe($firstReward);
+    expect(app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))->toBe($firstReward);
 
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => (string) $firstReward, 'active_days' => 1]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'experience_awarded' => $firstReward]);
@@ -343,7 +404,7 @@ test('malformed configured rewards cannot record player progress', function (mix
     $receipt = PetCareAction::factory()->create(['pet_id' => $pet->id, 'user_id' => $pet->user_id,
         'ends_at' => now(), 'completed_at' => now()]);
 
-    expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt))
+    expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))
         ->toThrow(InvalidArgumentException::class, 'Player experience rewards must be non-negative integers.');
 
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
@@ -363,7 +424,7 @@ test('a failed experience receipt marker rolls back the player reward and counte
     PetCareAction::updating(fn () => throw new RuntimeException('Cannot record awarded experience.'));
 
     try {
-        expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt))
+        expect(fn () => app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))
             ->toThrow(RuntimeException::class, 'Cannot record awarded experience.');
     } finally {
         PetCareAction::flushEventListeners();
@@ -372,6 +433,6 @@ test('a failed experience receipt marker rolls back the player reward and counte
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0', 'active_days' => 0]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $receipt->id, 'experience_awarded' => null]);
     expect($pet->user->fresh()->pet_statistics)->toBe([]);
-    expect(app(PlayerProgress::class)->award($pet->user, $receipt))->toBe(10);
+    expect(app(PlayerProgress::class)->award($pet->user, $receipt, actionProgressCareFact(...)))->toBe(10);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
 });
