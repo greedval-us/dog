@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
-import { Check, Coins, Gem, Image, LockKeyhole, Plus } from '@lucide/vue';
+import {
+    Check,
+    ChevronDown,
+    Coins,
+    Gem,
+    Image,
+    LockKeyhole,
+    Palette,
+    Plus,
+} from '@lucide/vue';
 import { computed, ref, useId } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
@@ -140,7 +149,12 @@ function priceLabel(price: AssetPrice) {
 </script>
 
 <template>
-    <div class="pet-gallery">
+    <details class="pet-gallery pet-appearance-disclosure">
+        <summary>
+            <Palette :size="17" aria-hidden="true" />
+            <span>{{ t('Appearance') }}</span>
+            <ChevronDown :size="17" aria-hidden="true" />
+        </summary>
         <div class="pet-gallery-strip" :aria-label="t('Dog photos')">
             <button
                 v-for="asset in portraits"
@@ -341,5 +355,5 @@ function priceLabel(price: AssetPrice) {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    </div>
+    </details>
 </template>

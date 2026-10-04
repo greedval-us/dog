@@ -65,7 +65,7 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
                 ></Button>
             </EmptyState>
         </template>
-        <div v-else class="pet-dossier">
+        <div v-else class="pet-dossier pet-dossier-compact">
             <img
                 v-if="appearance?.backgroundId"
                 class="pet-profile-scene"
@@ -160,32 +160,46 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
                     :aria-label="t('Wellbeing and care')"
                 >
                     <PetCondition :states="pet.states" />
+                    <Deferred data="care">
+                        <template #fallback>
+                            <div
+                                class="dashboard-loading dashboard-skeleton-care"
+                                role="status"
+                            >
+                                <span class="sr-only">{{
+                                    t('Loading...')
+                                }}</span>
+                                <span
+                                    v-for="item in 5"
+                                    :key="item"
+                                    aria-hidden="true"
+                                />
+                            </div>
+                        </template>
+                        <template #rescue="{ reloading }">
+                            <div role="alert">
+                                <p>
+                                    {{
+                                        t('Could not load data. Please retry.')
+                                    }}
+                                </p>
+                                <Button
+                                    :disabled="reloading"
+                                    @click="router.reload({ only: ['care'] })"
+                                    >{{ t('Retry') }}</Button
+                                >
+                            </div>
+                        </template>
+                        <PetQuickActions
+                            v-if="care"
+                            :key="pet.id"
+                            class="pet-care-dashboard"
+                            :pet="pet"
+                            :care="care"
+                        />
+                    </Deferred>
                 </aside>
             </div>
-            <Deferred data="care">
-                <template #fallback>
-                    <div class="dashboard-loading" role="status">
-                        {{ t('Loading...') }}
-                    </div>
-                </template>
-                <template #rescue="{ reloading }">
-                    <div role="alert">
-                        <p>{{ t('Could not load data. Please retry.') }}</p>
-                        <Button
-                            :disabled="reloading"
-                            @click="router.reload({ only: ['care'] })"
-                            >{{ t('Retry') }}</Button
-                        >
-                    </div>
-                </template>
-                <PetQuickActions
-                    v-if="care"
-                    :key="pet.id"
-                    class="pet-care-dashboard"
-                    :pet="pet"
-                    :care="care"
-                />
-            </Deferred>
             <PetDetails
                 :key="pet.id"
                 :pet="pet"

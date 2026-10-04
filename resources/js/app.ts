@@ -9,6 +9,18 @@ const appName = 'DogLive';
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
+    defaults: {
+        visitOptions: (href, options) => ({
+            viewTransition:
+                typeof window !== 'undefined' &&
+                (options.method ?? 'get') === 'get' &&
+                !options.async &&
+                !options.only?.length &&
+                new URL(href, window.location.href).pathname !==
+                    window.location.pathname &&
+                !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        }),
+    },
     layout: (name) => {
         switch (true) {
             case name === 'Welcome':
@@ -31,7 +43,9 @@ void createInertiaApp({
         });
     },
     progress: {
-        color: '#4B5563',
+        color: 'var(--primary)',
+        delay: 180,
+        showSpinner: false,
     },
 });
 

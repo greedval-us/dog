@@ -10,7 +10,7 @@ const { t } = useI18n();
     <div class="settings-stack">
         <Head :title="t('Appearance')" /><SurfaceCard
             :title="t('Your DogLive')"
-            :description="
+            :hint="
                 t(
                     'Choose a look for your world. This setting is saved on this device.',
                 )
@@ -19,7 +19,7 @@ const { t } = useI18n();
         /></SurfaceCard>
         <SurfaceCard
             :title="t('Interface language')"
-            :description="
+            :hint="
                 t(
                     'Choose your DogLive language. This setting is saved in your account.',
                 )

@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Clock, Coins, Trophy, Users } from '@lucide/vue';
+import {
+    ArrowLeft,
+    CalendarDays,
+    Clock,
+    Coins,
+    Trophy,
+    Users,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import GameEventEntryForm from '@/components/GameEventEntryForm.vue';
 import GameEventResults from '@/components/GameEventResults.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
@@ -22,10 +30,21 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
     <div class="events-page">
         <Head :title="t(`events.discipline.${event.discipline}`)" />
         <div class="events-page-heading">
-            <Heading
-                :title="t(`events.discipline.${event.discipline}`)"
-                :description="t(`events.frequency.${event.frequency}`)"
-            />
+            <div class="page-heading-with-help">
+                <Heading
+                    :title="t(`events.discipline.${event.discipline}`)"
+                    :description="t(`events.frequency.${event.frequency}`)"
+                />
+                <HelpHint
+                    :text="
+                        t(
+                            event.discipline === 'progeny'
+                                ? 'Choose the offspring group before registration closes. It will be evaluated at the scheduled time, even when you are offline.'
+                                : 'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
+                        )
+                    "
+                />
+            </div>
             <Button as-child variant="secondary"
                 ><Link :href="index()"
                     ><ArrowLeft :size="17" aria-hidden="true" />{{
@@ -45,7 +64,11 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
             </div>
             <dl class="event-overview-facts">
                 <div>
-                    <dt>{{ t('Registration opens') }}</dt>
+                    <dt>
+                        <CalendarDays :size="17" aria-hidden="true" />{{
+                            t('Registration opens')
+                        }}
+                    </dt>
                     <dd>
                         <time :datetime="event.opensAt">{{
                             date(event.opensAt)
@@ -63,7 +86,11 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     </dd>
                 </div>
                 <div>
-                    <dt>{{ t('Registration closes') }}</dt>
+                    <dt>
+                        <Clock :size="17" aria-hidden="true" />{{
+                            t('Registration closes')
+                        }}
+                    </dt>
                     <dd>
                         <time :datetime="event.closesAt">{{
                             date(event.closesAt)
@@ -99,15 +126,6 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     }}</span
                 >
             </div>
-            <p class="event-note">
-                {{
-                    t(
-                        event.discipline === 'progeny'
-                            ? 'Choose the offspring group before registration closes. It will be evaluated at the scheduled time, even when you are offline.'
-                            : 'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
-                    )
-                }}
-            </p>
         </SurfaceCard>
 
         <GameEventEntryForm

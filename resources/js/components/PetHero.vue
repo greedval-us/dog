@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import {
-    CalendarDays,
-    ChevronRight,
-    Flower2,
-    Leaf,
-    Mars,
-    ShieldCheck,
-    Venus,
-} from '@lucide/vue';
+import { Flower2, Leaf, Mars, ShieldCheck, Venus } from '@lucide/vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
 import PetRetirement from '@/components/PetRetirement.vue';
 import type { PetAppearance } from '@/types/appearance';
@@ -41,8 +34,6 @@ const date = (value: string) =>
         <div class="pet-hero-topline">
             <p class="pet-breadcrumb">
                 {{ t(readOnly ? 'Pet memorial hall' : 'My dog') }}
-                <ChevronRight :size="14" />
-                <span>{{ pet.name }}</span>
             </p>
             <StatusEffects
                 v-if="care"
@@ -65,16 +56,15 @@ const date = (value: string) =>
                 /><strong>{{ pet.breed }}</strong>
             </p>
             <div class="pet-tags">
-                <span
-                    ><CalendarDays :size="15" />{{
-                        t('Born {date}', { date: date(pet.bornAt) })
-                    }}</span
-                >
                 <span>{{ t(pet.sex === 'male' ? 'Male' : 'Female') }}</span>
                 <span v-if="pet.isPurebred"
                     ><ShieldCheck :size="15" />{{ t('Purebred') }}</span
                 >
                 <span v-else>{{ t('Mixed breed') }}</span>
+                <HelpHint
+                    :label="t('Date of birth')"
+                    :text="t('Born {date}', { date: date(pet.bornAt) })"
+                />
             </div>
             <span
                 v-if="pet.lifecycle.status !== 'active'"

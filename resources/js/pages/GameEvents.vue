@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { CalendarDays, Clock, Coins, Trophy, Users } from '@lucide/vue';
+import {
+    ArrowRight,
+    CalendarDays,
+    Clock,
+    Coins,
+    LoaderCircle,
+    Trophy,
+    Users,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -54,44 +63,48 @@ function filter() {
 <template>
     <div class="events-page">
         <Head :title="t('Events and shows')" />
-        <Heading
-            :title="t('Events and shows')"
-            :description="
-                t(
-                    'Prepare your dog, choose your tactics and compete with other players.',
-                )
-            "
-        />
-        <SurfaceCard class="events-intro">
-            <div class="events-intro-heading">
-                <span class="events-icon"><Trophy aria-hidden="true" /></span>
-                <div>
-                    <h2>{{ t('Your next start') }}</h2>
-                    <p>{{ t('All event times are shown in Moscow time.') }}</p>
-                </div>
+        <div class="page-heading-with-help">
+            <Heading :title="t('Events and shows')" />
+            <HelpHint
+                :text="
+                    t(
+                        'Prepare your dog, choose your tactics and compete with other players.',
+                    )
+                "
+            />
+        </div>
+        <div class="catalogue-shortcut">
+            <div class="page-heading-with-help">
+                <Trophy :size="19" aria-hidden="true" />
+                <h2>{{ t('Your next start') }}</h2>
+                <HelpHint
+                    :text="
+                        [
+                            t(
+                                'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
+                            ),
+                            t(
+                                'Daily starts build experience, weekly cups test consistency and monthly championships award prestigious titles.',
+                            ),
+                            t(
+                                'Club dogs fill empty places and are clearly marked in the results.',
+                            ),
+                        ].join(' ')
+                    "
+                />
             </div>
-            <p>
-                {{
-                    t(
-                        'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
-                    )
-                }}
+            <p class="catalogue-status event-note" role="status">
+                <LoaderCircle
+                    v-if="loading"
+                    class="busy-spinner"
+                    :size="16"
+                    aria-hidden="true"
+                />
+                <Clock v-else :size="16" aria-hidden="true" />
+                <span v-if="loading" class="sr-only">{{ t('Loading…') }}</span>
+                {{ t('All event times are shown in Moscow time.') }}
             </p>
-            <p>
-                {{
-                    t(
-                        'Daily starts build experience, weekly cups test consistency and monthly championships award prestigious titles.',
-                    )
-                }}
-            </p>
-            <p>
-                {{
-                    t(
-                        'Club dogs fill empty places and are clearly marked in the results.',
-                    )
-                }}
-            </p>
-        </SurfaceCard>
+        </div>
         <form class="events-filters" @submit.prevent="filter">
             <FormField
                 id="event-kind"
@@ -137,6 +150,7 @@ function filter() {
         </form>
         <section
             class="events-calendar"
+            :class="{ 'is-loading': loading }"
             :aria-busy="loading"
             :aria-label="t('Event calendar')"
         >
@@ -148,7 +162,12 @@ function filter() {
                 <h2 class="events-day-heading">
                     <CalendarDays :size="20" aria-hidden="true" />{{ day }}
                 </h2>
-                <div class="events-grid">
+                <TransitionGroup
+                    name="catalogue-card"
+                    tag="div"
+                    class="events-grid"
+                    appear
+                >
                     <SurfaceCard
                         v-for="event in dayEvents"
                         :key="event.id"
@@ -230,16 +249,19 @@ function filter() {
                             :variant="
                                 event.canRegister ? 'default' : 'secondary'
                             "
-                            ><Link :href="show(event.id)">{{
-                                event.status === 'completed'
-                                    ? t('View results')
-                                    : event.canRegister
-                                      ? t('Prepare for this event')
-                                      : t('View event')
-                            }}</Link></Button
-                        >
+                            ><Link :href="show(event.id)"
+                                >{{
+                                    event.status === 'completed'
+                                        ? t('View results')
+                                        : event.canRegister
+                                          ? t('Prepare for this event')
+                                          : t('View event')
+                                }}<ArrowRight
+                                    :size="17"
+                                    aria-hidden="true" /></Link
+                        ></Button>
                     </SurfaceCard>
-                </div>
+                </TransitionGroup>
             </div>
             <SurfaceCard v-if="!events.length" class="events-empty"
                 ><CalendarDays :size="36" aria-hidden="true" />

@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Clock, House, PawPrint, RefreshCw } from '@lucide/vue';
+import { Clock, House, PawPrint, RefreshCw, Tag, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import PuppyCard from '@/components/PuppyCard.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import CursorPagination from '@/components/CursorPagination.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Dialog,
     DialogContent,
@@ -113,14 +115,18 @@ function submit() {
     <div class="breeding-page">
         <Head :title="t('My puppies')" />
         <div class="breeding-heading">
-            <Heading
-                :title="t('My puppies')"
-                :description="
-                    t(
-                        'Keep a new friend, find a buyer or let the kennel find a home.',
-                    )
-                "
-            /><Button
+            <div class="page-heading-with-help">
+                <Heading :title="t('My puppies')" />
+                <HelpHint
+                    :label="t('My puppies')"
+                    :text="
+                        t(
+                            'Keep a new friend, find a buyer or let the kennel find a home.',
+                        )
+                    "
+                />
+            </div>
+            <Button
                 variant="secondary"
                 :disabled="pending"
                 @click="router.reload()"
@@ -130,27 +136,35 @@ function submit() {
             >
         </div>
         <BreedingNavigation active="puppies" />
-        <SurfaceCard class="breeding-intro"
-            ><p>
-                {{
-                    t(
-                        'Each puppy needs a decision within 7 days after birth: keep it, sell it or send it to the kennel. Unclaimed puppies go to the kennel automatically.',
-                    )
-                }}
-            </p>
-            <p class="field-hint">
-                {{
-                    t(
-                        'Puppies do not age while waiting. Taking one home uses a free dog slot.',
-                    )
-                }}
-            </p>
-            <strong>{{
-                t('Free places: {count}', { count: number(freeSlots) })
-            }}</strong
-            ><ActionHint
-                :message="blocked ? t('breeding.errors.blocked') : null"
-        /></SurfaceCard>
+        <div class="breeding-summary">
+            <span class="breeding-summary-stat">
+                <PawPrint :size="18" aria-hidden="true" />
+                <strong>{{
+                    t('Free places: {count}', { count: number(freeSlots) })
+                }}</strong>
+                <HelpHint
+                    :label="t('Manage dog places')"
+                    :text="
+                        t(
+                            'Puppies do not age while waiting. Taking one home uses a free dog slot.',
+                        )
+                    "
+                />
+            </span>
+            <span class="breeding-summary-stat">
+                <Clock :size="18" aria-hidden="true" />
+                <span>{{ t('Decide within 7 days') }}</span>
+                <HelpHint
+                    :label="t('Decide within 7 days')"
+                    :text="
+                        t(
+                            'Each puppy needs a decision within 7 days after birth: keep it, sell it or send it to the kennel. Unclaimed puppies go to the kennel automatically.',
+                        )
+                    "
+                />
+            </span>
+        </div>
+        <ActionHint :message="blocked ? t('breeding.errors.blocked') : null" />
         <p v-if="parentId" class="field-hint">
             {{ t('Showing puppies of the selected parent.') }}
             <Link :href="index()" class="text-link">{{
@@ -215,7 +229,7 @@ function submit() {
                         variant="secondary"
                         :disabled="pending || blocked"
                         @click="open(puppy, 'list')"
-                        >{{
+                        ><Tag :size="16" aria-hidden="true" />{{
                             t(
                                 puppy.status === 'listed'
                                     ? 'Change sale price'
@@ -231,7 +245,9 @@ function submit() {
                                 preserveScroll: true,
                             })
                         "
-                        >{{ t('Withdraw from sale') }}</Button
+                        ><X :size="16" aria-hidden="true" />{{
+                            t('Withdraw from sale')
+                        }}</Button
                     ><Button
                         variant="outline"
                         :disabled="pending || blocked"
@@ -335,7 +351,15 @@ function submit() {
                                 blocked ||
                                 (action === 'keep' && freeSlots < 1)
                             "
-                            >{{
+                            ><Spinner v-if="pending" /><PawPrint
+                                v-else-if="action === 'keep'"
+                                :size="16"
+                                aria-hidden="true"
+                            /><Tag
+                                v-else-if="action === 'list'"
+                                :size="16"
+                                aria-hidden="true"
+                            /><House v-else :size="16" aria-hidden="true" />{{
                                 pending ? t('Saving...') : t('Confirm')
                             }}</Button
                         ></DialogFooter

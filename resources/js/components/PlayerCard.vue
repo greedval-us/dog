@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import { CalendarDays, Crown, Leaf, Sparkles, Trophy } from '@lucide/vue';
 import { computed } from 'vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
 import PlayerStatistics from '@/components/PlayerStatistics.vue';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,6 @@ const progressText = computed(() =>
         <section class="player-card-hero" :aria-label="t('Player card')">
             <div class="player-card-cover">
                 <img :src="petScene.url()" alt="" aria-hidden="true" />
-                <span>{{ t('Good dogs make the world kinder') }}</span>
             </div>
             <div class="player-card-heading">
                 <div class="player-card-identity">
@@ -80,6 +80,14 @@ const progressText = computed(() =>
                     <Sparkles :size="24" aria-hidden="true" />{{
                         t('Player progress')
                     }}
+                    <HelpHint
+                        :label="t('Player progress')"
+                        :text="
+                            t(
+                                'Completed dog activities earn experience. Each next level needs twice as much XP: 100, 200, 400…',
+                            )
+                        "
+                    />
                 </h3>
                 <div class="player-progress-heading">
                     <span>{{
@@ -125,13 +133,6 @@ const progressText = computed(() =>
                         }}
                     </dd>
                 </dl>
-                <p class="player-progress-hint">
-                    {{
-                        t(
-                            'Completed dog activities earn experience. Each next level needs twice as much XP: 100, 200, 400…',
-                        )
-                    }}
-                </p>
             </SurfaceCard>
             <SurfaceCard class="player-about">
                 <h3>

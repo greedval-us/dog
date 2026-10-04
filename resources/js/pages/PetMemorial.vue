@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import CursorPagination from '@/components/CursorPagination.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -41,14 +42,17 @@ const date = (value: string): string =>
             "
         />
         <div class="pet-memorial-heading">
-            <Heading
-                :title="t('Pet memorial hall')"
-                :description="
-                    t(
-                        'Faithful companions stay part of your story. Cards of retired dogs and dogs who have passed away are preserved here.',
-                    )
-                "
-            />
+            <div class="page-heading-with-help">
+                <Heading :title="t('Pet memorial hall')" />
+                <HelpHint
+                    :label="t('Pet memorial hall')"
+                    :text="
+                        t(
+                            'Faithful companions stay part of your story. Cards of retired dogs and dogs who have passed away are preserved here.',
+                        )
+                    "
+                />
+            </div>
             <Button as-child variant="secondary">
                 <Link :href="playerProfile(player.username)">
                     <ArrowLeft :size="17" aria-hidden="true" />{{

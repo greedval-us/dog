@@ -7,8 +7,8 @@ import {
     Coins,
     Gift,
     House,
+    LoaderCircle,
     PawPrint,
-    Shuffle,
 } from '@lucide/vue';
 import { computed, useId, useTemplateRef } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
@@ -16,6 +16,7 @@ import BreedArtwork from '@/components/BreedArtwork.vue';
 import DogStats from '@/components/DogStats.vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
@@ -94,10 +95,16 @@ function submit() {
     <div class="kennel-page">
         <Head :title="t('Kennel')" />
         <div class="kennel-heading">
-            <Heading
-                :title="t('Kennel')"
-                :description="t('Your friendship starts here.')"
-            />
+            <div class="page-heading-with-help">
+                <Heading :title="t('Kennel')" />
+                <HelpHint
+                    :text="
+                        t(
+                            'Choose a breed and a name. Sex and coat color will be a surprise.',
+                        )
+                    "
+                />
+            </div>
             <span class="kennel-gift">
                 <Gift v-if="canClaimStarterPet" :size="21" aria-hidden="true" />
                 <Coins v-else :size="21" aria-hidden="true" />
@@ -109,14 +116,6 @@ function submit() {
                           })
                 }}
             </span>
-        </div>
-        <div class="kennel-banner">
-            <img :src="petScene.url()" alt="" aria-hidden="true" />
-            <p>
-                {{ t('New stories start here') }}
-                <PawPrint :size="20" aria-hidden="true" />
-            </p>
-            <span>{{ t('Friends for life') }}</span>
         </div>
         <SurfaceCard
             v-if="breeds.length === 0"
@@ -137,7 +136,9 @@ function submit() {
                     form.errors.dog_id ? 'breed-error' : undefined
                 "
             >
-                <legend class="sr-only">{{ t('Choose a breed') }}</legend>
+                <legend class="catalogue-field-legend">
+                    {{ t('Choose a breed') }}
+                </legend>
                 <div class="breed-grid">
                     <label
                         v-for="breed in breeds"
@@ -177,7 +178,16 @@ function submit() {
             <SurfaceCard v-if="selectedBreed" class="kennel-adoption">
                 <div class="kennel-adoption-grid">
                     <div class="kennel-name-panel form-stack">
-                        <h2>{{ t('Meet your new friend') }}</h2>
+                        <div class="page-heading-with-help">
+                            <h2>{{ t('Meet your new friend') }}</h2>
+                            <HelpHint
+                                :text="
+                                    t(
+                                        'Sex and coat color are assigned randomly when you take your dog home.',
+                                    )
+                                "
+                            />
+                        </div>
                         <FormField
                             id="pet-name"
                             :label="t('Dog name')"
@@ -195,13 +205,6 @@ function submit() {
                                 :placeholder="t('What will you call your dog?')"
                             />
                         </FormField>
-                        <p class="kennel-random-note">
-                            <Shuffle :size="18" aria-hidden="true" />{{
-                                t(
-                                    'Sex and coat color are assigned randomly when you take your dog home.',
-                                )
-                            }}
-                        </p>
                     </div>
                     <div class="kennel-checkout form-stack">
                         <div class="breed-summary">
@@ -244,7 +247,7 @@ function submit() {
                         <Button v-if="freeSlots < 1" as-child
                             ><Link :href="dashboard()"
                                 >{{ t('Manage dog places')
-                                }}<ArrowRight /></Link
+                                }}<ArrowRight aria-hidden="true" /></Link
                         ></Button>
                         <Button
                             v-else
@@ -258,6 +261,13 @@ function submit() {
                             :aria-busy="form.processing"
                             data-test="adopt-kennel-pet"
                         >
+                            <LoaderCircle
+                                v-if="form.processing"
+                                class="busy-spinner"
+                                :size="18"
+                                aria-hidden="true"
+                            />
+                            <PawPrint v-else :size="18" aria-hidden="true" />
                             {{
                                 form.processing
                                     ? t('Bringing your dog home...')
@@ -302,19 +312,24 @@ function submit() {
                 </p>
             </details>
         </form>
-        <SurfaceCard
-            :title="t('Puppies waiting for a home')"
-            :description="
-                t(
-                    'Meet puppies handed over to the kennel. Their coat and genetic potential are already known.',
-                )
-            "
-        >
-            <Button as-child variant="secondary"
-                ><Link :href="puppyMarket({ query: { source: 'kennel' } })"
-                    >{{ t('Meet kennel puppies')
-                    }}<ArrowRight :size="17" aria-hidden="true" /></Link
-            ></Button>
+        <SurfaceCard>
+            <div class="catalogue-shortcut">
+                <div class="page-heading-with-help">
+                    <h2>{{ t('Puppies waiting for a home') }}</h2>
+                    <HelpHint
+                        :text="
+                            t(
+                                'Meet puppies handed over to the kennel. Their coat and genetic potential are already known.',
+                            )
+                        "
+                    />
+                </div>
+                <Button as-child variant="secondary"
+                    ><Link :href="puppyMarket({ query: { source: 'kennel' } })"
+                        >{{ t('Meet kennel puppies')
+                        }}<ArrowRight :size="17" aria-hidden="true" /></Link
+                ></Button>
+            </div>
         </SurfaceCard>
     </div>
 </template>

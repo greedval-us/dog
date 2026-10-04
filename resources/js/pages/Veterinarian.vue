@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { HeartPulse, ShieldPlus, Stethoscope } from '@lucide/vue';
+import {
+    ChevronDown,
+    Coins,
+    HeartPulse,
+    History,
+    LoaderCircle,
+    ShieldPlus,
+    Stethoscope,
+} from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import OwnedDogSelector from '@/components/OwnedDogSelector.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -84,25 +93,27 @@ function date(value: string) {
 <template>
     <div class="vet-page">
         <Head :title="t('Veterinarian')" />
-        <Heading
-            :title="t('Veterinarian')"
-            :description="t('Treatment and preventive care for your dog.')"
-        />
+        <div class="page-heading-with-help">
+            <Heading :title="t('Veterinarian')" />
+            <HelpHint
+                :text="t('Treatment and preventive care for your dog.')"
+            />
+        </div>
 
         <SurfaceCard class="vet-intro">
             <div class="vet-heading">
                 <span class="player-work-icon"
                     ><Stethoscope aria-hidden="true"
                 /></span>
-                <div>
+                <div class="page-heading-with-help">
                     <h2>{{ t('Your dog’s health') }}</h2>
-                    <p>
-                        {{
+                    <HelpHint
+                        :text="
                             t(
                                 'Choose a dog. Each service is paid for with coins.',
                             )
-                        }}
-                    </p>
+                        "
+                    />
                 </div>
                 <span v-if="clinic.health !== null" class="vet-health">
                     <HeartPulse aria-hidden="true" />{{ t('Health') }}:
@@ -178,6 +189,16 @@ function date(value: string) {
                             :disabled="pending || !!treatment.reason"
                             @click="purchase(treatment, disease.id)"
                         >
+                            <LoaderCircle
+                                v-if="
+                                    form.processing &&
+                                    form.disease_episode_id === disease.id
+                                "
+                                class="busy-spinner"
+                                :size="17"
+                                aria-hidden="true"
+                            />
+                            <HeartPulse v-else :size="17" aria-hidden="true" />
                             {{
                                 form.processing &&
                                 form.disease_episode_id === disease.id
@@ -201,6 +222,13 @@ function date(value: string) {
                 </p>
             </SurfaceCard>
 
+            <p class="vet-prevention-note">
+                {{
+                    t(
+                        'Checkups and vaccinations do not cure existing diseases.',
+                    )
+                }}
+            </p>
             <div class="vet-services">
                 <SurfaceCard
                     v-for="service in preventive"
@@ -227,13 +255,6 @@ function date(value: string) {
                                     bonus: clinic.vaccinationBonus,
                                     days: clinic.vaccinationDays,
                                 },
-                            )
-                        }}
-                    </p>
-                    <p>
-                        {{
-                            t(
-                                'Checkups and vaccinations do not cure existing diseases.',
                             )
                         }}
                     </p>
@@ -265,6 +286,15 @@ function date(value: string) {
                         :disabled="pending || !!service.reason"
                         @click="purchase(service)"
                     >
+                        <LoaderCircle
+                            v-if="
+                                form.processing && form.service === service.code
+                            "
+                            class="busy-spinner"
+                            :size="17"
+                            aria-hidden="true"
+                        />
+                        <Coins v-else :size="17" aria-hidden="true" />
                         {{
                             form.processing && form.service === service.code
                                 ? t('Processing...')
@@ -276,26 +306,35 @@ function date(value: string) {
                 </SurfaceCard>
             </div>
 
-            <SurfaceCard
-                v-if="clinic.history.length"
-                :title="t('Recent visits')"
-            >
-                <ul class="vet-history">
-                    <li v-for="visit in clinic.history" :key="visit.id">
-                        <div>
-                            <h3>
-                                {{ t(labels[visit.service])
-                                }}<template v-if="visit.diseaseName">
-                                    · {{ visit.diseaseName }}</template
-                                >
-                            </h3>
-                            <p>{{ date(visit.performedAt) }}</p>
-                        </div>
-                        <span>{{
-                            t('{coins} coins', { coins: number(visit.price) })
-                        }}</span>
-                    </li>
-                </ul>
+            <SurfaceCard v-if="clinic.history.length">
+                <details class="section-disclosure">
+                    <summary>
+                        <span
+                            ><History :size="18" aria-hidden="true" />{{
+                                t('Recent visits')
+                            }}</span
+                        >
+                        <ChevronDown :size="18" aria-hidden="true" />
+                    </summary>
+                    <ul class="vet-history">
+                        <li v-for="visit in clinic.history" :key="visit.id">
+                            <div>
+                                <h3>
+                                    {{ t(labels[visit.service])
+                                    }}<template v-if="visit.diseaseName">
+                                        · {{ visit.diseaseName }}</template
+                                    >
+                                </h3>
+                                <p>{{ date(visit.performedAt) }}</p>
+                            </div>
+                            <span>{{
+                                t('{coins} coins', {
+                                    coins: number(visit.price),
+                                })
+                            }}</span>
+                        </li>
+                    </ul>
+                </details>
             </SurfaceCard>
         </template>
     </div>

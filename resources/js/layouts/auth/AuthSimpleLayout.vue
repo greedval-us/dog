@@ -3,9 +3,17 @@ import { useI18n } from '@/composables/useI18n';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { LogIn, UserPlus } from '@lucide/vue';
+import { login, register } from '@/routes';
 
 defineProps<{ title?: string; description?: string }>();
 const { t } = useI18n();
+const page = usePage();
+const showAccountTabs = computed(() =>
+    ['auth/Login', 'auth/Register'].includes(page.component),
+);
 </script>
 
 <template>
@@ -38,10 +46,33 @@ const { t } = useI18n();
                 }}</span>
             </aside>
             <section class="auth-panel">
+                <nav
+                    v-if="showAccountTabs"
+                    class="auth-tabs"
+                    :aria-label="t('Account')"
+                >
+                    <Link
+                        :href="login()"
+                        :aria-current="
+                            page.component === 'auth/Login' ? 'page' : undefined
+                        "
+                        ><LogIn :size="17" aria-hidden="true" />{{
+                            t('Log in')
+                        }}</Link
+                    >
+                    <Link
+                        :href="register()"
+                        :aria-current="
+                            page.component === 'auth/Register'
+                                ? 'page'
+                                : undefined
+                        "
+                        ><UserPlus :size="17" aria-hidden="true" />{{
+                            t('Registration')
+                        }}</Link
+                    >
+                </nav>
                 <header class="auth-heading">
-                    <span class="section-kicker">{{
-                        t('Welcome to DogLive')
-                    }}</span>
                     <h1>{{ t(title ?? '') }}</h1>
                     <p>{{ t(description ?? '') }}</p>
                 </header>

@@ -3,7 +3,8 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     ArrowRight,
-    Layers,
+    ChevronDown,
+    LoaderCircle,
     Package,
     ShoppingBag,
 } from '@lucide/vue';
@@ -11,6 +12,7 @@ import { computed, ref } from 'vue';
 import CategoryTabs from '@/components/CategoryTabs.vue';
 import CursorPagination from '@/components/CursorPagination.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import ItemCharacteristics from '@/components/ItemCharacteristics.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -61,12 +63,18 @@ const pageLink = (cursor: string) =>
             }}</Link
         >
         <div class="shop-heading">
-            <Heading
-                :title="t('Inventory')"
-                :description="
-                    t('Everything you have collected for your friend.')
-                "
-            />
+            <div class="page-heading-with-help">
+                <Heading :title="t('Inventory')" />
+                <HelpHint
+                    :text="
+                        t('Everything you have collected for your friend.') +
+                        ' ' +
+                        t(
+                            'Care items can be used in Quick actions on your dog’s page.',
+                        )
+                    "
+                />
+            </div>
             <Button as-child variant="secondary"
                 ><Link :href="shop()"
                     ><ShoppingBag :size="18" aria-hidden="true" />{{
@@ -75,18 +83,10 @@ const pageLink = (cursor: string) =>
             ></Button>
         </div>
 
-        <div class="inventory-overview">
+        <div class="inventory-overview inventory-overview--compact">
             <span class="inventory-overview-icon"
                 ><Package :size="32" :stroke-width="1.5" aria-hidden="true"
             /></span>
-            <div class="inventory-overview-copy">
-                <h2>{{ t('A place for little treasures') }}</h2>
-                <p>
-                    {{
-                        t('Your purchases are here, ready for the days ahead.')
-                    }}
-                </p>
-            </div>
             <dl class="inventory-totals">
                 <div>
                     <dt>{{ t('Items') }}</dt>
@@ -113,18 +113,34 @@ const pageLink = (cursor: string) =>
 
         <section
             class="inventory-collection"
+            :class="{ 'is-loading': loading }"
             :aria-label="categoryName"
             :aria-busy="loading"
         >
             <div class="shop-section-heading">
                 <h2>{{ categoryName }}</h2>
-                <span aria-live="polite">{{
-                    loading
-                        ? t('Loading…')
-                        : t('Shown: {count}', { count: number(items.length) })
-                }}</span>
+                <span class="catalogue-status" aria-live="polite">
+                    <LoaderCircle
+                        v-if="loading"
+                        class="busy-spinner"
+                        :size="15"
+                        aria-hidden="true"
+                    />{{
+                        loading
+                            ? t('Loading…')
+                            : t('Shown: {count}', {
+                                  count: number(items.length),
+                              })
+                    }}</span
+                >
             </div>
-            <div v-if="items.length" class="inventory-grid">
+            <TransitionGroup
+                v-if="items.length"
+                name="catalogue-card"
+                tag="div"
+                class="inventory-grid"
+                appear
+            >
                 <article
                     v-for="item in items"
                     :key="item.id"
@@ -143,9 +159,6 @@ const pageLink = (cursor: string) =>
                             item.category
                         }}</span>
                         <h3 class="shop-item-name">{{ item.name }}</h3>
-                        <span class="inventory-instance">{{
-                            t('Item #{number}', { number: number(item.id) })
-                        }}</span>
                         <div class="inventory-durability">
                             <div>
                                 <label :for="`item-uses-${item.id}`">{{
@@ -162,25 +175,33 @@ const pageLink = (cursor: string) =>
                                 :max="item.usageLimit"
                             />
                         </div>
-                        <p v-if="item.acquiredAt" class="inventory-acquired">
-                            {{
-                                t('Acquired on {date}', {
-                                    date: date(item.acquiredAt),
-                                })
-                            }}
-                        </p>
-                        <details
-                            v-if="
-                                Object.keys(item.characteristics).length ||
-                                item.competition
-                            "
-                            class="inventory-characteristics"
-                        >
+                        <details class="inventory-characteristics">
                             <summary>
-                                {{ t('Item characteristics')
-                                }}<Layers :size="16" aria-hidden="true" />
+                                {{ t('Details')
+                                }}<ChevronDown :size="16" aria-hidden="true" />
                             </summary>
+                            <div class="inventory-item-meta">
+                                <span class="inventory-instance">{{
+                                    t('Item #{number}', {
+                                        number: number(item.id),
+                                    })
+                                }}</span>
+                                <span
+                                    v-if="item.acquiredAt"
+                                    class="inventory-acquired"
+                                >
+                                    {{
+                                        t('Acquired on {date}', {
+                                            date: date(item.acquiredAt),
+                                        })
+                                    }}
+                                </span>
+                            </div>
                             <ItemCharacteristics
+                                v-if="
+                                    Object.keys(item.characteristics).length ||
+                                    item.competition
+                                "
                                 :characteristics="item.characteristics"
                                 :bonuses="item.bonuses"
                                 :granted-effects="item.grantedEffects"
@@ -190,7 +211,7 @@ const pageLink = (cursor: string) =>
                         </details>
                     </div>
                 </article>
-            </div>
+            </TransitionGroup>
             <EmptyState
                 v-else
                 class="inventory-empty"
@@ -227,13 +248,6 @@ const pageLink = (cursor: string) =>
                 @start="loading = true"
                 @finish="loading = false"
             />
-            <p v-if="inventoryCount" class="inventory-note">
-                <Package :size="17" aria-hidden="true" />{{
-                    t(
-                        'Care items can be used in Quick actions on your dog’s page.',
-                    )
-                }}
-            </p>
         </section>
     </div>
 </template>

@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, GitBranch, MoveHorizontal } from '@lucide/vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PetPedigreeBranch from '@/components/PetPedigreeBranch.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
@@ -54,16 +55,25 @@ watch(
             :title="t('Pedigree — {name}', { name: pedigree.root.pet.name })"
         />
         <div class="pet-public-heading">
-            <Heading
-                :title="
-                    t('Pedigree — {name}', { name: pedigree.root.pet.name })
-                "
-                :description="
-                    t(
-                        'Follow the family branches and select a dog to see its card and attributes.',
-                    )
-                "
-            />
+            <div class="page-heading-with-help">
+                <Heading
+                    :title="
+                        t('Pedigree — {name}', { name: pedigree.root.pet.name })
+                    "
+                />
+                <HelpHint
+                    :label="t('Pedigree')"
+                    :text="
+                        t(
+                            'Follow the family branches and select a dog to see its card and attributes.',
+                        ) +
+                        ' ' +
+                        t(
+                            'For earlier generations, open an ancestor’s card and follow their pedigree.',
+                        )
+                    "
+                />
+            </div>
             <Button as-child variant="secondary">
                 <Link :href="show(pedigree.root.pet.id)">
                     <ArrowLeft :size="17" aria-hidden="true" />{{
@@ -132,13 +142,6 @@ watch(
                     />
                 </ul>
             </div>
-            <p class="pedigree-depth-note">
-                {{
-                    t(
-                        'For earlier generations, open an ancestor’s card and follow their pedigree.',
-                    )
-                }}
-            </p>
         </SurfaceCard>
         <SurfaceCard v-else class="pedigree-empty">
             <GitBranch :size="36" :stroke-width="1.5" aria-hidden="true" />

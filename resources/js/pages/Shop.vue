@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ArrowRight, Check, Coins, Package, ShoppingBag } from '@lucide/vue';
+import { ArrowRight, Check, Coins, LoaderCircle, Package } from '@lucide/vue';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import CategoryTabs from '@/components/CategoryTabs.vue';
 import CursorPagination from '@/components/CursorPagination.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import ItemArtwork from '@/components/ItemArtwork.vue';
 import ShopPurchasePanel from '@/components/ShopPurchasePanel.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -114,10 +115,18 @@ function buy() {
     <div class="shop-page">
         <Head :title="t('Shop')" />
         <div class="shop-heading">
-            <Heading
-                :title="t('Shop')"
-                :description="t('Little things for a happy dog life.')"
-            />
+            <div class="page-heading-with-help">
+                <Heading :title="t('Shop')" />
+                <HelpHint
+                    :text="
+                        t(
+                            'Food, toys and everyday essentials for your friend.',
+                        ) +
+                        ' ' +
+                        t('Purchases with coins only')
+                    "
+                />
+            </div>
             <Link :href="inventory()" class="shop-inventory-count"
                 ><Package :size="20" aria-hidden="true" />{{
                     t('Items in inventory: {count}', {
@@ -125,23 +134,6 @@ function buy() {
                     })
                 }}</Link
             >
-        </div>
-
-        <div class="shop-intro">
-            <span class="shop-intro-icon"
-                ><ShoppingBag :size="29" :stroke-width="1.5" aria-hidden="true"
-            /></span>
-            <div>
-                <h2>{{ t('A little care, every day') }}</h2>
-                <p>
-                    {{
-                        t('Food, toys and everyday essentials for your friend.')
-                    }}
-                </p>
-            </div>
-            <span class="shop-intro-caption">{{
-                t('Purchases with coins only')
-            }}</span>
         </div>
 
         <CategoryTabs
@@ -155,19 +147,36 @@ function buy() {
             @finish="loading = false"
         />
 
-        <div class="shop-layout" :aria-busy="loading">
+        <div
+            class="shop-layout"
+            :class="{ 'is-loading': loading }"
+            :aria-busy="loading"
+        >
             <section class="shop-catalogue" :aria-label="categoryName">
                 <div class="shop-section-heading">
                     <h2>{{ categoryName }}</h2>
-                    <span aria-live="polite">{{
-                        loading
-                            ? t('Loading…')
-                            : t('Shown: {count}', {
-                                  count: number(offers.length),
-                              })
-                    }}</span>
+                    <span class="catalogue-status" aria-live="polite">
+                        <LoaderCircle
+                            v-if="loading"
+                            class="busy-spinner"
+                            :size="15"
+                            aria-hidden="true"
+                        />{{
+                            loading
+                                ? t('Loading…')
+                                : t('Shown: {count}', {
+                                      count: number(offers.length),
+                                  })
+                        }}</span
+                    >
                 </div>
-                <div v-if="offers.length" class="shop-grid">
+                <TransitionGroup
+                    v-if="offers.length"
+                    name="catalogue-card"
+                    tag="div"
+                    class="shop-grid"
+                    appear
+                >
                     <button
                         v-for="offer in offers"
                         :key="offer.id"
@@ -248,7 +257,7 @@ function buy() {
                             ></span>
                         </span>
                     </button>
-                </div>
+                </TransitionGroup>
                 <SurfaceCard v-else class="shop-empty">
                     <Package
                         :size="42"

@@ -15,6 +15,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref, useId } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import PetCareDialog from '@/components/PetCareDialog.vue';
 import PetCareIncidents from '@/components/PetCareIncidents.vue';
@@ -128,22 +129,33 @@ function choose(value: CareGroup, selectedVariant?: string): void {
         class="pet-care"
         :title="t(trainingOnly ? 'Training' : 'Quick actions')"
     >
-        <template v-if="!trainingOnly" #header>
+        <template #header>
             <div class="pet-care-title-row">
                 <div class="pet-care-title">
                     <span class="pet-care-title-icon"
-                        ><HandHeart :size="22" aria-hidden="true"
+                        ><component
+                            :is="trainingOnly ? Dumbbell : HandHeart"
+                            :size="22"
+                            aria-hidden="true"
                     /></span>
-                    <div>
-                        <h2>{{ t('Time together') }}</h2>
-                        <p>
-                            {{
-                                t('Choose a little adventure for your friend.')
-                            }}
-                        </p>
-                    </div>
+                    <h2>
+                        {{ t(trainingOnly ? 'Training' : 'Quick actions') }}
+                    </h2>
+                    <HelpHint
+                        :label="t(trainingOnly ? 'Training' : 'Quick actions')"
+                        :text="
+                            t(
+                                trainingOnly
+                                    ? 'One equipment charge per session. Gains depend on quality, mood and bond.'
+                                    : 'Choose an action to compare its options.',
+                            )
+                        "
+                    />
                 </div>
-                <Link :href="inventory()" class="pet-care-inventory"
+                <Link
+                    v-if="!trainingOnly"
+                    :href="inventory()"
+                    class="pet-care-inventory"
                     ><Package :size="16" aria-hidden="true" />{{ t('Inventory')
                     }}<ChevronRight :size="14" aria-hidden="true"
                 /></Link>
@@ -236,7 +248,11 @@ function choose(value: CareGroup, selectedVariant?: string): void {
                 ]"
                 :disabled="care.blocked"
                 :aria-label="t(action.label)"
-                :aria-describedby="id + '-action-' + action.group"
+                :aria-describedby="
+                    groupReason(action.group)
+                        ? id + '-action-' + action.group
+                        : undefined
+                "
                 @click="choose(action.group)"
             >
                 <span class="pet-care-action-icon"
@@ -245,15 +261,14 @@ function choose(value: CareGroup, selectedVariant?: string): void {
                 <span class="pet-care-action-copy">
                     <strong>{{ t(action.label) }}</strong>
                     <span
+                        v-if="groupReason(action.group)"
                         :id="id + '-action-' + action.group"
                         class="pet-action-reason"
                     >
                         {{ actionStatus(action.group) }}
-                        <span
-                            v-if="groupReason(action.group)"
-                            class="sr-only"
-                            >{{ groupReason(action.group) }}</span
-                        >
+                        <span class="sr-only">{{
+                            groupReason(action.group)
+                        }}</span>
                     </span>
                 </span>
                 <ChevronRight
@@ -323,16 +338,6 @@ function choose(value: CareGroup, selectedVariant?: string): void {
         </p>
         <p v-else-if="care.blocked" class="pet-care-notice">
             {{ t('Care is unavailable for this dog or account.') }}
-        </p>
-        <p v-else-if="!trainingOnly" class="pet-feature-note">
-            {{ t('Choose an action to compare its options.') }}
-        </p>
-        <p v-if="trainingOnly" class="pet-training-footnote">
-            {{
-                t(
-                    'One equipment charge per session. Gains depend on quality, mood and bond.',
-                )
-            }}
         </p>
 
         <PetCareDialog

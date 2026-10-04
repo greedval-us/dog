@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
 import DogStats from '@/components/DogStats.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PetHistory from '@/components/PetHistory.vue';
 import PetOverview from '@/components/PetOverview.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
@@ -77,7 +78,9 @@ const tabs = [
                 :value="tab.value"
                 class="pet-tab"
             >
-                <component :is="tab.icon" :size="17" />{{ t(tab.label) }}
+                <component :is="tab.icon" :size="17" aria-hidden="true" />{{
+                    t(tab.label)
+                }}
             </TabsTrigger>
         </TabsList>
         <TabsContent value="overview" class="pet-tab-panel"
@@ -86,20 +89,29 @@ const tabs = [
         <TabsContent value="attributes" class="pet-tab-panel pet-development">
             <SurfaceCard
                 :title="t('Main attributes')"
-                :description="t('Current value / genetic potential.')"
                 class="pet-attribute-details"
             >
+                <template #header>
+                    <div class="surface-heading-help">
+                        <h2>{{ t('Main attributes') }}</h2>
+                        <HelpHint
+                            :label="t('Main attributes')"
+                            :text="
+                                t('Current value / genetic potential.') +
+                                ' ' +
+                                t(
+                                    'Keep practicing: attributes slowly decrease over time. Item effects help retain progress.',
+                                )
+                            "
+                        />
+                    </div>
+                </template>
                 <DogStats :values="pet.stats" variant="compact" />
-                <div class="pet-development-retention">
-                    <p>
-                        {{
-                            t(
-                                'Keep practicing: attributes slowly decrease over time. Item effects help retain progress.',
-                            )
-                        }}
-                    </p>
+                <div
+                    v-if="care && (care.buffs.length || care.debuffs.length)"
+                    class="pet-development-retention"
+                >
                     <StatusEffects
-                        v-if="care"
                         :effects="[...care.buffs, ...care.debuffs]"
                         :server-now="care.serverNow"
                         compact
@@ -162,23 +174,33 @@ const tabs = [
             <PetCareer :pet-id="pet.id" :career="career" />
         </TabsContent>
         <TabsContent value="offspring" class="pet-tab-panel">
-            <SurfaceCard
-                :title="t('Offspring')"
-                :description="
-                    t(
-                        'View this dog’s puppies or choose a partner for a new litter.',
-                    )
-                "
-            >
+            <SurfaceCard :title="t('Offspring')">
+                <template #header>
+                    <div class="surface-heading-help">
+                        <h2>{{ t('Offspring') }}</h2>
+                        <HelpHint
+                            :label="t('Offspring')"
+                            :text="
+                                t(
+                                    'View this dog’s puppies or choose a partner for a new litter.',
+                                )
+                            "
+                        />
+                    </div>
+                </template>
                 <div class="breeding-links">
                     <Button as-child
-                        ><Link :href="puppies({ query: { parent: pet.id } })">{{
-                            t('View offspring')
-                        }}</Link></Button
+                        ><Link :href="puppies({ query: { parent: pet.id } })"
+                            ><BookOpen :size="17" aria-hidden="true" />{{
+                                t('View offspring')
+                            }}</Link
+                        ></Button
                     ><Button as-child variant="secondary"
-                        ><Link :href="breeding({ query: { pet: pet.id } })">{{
-                            t('Choose a breeding partner')
-                        }}</Link></Button
+                        ><Link :href="breeding({ query: { pet: pet.id } })"
+                            ><GitBranch :size="17" aria-hidden="true" />{{
+                                t('Choose a breeding partner')
+                            }}</Link
+                        ></Button
                     >
                 </div>
             </SurfaceCard>

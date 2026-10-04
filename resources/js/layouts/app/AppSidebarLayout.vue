@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Link, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import { ChevronDown, Coins, Gem, Heart, Menu, X } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
@@ -17,10 +17,13 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { dashboard } from '@/routes';
 
 const page = usePage();
 const menuOpen = ref(false);
+function closeMenu() {
+    menuOpen.value = false;
+    document.getElementById('mobile-menu-toggle')?.focus();
+}
 const user = computed(() => page.props.auth.user);
 const formatNumber = (value: unknown) => number(Number(value) || 0);
 watch(
@@ -38,20 +41,11 @@ const { t, number } = useI18n();
         <aside class="doglive-sidebar">
             <DogLiveBrand />
             <DogLiveNavigation />
-            <div class="sidebar-story">
-                <Heart
-                    class="sidebar-story-icon"
-                    :size="25"
-                    aria-hidden="true"
-                />
-                <span class="section-kicker">{{
+            <span class="sidebar-note"
+                ><Heart :size="16" aria-hidden="true" />{{
                     t('Together every day')
-                }}</span>
-                <p>{{ t('A great friendship starts with a little care.') }}</p>
-            </div>
-            <Link :href="dashboard()" class="sidebar-caption">{{
-                t('Your little world of DogLive')
-            }}</Link>
+                }}</span
+            >
         </aside>
         <div class="doglive-workspace">
             <header class="doglive-topbar">
@@ -121,6 +115,7 @@ const { t, number } = useI18n();
                         /></DropdownMenuContent>
                     </DropdownMenu>
                     <Button
+                        id="mobile-menu-toggle"
                         variant="plain"
                         class="mobile-menu-button"
                         :aria-expanded="menuOpen"
@@ -138,6 +133,7 @@ const { t, number } = useI18n();
                     v-if="menuOpen"
                     id="mobile-navigation"
                     class="mobile-navigation"
+                    @keydown.esc="closeMenu"
                 />
             </Transition>
             <main id="main-content" class="doglive-content" tabindex="-1">

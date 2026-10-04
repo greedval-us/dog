@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Check, LockKeyhole, Trophy } from '@lucide/vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PlayerAvatar from '@/components/PlayerAvatar.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
@@ -34,14 +35,17 @@ const date = (value: string): string =>
             "
         />
         <div class="achievements-heading">
-            <Heading
-                :title="t('Achievements')"
-                :description="
-                    t(
-                        'Small adventures, big memories. Collect achievements as you care for your dogs.',
-                    )
-                "
-            />
+            <div class="page-heading-with-help">
+                <Heading :title="t('Achievements')" />
+                <HelpHint
+                    :label="t('Achievements')"
+                    :text="
+                        t(
+                            'Small adventures, big memories. Collect achievements as you care for your dogs.',
+                        )
+                    "
+                />
+            </div>
             <Button as-child variant="secondary">
                 <Link :href="playerProfile(player.username)">
                     <ArrowLeft :size="17" aria-hidden="true" />{{
@@ -57,7 +61,7 @@ const date = (value: string): string =>
                     :username="player.username"
                     :version="player.avatarVersion"
                 />
-                <div>
+                <div class="surface-heading-help">
                     <h2>
                         {{
                             t('Collection of {username}', {
@@ -65,13 +69,14 @@ const date = (value: string): string =>
                             })
                         }}
                     </h2>
-                    <p>
-                        {{
+                    <HelpHint
+                        :label="t('Achievements')"
+                        :text="
                             t(
                                 'Achievements give no rewards or bonuses. Just a reason to smile.',
                             )
-                        }}
-                    </p>
+                        "
+                    />
                 </div>
             </div>
             <div class="achievements-total">
@@ -118,9 +123,13 @@ const date = (value: string): string =>
                         }}
                     </span>
                 </div>
-                <div class="achievement-story">
+                <div class="achievement-story surface-heading-help">
                     <h2>{{ achievement.name }}</h2>
-                    <p>{{ achievement.description }}</p>
+                    <HelpHint
+                        v-if="achievement.description"
+                        :label="achievement.name"
+                        :text="achievement.description"
+                    />
                 </div>
                 <div class="achievement-rule">
                     <h3>{{ t('How to unlock') }}</h3>

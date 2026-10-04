@@ -5,12 +5,15 @@ import {
     Clock,
     Coins,
     Gem,
+    Gift,
+    LoaderCircle,
     PawPrint,
     Users,
     Zap,
 } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import OwnedDogSelector from '@/components/OwnedDogSelector.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -116,17 +119,26 @@ function countdown(seconds: number) {
 <template>
     <div class="dog-work-page">
         <Head :title="t('Work with a dog')" />
-        <Heading
-            :title="t('Work with a dog')"
-            :description="t('Your dog’s skills open new ways to earn.')"
-        />
+        <div class="page-heading-with-help">
+            <Heading :title="t('Work with a dog')" />
+            <HelpHint :text="t('Your dog’s skills open new ways to earn.')" />
+        </div>
         <SurfaceCard class="dog-work-intro">
             <div class="dog-work-intro-heading">
                 <span class="player-work-icon"
                     ><BriefcaseBusiness aria-hidden="true"
                 /></span>
                 <div>
-                    <h2>{{ t('Today’s job board') }}</h2>
+                    <div class="page-heading-with-help">
+                        <h2>{{ t('Today’s job board') }}</h2>
+                        <HelpHint
+                            :text="
+                                t(
+                                    'A shared daily selection with limited places. Each player can take each job once.',
+                                )
+                            "
+                        />
+                    </div>
                     <p>
                         {{
                             t('New jobs at {time} (Moscow time)', {
@@ -136,13 +148,6 @@ function countdown(seconds: number) {
                     </p>
                 </div>
             </div>
-            <p>
-                {{
-                    t(
-                        'A shared daily selection with limited places. Each player can take each job once.',
-                    )
-                }}
-            </p>
             <p>
                 {{
                     t(
@@ -230,6 +235,16 @@ function countdown(seconds: number) {
                         :disabled="pending"
                         @click="collect(shift.token)"
                     >
+                        <LoaderCircle
+                            v-if="
+                                finish.processing &&
+                                finish.token === shift.token
+                            "
+                            class="busy-spinner"
+                            :size="17"
+                            aria-hidden="true"
+                        />
+                        <Gift v-else :size="17" aria-hidden="true" />
                         {{
                             t(
                                 finish.processing &&
@@ -243,18 +258,29 @@ function countdown(seconds: number) {
             </article>
         </SurfaceCard>
 
-        <div
+        <TransitionGroup
             v-if="board.offers.length"
+            name="catalogue-card"
+            tag="div"
             class="dog-work-grid"
             :aria-busy="pending"
+            appear
         >
             <SurfaceCard
                 v-for="offer in board.offers"
                 :key="offer.id"
                 class="dog-work-job"
                 :title="offer.name"
-                :description="offer.description"
             >
+                <template #header>
+                    <div class="page-heading-with-help">
+                        <h2>{{ offer.name }}</h2>
+                        <HelpHint
+                            v-if="offer.description"
+                            :text="offer.description"
+                        />
+                    </div>
+                </template>
                 <dl class="dog-work-details">
                     <div>
                         <dt>{{ t('Required skill') }}</dt>
@@ -312,6 +338,17 @@ function countdown(seconds: number) {
                         :disabled="pending || expired || Boolean(offer.reason)"
                         @click="startWork(offer)"
                     >
+                        <LoaderCircle
+                            v-if="form.processing && form.offer_id === offer.id"
+                            class="busy-spinner"
+                            :size="17"
+                            aria-hidden="true"
+                        />
+                        <BriefcaseBusiness
+                            v-else
+                            :size="17"
+                            aria-hidden="true"
+                        />
                         {{
                             t(
                                 offer.status === 'completed'
@@ -332,7 +369,7 @@ function countdown(seconds: number) {
                     {{ t(offer.reason) }}
                 </p>
             </SurfaceCard>
-        </div>
+        </TransitionGroup>
         <SurfaceCard
             v-else
             :title="t('No jobs available today')"

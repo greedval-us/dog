@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { Coins, House, Users } from '@lucide/vue';
+import { Coins, House, PawPrint, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
@@ -8,11 +8,12 @@ import CursorPagination from '@/components/CursorPagination.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import PuppyCard from '@/components/PuppyCard.vue';
-import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Dialog,
     DialogContent,
@@ -79,14 +80,19 @@ function buy() {
 
 <template>
     <div class="breeding-page">
-        <Head :title="t('Puppy market')" /><Heading
-            :title="t('Puppy market')"
-            :description="
-                t(
-                    'A new friend can come from another player or from the kennel.',
-                )
-            "
-        /><BreedingNavigation active="market" />
+        <Head :title="t('Puppy market')" />
+        <div class="page-heading-with-help">
+            <Heading :title="t('Puppy market')" />
+            <HelpHint
+                :label="t('Puppy market')"
+                :text="
+                    t(
+                        'A new friend can come from another player or from the kennel.',
+                    )
+                "
+            />
+        </div>
+        <BreedingNavigation active="market" />
         <nav class="breeding-navigation" :aria-label="t('Puppy source')">
             <Link
                 :href="market({ query: { source: 'players' } })"
@@ -108,26 +114,37 @@ function buy() {
                 }}</Link
             >
         </nav>
-        <SurfaceCard class="breeding-intro"
-            ><p>
-                {{ t('Free places: {count}', { count: number(freeSlots) }) }}
-            </p>
-            <p v-if="source === 'kennel'" class="field-hint">
-                {{
-                    t(
-                        'Kennel puppies cost {amount} coins. Their characteristics and coat are already known.',
-                        { amount: number(kennelPrice) },
-                    )
-                }}
-            </p>
-            <p class="field-hint">
-                {{
-                    t(
-                        'Starting characteristics are 20% of genetic potential. Your puppy’s active life begins when it goes home.',
-                    )
-                }}
-            </p></SurfaceCard
-        >
+        <div class="breeding-summary">
+            <span class="breeding-summary-stat">
+                <PawPrint :size="18" aria-hidden="true" />
+                <strong>{{
+                    t('Free places: {count}', { count: number(freeSlots) })
+                }}</strong>
+                <HelpHint
+                    :label="t('Take your puppy home')"
+                    :text="
+                        t(
+                            'Starting characteristics are 20% of genetic potential. Your puppy’s active life begins when it goes home.',
+                        )
+                    "
+                />
+            </span>
+            <span v-if="source === 'kennel'" class="breeding-summary-stat">
+                <Coins :size="18" aria-hidden="true" />
+                <strong>{{
+                    t('{amount} coins', { amount: number(kennelPrice) })
+                }}</strong>
+                <HelpHint
+                    :label="t('From the kennel')"
+                    :text="
+                        t(
+                            'Kennel puppies cost {amount} coins. Their characteristics and coat are already known.',
+                            { amount: number(kennelPrice) },
+                        )
+                    "
+                />
+            </span>
+        </div>
         <div v-if="puppies.length" class="puppy-grid">
             <PuppyCard v-for="puppy in puppies" :key="puppy.id" :puppy="puppy"
                 ><p v-if="puppy.seller" class="field-hint">
@@ -163,7 +180,9 @@ function buy() {
                     ><Button
                         :disabled="pending || Boolean(reason(puppy))"
                         @click="choose(puppy)"
-                        >{{ t('Take puppy home') }}</Button
+                        ><PawPrint :size="16" aria-hidden="true" />{{
+                            t('Take puppy home')
+                        }}</Button
                     >
                 </div></PuppyCard
             >
@@ -233,7 +252,11 @@ function buy() {
                                 !selected ||
                                 Boolean(selected && reason(selected))
                             "
-                            >{{
+                            ><Spinner v-if="form.processing" /><PawPrint
+                                v-else
+                                :size="16"
+                                aria-hidden="true"
+                            />{{
                                 form.processing
                                     ? t('Bringing your dog home...')
                                     : t('Confirm purchase')

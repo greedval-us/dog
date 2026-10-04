@@ -16,6 +16,7 @@ import { computed } from 'vue';
 import DogStats from '@/components/DogStats.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -184,37 +185,54 @@ const traits: Record<string, string> = {
                     {{ t('No known ancestors yet') }}
                 </p>
             </SurfaceCard>
-            <SurfaceCard
-                :title="t('Main attributes')"
-                :description="t('Current value / genetic potential.')"
-            >
+            <SurfaceCard :title="t('Main attributes')">
+                <template #header>
+                    <div class="surface-heading-help">
+                        <h2>{{ t('Main attributes') }}</h2>
+                        <HelpHint
+                            :label="t('Main attributes')"
+                            :text="t('Current value / genetic potential.')"
+                        />
+                    </div>
+                </template>
                 <DogStats :values="profile.stats" variant="bars" />
             </SurfaceCard>
         </div>
-        <SurfaceCard v-if="profile.exterior" :title="t('Breed conformation')">
-            <dl class="event-exterior-values">
-                <div v-for="(value, key) in profile.exterior" :key="key">
-                    <dt>{{ t(`events.exterior.${key}`) }}</dt>
-                    <dd>{{ number(value) }} / 100</dd>
-                </div>
-            </dl>
-        </SurfaceCard>
-        <SurfaceCard v-if="profile.titles?.length" :title="t('Dog titles')">
-            <ul class="event-title-list">
-                <li
-                    v-for="(title, titleIndex) in profile.titles"
-                    :key="titleIndex"
-                >
-                    <Trophy :size="18" aria-hidden="true" /><span
-                        >{{ title.name
-                        }}<small
-                            >{{ t(`events.discipline.${title.discipline}`) }} ·
-                            {{ t(`events.frequency.${title.frequency}`) }} ·
-                            {{ date(title.awardedAt) }}</small
-                        ></span
+        <div
+            v-if="profile.exterior || profile.titles?.length"
+            class="pet-public-credentials"
+        >
+            <SurfaceCard
+                v-if="profile.exterior"
+                :title="t('Breed conformation')"
+            >
+                <dl class="event-exterior-values">
+                    <div v-for="(value, key) in profile.exterior" :key="key">
+                        <dt>{{ t(`events.exterior.${key}`) }}</dt>
+                        <dd>{{ number(value) }} / 100</dd>
+                    </div>
+                </dl>
+            </SurfaceCard>
+            <SurfaceCard v-if="profile.titles?.length" :title="t('Dog titles')">
+                <ul class="event-title-list">
+                    <li
+                        v-for="(title, titleIndex) in profile.titles"
+                        :key="titleIndex"
                     >
-                </li>
-            </ul>
-        </SurfaceCard>
+                        <Trophy :size="18" aria-hidden="true" /><span
+                            >{{ title.name
+                            }}<small
+                                >{{
+                                    t(`events.discipline.${title.discipline}`)
+                                }}
+                                ·
+                                {{ t(`events.frequency.${title.frequency}`) }} ·
+                                {{ date(title.awardedAt) }}</small
+                            ></span
+                        >
+                    </li>
+                </ul>
+            </SurfaceCard>
+        </div>
     </div>
 </template>

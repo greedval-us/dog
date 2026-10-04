@@ -13,9 +13,7 @@ const { t } = useI18n();
     <div class="settings-stack">
         <Head :title="t('Security')" /><SurfaceCard
             :title="t('Change password')"
-            :description="
-                t('Choose a long, unique password to protect your account.')
-            "
+            :hint="t('Choose a long, unique password to protect your account.')"
         >
             <Form
                 v-bind="SecurityController.update.form()"

@@ -4,6 +4,7 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight, Heart, PawPrint, Sprout } from '@lucide/vue';
 import DogLiveBrand from '@/components/DogLiveBrand.vue';
 import DogLiveFooter from '@/components/DogLiveFooter.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import SystemNotifications from '@/components/SystemNotifications.vue';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,7 @@ const { t } = useI18n();
                     <p>
                         {{
                             t(
-                                'A cozy world of dogs, care and friendship. Create a profile and join a story that is just beginning.',
+                                'Care for your dog, learn new skills and discover the world together.',
                             )
                         }}
                     </p>
@@ -83,9 +84,7 @@ const { t } = useI18n();
                             }}
                             <ArrowRight /></Link></Button
                     ><span class="welcome-note">{{
-                        t(
-                            'DogLive is growing. The first gameplay features are on their way.',
-                        )
+                        t('Your first dog is waiting for you.')
                     }}</span>
                 </div>
                 <div class="welcome-image">
@@ -114,7 +113,10 @@ const { t } = useI18n();
                         ><component :is="feature.icon"
                     /></span>
                     <h2>{{ t(feature.title) }}</h2>
-                    <p>{{ t(feature.text) }}</p>
+                    <HelpHint
+                        :text="t(feature.text)"
+                        :label="t(feature.title)"
+                    />
                 </article>
             </section>
         </main>

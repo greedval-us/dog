@@ -6,15 +6,19 @@ import {
     CardTitle,
     CardDescription,
 } from '@/components/ui/card';
-defineProps<{ title?: string; description?: string }>();
+import HelpHint from '@/components/HelpHint.vue';
+defineProps<{ title?: string; description?: string; hint?: string }>();
 </script>
 
 <template>
     <Card class="surface-card">
         <CardHeader v-if="title || $slots.header">
             <slot name="header"
-                ><CardTitle>{{ title }}</CardTitle
-                ><CardDescription v-if="description">{{
+                ><div class="surface-card-heading">
+                    <CardTitle>{{ title }}</CardTitle
+                    ><HelpHint v-if="hint" :text="hint" :label="title" />
+                </div>
+                <CardDescription v-if="description">{{
                     description
                 }}</CardDescription></slot
             >

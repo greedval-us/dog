@@ -26,6 +26,17 @@ test('a missing supply blocks feeding while fresh water remains available on mob
 
     $page = visit(route('dashboard', ['pet' => $pet->id], absolute: false))
         ->on()->mobile();
+    $page->click('button[aria-label="Wellbeing"]')
+        ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
+        ->keys('button[aria-label="Wellbeing"]', 'Escape')
+        ->assertMissing('.help-hint-content[aria-label="Wellbeing"]');
+    $page->keys('button[aria-label="Wellbeing"]', 'Tab')
+        ->keys('button:focus', 'Shift+Tab')
+        ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
+        ->keys('button[aria-label="Wellbeing"]', 'Tab')
+        ->assertMissing('.help-hint-content[aria-label="Wellbeing"]')
+        ->keys('button:focus', 'Escape')
+        ->assertMissing('.help-hint-content');
     $page->click('#pet-care button[aria-label="Feed"]')
         ->assertSeeIn('[role="dialog"]', 'No suitable item in your inventory.')
         ->assertDisabled('[role="dialog"] button[type="submit"]')
@@ -104,6 +115,14 @@ test('the care timer applies the result automatically and reloading does not awa
         JS;
 
     $page = visit($dashboard, ['viewport' => ['width' => $width, 'height' => 900], 'colorScheme' => $colorScheme]);
+    if ($width === 1440) {
+        $page->hover('button[aria-label="Wellbeing"]')
+            ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
+            ->click('button[aria-label="Wellbeing"]')
+            ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
+            ->keys('button[aria-label="Wellbeing"]', 'Escape')
+            ->assertMissing('.help-hint-content[aria-label="Wellbeing"]');
+    }
     $page->click('#pet-care button[aria-label="'.$feed.'"]')
         ->click('[role="dialog"] input[value="water"]')
         ->press($start)
@@ -114,7 +133,7 @@ test('the care timer applies the result automatically and reloading does not awa
     $this->travel(15)->seconds();
 
     /** Advance only the browser clock; its isolated context is discarded after the test. */
-    $page->script('Date.now = ((original) => () => original() + 15000)(Date.now)');
+    $page->script('performance.now = ((original) => () => original() + 15000)(performance.now.bind(performance))');
     $page->assertMissing('.pet-care-progress')
         ->assertSee($completed);
     $page->script('window.scrollTo({ top: 0, left: 0, behavior: "instant" })');

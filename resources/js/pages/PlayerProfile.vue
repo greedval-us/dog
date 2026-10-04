@@ -71,12 +71,15 @@ const { t, number } = useI18n();
                 </Button>
             </template>
         </PlayerCard>
-        <SurfaceCard class="player-dogs">
+        <SurfaceCard class="player-dogs player-dogs-compact">
             <template #header
                 ><h2>
                     <PawPrint :size="25" aria-hidden="true" />{{
                         isOwner ? t('My dogs') : t('Dogs in care')
                     }}
+                    <span class="inventory-link-count">{{
+                        number(dogs.length)
+                    }}</span>
                 </h2></template
             >
             <div v-if="dogs.length" class="player-dogs-grid">
@@ -96,6 +99,7 @@ const { t, number } = useI18n();
                         />
                         <GameAssetArtwork
                             :asset-id="dog.portraitId"
+                            lazy
                             :alt="
                                 t('Illustration of {breed}', {
                                     breed: dog.breed,

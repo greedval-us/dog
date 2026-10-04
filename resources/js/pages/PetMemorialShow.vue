@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Flower2, GitBranch, Leaf, Sparkles } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import PetCondition from '@/components/PetCondition.vue';
 import PetHero from '@/components/PetHero.vue';
 import PetOverview from '@/components/PetOverview.vue';
@@ -93,7 +94,7 @@ const archivedDate = computed(() =>
                 </p>
             </div>
         </SurfaceCard>
-        <div class="pet-dossier">
+        <div class="pet-dossier pet-dossier-compact">
             <img
                 v-if="appearance.backgroundId"
                 class="pet-profile-scene"
@@ -144,8 +145,14 @@ const archivedDate = computed(() =>
                 <ul>
                     <li v-for="skill in learnedSkills" :key="skill.id">
                         <div>
-                            <h3>{{ skill.name }}</h3>
-                            <p>{{ skill.description }}</p>
+                            <div class="surface-heading-help">
+                                <h3>{{ skill.name }}</h3>
+                                <HelpHint
+                                    v-if="skill.description"
+                                    :label="skill.name"
+                                    :text="skill.description"
+                                />
+                            </div>
                         </div>
                         <span>{{
                             t('Level {level} / 5', {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
-import { ArrowUpRight, Camera, ChevronDown } from '@lucide/vue';
+import { ArrowUpRight, Camera, ChevronDown, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
@@ -23,24 +23,33 @@ const { t } = useI18n();
 <template>
     <div class="settings-stack">
         <Head :title="t('Profile')" />
-        <PlayerCard :player="player">
-            <template #actions>
-                <p class="field-hint">
-                    {{
-                        t(
-                            'Other players can see your name, bio and game statistics.',
-                        )
-                    }}
-                </p>
-                <Button as-child variant="secondary"
-                    ><Link :href="playerProfile(player.username)"
-                        >{{ t('View player card') }}<ArrowUpRight /></Link
-                ></Button>
-            </template>
-        </PlayerCard>
+        <details class="profile-preview section-disclosure">
+            <summary>
+                <span
+                    ><UserRound :size="18" aria-hidden="true" />{{
+                        t('View player card')
+                    }}</span
+                ><ChevronDown :size="18" aria-hidden="true" />
+            </summary>
+            <PlayerCard :player="player">
+                <template #actions>
+                    <p class="field-hint">
+                        {{
+                            t(
+                                'Other players can see your name, bio and game statistics.',
+                            )
+                        }}
+                    </p>
+                    <Button as-child variant="secondary"
+                        ><Link :href="playerProfile(player.username)"
+                            >{{ t('View player card') }}<ArrowUpRight /></Link
+                    ></Button>
+                </template>
+            </PlayerCard>
+        </details>
         <SurfaceCard
             :title="t('Edit profile')"
-            :description="t('Introduce yourself to other DogLive players.')"
+            :hint="t('Introduce yourself to other DogLive players.')"
         >
             <div class="form-stack">
                 <details class="player-avatar-editor">

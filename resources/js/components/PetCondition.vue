@@ -9,6 +9,7 @@ import {
     HandHeart,
 } from '@lucide/vue';
 import PetMetric from '@/components/PetMetric.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { useI18n } from '@/composables/useI18n';
 import { stateLabels } from '@/lib/petLabels';
@@ -33,15 +34,23 @@ const metrics = [
 <template>
     <SurfaceCard
         :title="t(readOnly ? 'Preserved wellbeing' : 'Wellbeing')"
-        :description="
-            t(
-                readOnly
-                    ? 'State preserved at departure.'
-                    : 'Small steps to a happy dog.',
-            )
-        "
         class="pet-condition"
     >
+        <template #header>
+            <div class="surface-heading-help">
+                <h2>{{ t(readOnly ? 'Preserved wellbeing' : 'Wellbeing') }}</h2>
+                <HelpHint
+                    :label="t(readOnly ? 'Preserved wellbeing' : 'Wellbeing')"
+                    :text="
+                        t(
+                            readOnly
+                                ? 'State preserved at departure.'
+                                : 'Below 25% — needs care.',
+                        )
+                    "
+                />
+            </div>
+        </template>
         <div class="pet-metrics">
             <PetMetric
                 v-for="metric in metrics"

@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { Coins, Heart, House, LockKeyhole, Users } from '@lucide/vue';
+import {
+    Check,
+    Coins,
+    Eye,
+    Heart,
+    House,
+    LockKeyhole,
+    Upload,
+    Users,
+    X,
+} from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
@@ -10,11 +20,13 @@ import CursorPagination from '@/components/CursorPagination.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
 import OwnedDogSelector from '@/components/OwnedDogSelector.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Dialog,
     DialogContent,
@@ -185,14 +197,17 @@ function createListing() {
 <template>
     <div class="breeding-page">
         <Head :title="t('Breeding')" />
-        <Heading
-            :title="t('Breeding')"
-            :description="
-                t(
-                    'Choose a partner, compare the forecast and begin a new generation.',
-                )
-            "
-        />
+        <div class="page-heading-with-help">
+            <Heading :title="t('Breeding')" />
+            <HelpHint
+                :label="t('Breeding')"
+                :text="
+                    t(
+                        'Choose a partner, compare the forecast and begin a new generation.',
+                    )
+                "
+            />
+        </div>
         <BreedingNavigation active="breeding" />
         <EmptyState
             v-if="!access.allowed"
@@ -215,7 +230,22 @@ function createListing() {
             ><template #icon><LockKeyhole aria-hidden="true" /></template
         ></EmptyState>
         <template v-else>
-            <SurfaceCard class="breeding-intro" :title="t('Your dog')">
+            <SurfaceCard class="breeding-intro">
+                <template #header>
+                    <div class="page-heading-with-help">
+                        <h2 class="breeding-section-title">
+                            {{ t('Your dog') }}
+                        </h2>
+                        <HelpHint
+                            :label="t('Your dog')"
+                            :text="
+                                t(
+                                    'Both dogs must be at least 7 days old, healthy and available. Only unrelated dogs of the same breed can be paired.',
+                                )
+                            "
+                        />
+                    </div>
+                </template>
                 <OwnedDogSelector
                     v-if="dogs.length"
                     id="breeding-dog"
@@ -228,9 +258,11 @@ function createListing() {
                 <template v-else
                     ><p>{{ t('You need a dog to begin breeding.') }}</p>
                     <Button as-child variant="secondary"
-                        ><Link :href="kennel()">{{
-                            t('Visit the kennel')
-                        }}</Link></Button
+                        ><Link :href="kennel()"
+                            ><House :size="16" aria-hidden="true" />{{
+                                t('Visit the kennel')
+                            }}</Link
+                        ></Button
                     ></template
                 >
                 <BreedingParentCard
@@ -244,13 +276,6 @@ function createListing() {
                         t('Next breeding: {date}', {
                             date: date(selectedDog.cooldownUntil),
                         })
-                    }}
-                </p>
-                <p class="field-hint">
-                    {{
-                        t(
-                            'Both dogs must be at least 7 days old, healthy and available. Only unrelated dogs of the same breed can be paired.',
-                        )
                     }}
                 </p>
             </SurfaceCard>
@@ -317,7 +342,18 @@ function createListing() {
                                             offer.id,
                                         )
                                     "
-                                    >{{
+                                    ><Check
+                                        v-if="
+                                            selection.kind === 'listing' &&
+                                            selection.partnerId === offer.id
+                                        "
+                                        :size="16"
+                                        aria-hidden="true"
+                                    /><Eye
+                                        v-else
+                                        :size="16"
+                                        aria-hidden="true"
+                                    />{{
                                         t(
                                             selection.kind === 'listing' &&
                                                 selection.partnerId === offer.id
@@ -350,18 +386,21 @@ function createListing() {
                     />
                 </section>
                 <section class="breeding-section">
-                    <h2 class="breeding-section-title">
-                        <House :size="22" aria-hidden="true" />{{
-                            t('Kennel partners')
-                        }}
-                    </h2>
-                    <p class="field-hint">
-                        {{
-                            t(
-                                'Kennel partners have fixed characteristics. The kennel keeps its share of the litter.',
-                            )
-                        }}
-                    </p>
+                    <div class="page-heading-with-help">
+                        <h2 class="breeding-section-title">
+                            <House :size="22" aria-hidden="true" />{{
+                                t('Kennel partners')
+                            }}
+                        </h2>
+                        <HelpHint
+                            :label="t('Kennel partners')"
+                            :text="
+                                t(
+                                    'Kennel partners have fixed characteristics. The kennel keeps its share of the litter.',
+                                )
+                            "
+                        />
+                    </div>
                     <div v-if="partners.length" class="breeding-offer-grid">
                         <SurfaceCard
                             v-for="offer in partners"
@@ -399,7 +438,18 @@ function createListing() {
                                             offer.id,
                                         )
                                     "
-                                    >{{
+                                    ><Check
+                                        v-if="
+                                            selection.kind === 'partner' &&
+                                            selection.partnerId === offer.id
+                                        "
+                                        :size="16"
+                                        aria-hidden="true"
+                                    /><Eye
+                                        v-else
+                                        :size="16"
+                                        aria-hidden="true"
+                                    />{{
                                         t(
                                             selection.kind === 'partner' &&
                                                 selection.partnerId === offer.id
@@ -421,17 +471,11 @@ function createListing() {
                 </section>
             </div>
             <div v-if="moving" class="dashboard-loading" role="status">
+                <Spinner />
                 {{ t('Loading puppy forecast...') }}
             </div>
             <BreedingPreview v-if="preview" :forecast="preview">
                 <ActionHint :message="actionReason" />
-                <p class="field-hint">
-                    {{
-                        t(
-                            'A litter of 2–5 puppies arrives in 24 hours. One random puppy belongs to the father’s owner; the rest belong to the mother’s owner. Both parents rest from breeding for 7 days.',
-                        )
-                    }}
-                </p>
                 <p v-if="ownPair" class="field-hint">
                     {{
                         t(
@@ -440,13 +484,23 @@ function createListing() {
                     }}
                 </p>
                 <div class="breeding-confirm">
-                    <strong
-                        ><Coins :size="18" aria-hidden="true" />{{
+                    <div class="breeding-summary-stat">
+                        <Coins :size="18" aria-hidden="true" />
+                        <strong>{{
                             t('{amount} coins', {
                                 amount: number(chargedPrice),
                             })
-                        }}</strong
-                    ><Button
+                        }}</strong>
+                        <HelpHint
+                            :label="t('Confirm breeding')"
+                            :text="
+                                t(
+                                    'A litter of 2–5 puppies arrives in 24 hours. One random puppy belongs to the father’s owner; the rest belong to the mother’s owner. Both parents rest from breeding for 7 days.',
+                                )
+                            "
+                        />
+                    </div>
+                    <Button
                         :disabled="pending || Boolean(actionReason)"
                         @click="confirmOpen = true"
                         ><Heart :size="17" aria-hidden="true" />{{
@@ -483,7 +537,11 @@ function createListing() {
                     <Button
                         type="submit"
                         :disabled="pending || Boolean(selectedDog.reason)"
-                        >{{ t('Publish or update offer') }}</Button
+                        ><Spinner v-if="listingForm.processing" /><Upload
+                            v-else
+                            :size="16"
+                            aria-hidden="true"
+                        />{{ t('Publish or update offer') }}</Button
                     >
                 </form>
                 <p v-else class="field-hint">
@@ -515,7 +573,9 @@ function createListing() {
                                 preserveScroll: true,
                             })
                         "
-                        >{{ t('Withdraw offer') }}</Button
+                        ><X :size="16" aria-hidden="true" />{{
+                            t('Withdraw offer')
+                        }}</Button
                     >
                 </div>
             </SurfaceCard>
@@ -560,7 +620,11 @@ function createListing() {
                     ><Button
                         :disabled="form.processing || Boolean(actionReason)"
                         @click="mate"
-                        >{{
+                        ><Spinner v-if="form.processing" /><Heart
+                            v-else
+                            :size="16"
+                            aria-hidden="true"
+                        />{{
                             form.processing
                                 ? t('Starting breeding...')
                                 : t('Confirm breeding')

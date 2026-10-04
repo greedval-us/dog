@@ -19,10 +19,7 @@ const { t } = useI18n();
 
 <template>
     <div class="settings-page">
-        <Heading
-            :title="t('Settings')"
-            :description="t('Your profile and a cozy place to play.')"
-        />
+        <Heading :title="t('Settings')" />
         <div class="settings-layout">
             <nav
                 class="settings-navigation"
