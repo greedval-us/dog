@@ -71,7 +71,7 @@ final class GameEventFreezing
             $this->freezeEntry($event, $entry, $owner, $pet, $gear);
         }
 
-        $groups = $event->entries()->where('status', 'frozen')->get()->groupBy('division');
+        $groups = $event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division');
         foreach ($groups as $division => $humans) {
             if ($humans->count() > $event->rules['field_size']) {
                 foreach ($humans->slice($event->rules['field_size']) as $entry) {

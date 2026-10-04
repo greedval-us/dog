@@ -5,6 +5,7 @@ return [
     'updated' => 'Your performance plan has been saved.',
     'cancelled' => 'Your entry has been cancelled and the fee refunded.',
     'club_dog' => 'Club dog',
+    'heat' => 'Heat :number',
     'disciplines' => ['agility' => 'Agility', 'nosework' => 'Nosework', 'canicross' => 'Canicross', 'conformation' => 'Conformation show', 'progeny' => 'Progeny competition'],
     'classes' => ['novice' => 'Novice', 'open' => 'Open class', 'champion' => 'Masters'],
     'sizes' => ['small' => 'Small dogs', 'medium' => 'Medium dogs', 'large' => 'Large dogs', 'all' => 'All sizes'],

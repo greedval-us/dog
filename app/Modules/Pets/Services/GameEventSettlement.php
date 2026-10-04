@@ -38,16 +38,19 @@ final class GameEventSettlement
     public function settle(GameEvent $event, Collection $owners, Collection $pets, CarbonImmutable $at): void
     {
         $winningPetIds = [];
-        foreach ($event->entries()->where('status', 'frozen')->get()->groupBy('division') as $participants) {
+        foreach ($event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division') as $participants) {
             $results = [];
+            $tieBreakers = [];
             foreach ($participants as $entry) {
                 $results[$entry->id] = $this->simulator->simulate(
                     $event->discipline, $entry->snapshot, $entry->plan, $event->rules,
                     $this->randomness->draws($event->seed.':entry:'.$entry->operation_token, 6),
                 );
+                $tieBreakers[$entry->id] = hash_hmac('sha256', 'rank:'.$entry->operation_token, $event->seed);
             }
             $ordered = $participants->sort(fn (GameEventEntry $first, GameEventEntry $second): int => $this->simulator->compareResults($event->discipline, $results[$first->id], $results[$second->id], $event->rules['version'])
-                ?: strcmp($first->operation_token, $second->operation_token))->values();
+                ?: strcmp($tieBreakers[$first->id], $tieBreakers[$second->id])
+                ?: ($first->id <=> $second->id))->values();
             foreach ($ordered as $index => $entry) {
                 $entry->result = $results[$entry->id];
                 $entry->rank = $index + 1;

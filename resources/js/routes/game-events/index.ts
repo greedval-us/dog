@@ -181,7 +181,7 @@ show.head = (args: { gameEvent: number | { id: number } } | [gameEvent: number |
     show.form = showForm
 /**
 * @see \App\Http\Controllers\GameEventController::register
- * @see app/Http/Controllers/GameEventController.php:59
+ * @see app/Http/Controllers/GameEventController.php:60
  * @route '/game-events/{gameEvent}/register'
  */
 export const register = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -196,7 +196,7 @@ register.definition = {
 
 /**
 * @see \App\Http\Controllers\GameEventController::register
- * @see app/Http/Controllers/GameEventController.php:59
+ * @see app/Http/Controllers/GameEventController.php:60
  * @route '/game-events/{gameEvent}/register'
  */
 register.url = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -229,7 +229,7 @@ register.url = (args: { gameEvent: number | { id: number } } | [gameEvent: numbe
 
 /**
 * @see \App\Http\Controllers\GameEventController::register
- * @see app/Http/Controllers/GameEventController.php:59
+ * @see app/Http/Controllers/GameEventController.php:60
  * @route '/game-events/{gameEvent}/register'
  */
 register.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -239,7 +239,7 @@ register.post = (args: { gameEvent: number | { id: number } } | [gameEvent: numb
 
     /**
 * @see \App\Http\Controllers\GameEventController::register
- * @see app/Http/Controllers/GameEventController.php:59
+ * @see app/Http/Controllers/GameEventController.php:60
  * @route '/game-events/{gameEvent}/register'
  */
     const registerForm = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -249,7 +249,7 @@ register.post = (args: { gameEvent: number | { id: number } } | [gameEvent: numb
 
             /**
 * @see \App\Http\Controllers\GameEventController::register
- * @see app/Http/Controllers/GameEventController.php:59
+ * @see app/Http/Controllers/GameEventController.php:60
  * @route '/game-events/{gameEvent}/register'
  */
         registerForm.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -260,7 +260,7 @@ register.post = (args: { gameEvent: number | { id: number } } | [gameEvent: numb
     register.form = registerForm
 /**
 * @see \App\Http\Controllers\GameEventController::update
- * @see app/Http/Controllers/GameEventController.php:69
+ * @see app/Http/Controllers/GameEventController.php:70
  * @route '/game-events/{gameEvent}/entry'
  */
 export const update = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -275,7 +275,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\GameEventController::update
- * @see app/Http/Controllers/GameEventController.php:69
+ * @see app/Http/Controllers/GameEventController.php:70
  * @route '/game-events/{gameEvent}/entry'
  */
 update.url = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -308,7 +308,7 @@ update.url = (args: { gameEvent: number | { id: number } } | [gameEvent: number 
 
 /**
 * @see \App\Http\Controllers\GameEventController::update
- * @see app/Http/Controllers/GameEventController.php:69
+ * @see app/Http/Controllers/GameEventController.php:70
  * @route '/game-events/{gameEvent}/entry'
  */
 update.put = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -318,7 +318,7 @@ update.put = (args: { gameEvent: number | { id: number } } | [gameEvent: number 
 
     /**
 * @see \App\Http\Controllers\GameEventController::update
- * @see app/Http/Controllers/GameEventController.php:69
+ * @see app/Http/Controllers/GameEventController.php:70
  * @route '/game-events/{gameEvent}/entry'
  */
     const updateForm = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -333,7 +333,7 @@ update.put = (args: { gameEvent: number | { id: number } } | [gameEvent: number 
 
             /**
 * @see \App\Http\Controllers\GameEventController::update
- * @see app/Http/Controllers/GameEventController.php:69
+ * @see app/Http/Controllers/GameEventController.php:70
  * @route '/game-events/{gameEvent}/entry'
  */
         updateForm.put = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -349,7 +349,7 @@ update.put = (args: { gameEvent: number | { id: number } } | [gameEvent: number 
     update.form = updateForm
 /**
 * @see \App\Http\Controllers\GameEventController::cancel
- * @see app/Http/Controllers/GameEventController.php:79
+ * @see app/Http/Controllers/GameEventController.php:80
  * @route '/game-events/{gameEvent}/cancel'
  */
 export const cancel = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -364,7 +364,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\GameEventController::cancel
- * @see app/Http/Controllers/GameEventController.php:79
+ * @see app/Http/Controllers/GameEventController.php:80
  * @route '/game-events/{gameEvent}/cancel'
  */
 cancel.url = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -397,7 +397,7 @@ cancel.url = (args: { gameEvent: number | { id: number } } | [gameEvent: number 
 
 /**
 * @see \App\Http\Controllers\GameEventController::cancel
- * @see app/Http/Controllers/GameEventController.php:79
+ * @see app/Http/Controllers/GameEventController.php:80
  * @route '/game-events/{gameEvent}/cancel'
  */
 cancel.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -407,7 +407,7 @@ cancel.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number
 
     /**
 * @see \App\Http\Controllers\GameEventController::cancel
- * @see app/Http/Controllers/GameEventController.php:79
+ * @see app/Http/Controllers/GameEventController.php:80
  * @route '/game-events/{gameEvent}/cancel'
  */
     const cancelForm = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -417,7 +417,7 @@ cancel.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number
 
             /**
 * @see \App\Http\Controllers\GameEventController::cancel
- * @see app/Http/Controllers/GameEventController.php:79
+ * @see app/Http/Controllers/GameEventController.php:80
  * @route '/game-events/{gameEvent}/cancel'
  */
         cancelForm.post = (args: { gameEvent: number | { id: number } } | [gameEvent: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

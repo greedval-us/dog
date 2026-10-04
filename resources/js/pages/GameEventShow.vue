@@ -113,7 +113,17 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                             t('Entries')
                         }}
                     </dt>
-                    <dd>{{ number(event.entryCount) }}</dd>
+                    <dd>
+                        {{ number(event.entryCount)
+                        }}<HelpHint
+                            :text="
+                                t('{humans} players · {clubs} club dogs', {
+                                    humans: number(event.humanCount),
+                                    clubs: number(event.clubCount),
+                                })
+                            "
+                        />
+                    </dd>
                 </div>
             </dl>
             <div class="event-prizes">
@@ -128,13 +138,28 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
             </div>
         </SurfaceCard>
 
-        <GameEventEntryForm
-            :event="event"
-            :server-now="serverNow"
-            :dogs="dogs"
-            :equipment="equipment"
-            :entry="ownEntry"
-        />
-        <GameEventResults :event="event" :entry="ownEntry" />
+        <template v-if="event.status !== 'scheduled'">
+            <GameEventResults :event="event" :entry="ownEntry" />
+            <details class="event-explanation event-saved-entry">
+                <summary>{{ t('Saved entry and rules') }}</summary>
+                <GameEventEntryForm
+                    :event="event"
+                    :server-now="serverNow"
+                    :dogs="dogs"
+                    :equipment="equipment"
+                    :entry="ownEntry"
+                />
+            </details>
+        </template>
+        <template v-else>
+            <GameEventEntryForm
+                :event="event"
+                :server-now="serverNow"
+                :dogs="dogs"
+                :equipment="equipment"
+                :entry="ownEntry"
+            />
+            <GameEventResults :event="event" :entry="ownEntry" />
+        </template>
     </div>
 </template>

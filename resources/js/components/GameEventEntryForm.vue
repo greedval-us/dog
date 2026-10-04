@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { Check, Trophy } from '@lucide/vue';
+import { Link, router } from '@inertiajs/vue3';
+import { Check, ChevronDown, Trophy } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
+import GameEventPreparation from '@/components/GameEventPreparation.vue';
+import HelpHint from '@/components/HelpHint.vue';
 import FormField from '@/components/FormField.vue';
 import InputError from '@/components/InputError.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -10,11 +13,11 @@ import { useGameEventEntry } from '@/composables/useGameEventEntry';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import { useI18n } from '@/composables/useI18n';
 import { index as shop } from '@/routes/shop';
-import type { GameEventEntryProps } from '@/types/game-event';
+import type { EventDecision, GameEventEntryProps } from '@/types/game-event';
 
 const props = defineProps<GameEventEntryProps>();
 const { t, number } = useI18n();
-const { stageLabel, optionLabel, phaseLabel, gearDescription, modifier } =
+const { stageLabel, optionLabel, phaseLabel, gearDescription, modifierEffect } =
     useGameEventPresentation();
 const {
     ownEntry,
@@ -36,6 +39,59 @@ const {
     submit,
     withdraw,
 } = useGameEventEntry(props);
+const refreshingPreparation = ref(false);
+const preparationUpdatedAt = ref(props.serverNow);
+function refreshPreparation() {
+    if (refreshingPreparation.value || pending.value) return;
+    router.reload({
+        only: ['dogs', 'equipment', 'serverNow'],
+        onStart: () => {
+            refreshingPreparation.value = true;
+        },
+        onSuccess: () => {
+            preparationUpdatedAt.value = props.serverNow;
+        },
+        onFinish: () => {
+            refreshingPreparation.value = false;
+        },
+    });
+}
+const selectedModifiers = computed(() => {
+    const totals: Record<string, number> = {};
+    for (const gear of validEquipment.value.filter((item) =>
+        form.gear_ids.includes(item.id),
+    )) {
+        for (const [key, value] of Object.entries(gear.modifiers))
+            totals[key] = (totals[key] ?? 0) + value;
+    }
+    return Object.entries(totals).map(
+        ([key, value]) => [key, Math.max(-0.2, Math.min(0.2, value))] as const,
+    );
+});
+const statLabels: Record<string, string> = {
+    speed: 'Speed',
+    agility: 'Agility',
+    endurance: 'Endurance',
+    strength: 'Strength',
+    obedience: 'Obedience',
+    intelligence: 'Intelligence',
+};
+function stageWeights(key: string): string {
+    const stage = selectedDog.value?.preparation?.stages.find(
+        (stage) => stage.key === key,
+    );
+    return stage
+        ? Object.entries(stage.weights)
+              .map(
+                  ([stat, weight]) =>
+                      `${t(statLabels[stat] ?? stat)} ${number(Math.round(weight * 100))}%`,
+              )
+              .join(' · ')
+        : '';
+}
+function preset(stages: EventDecision[]) {
+    if (editable.value && !pending.value) form.plan.stages = [...stages];
+}
 </script>
 
 <template>
@@ -95,7 +151,7 @@ const {
                             :value="dog.id"
                             :disabled="
                                 event.discipline !== 'progeny' &&
-                                (dog.isBusy || !dog.isActive) &&
+                                !dog.isActive &&
                                 dog.id !== ownEntry?.petId
                             "
                         >
@@ -113,6 +169,16 @@ const {
                 <p v-if="!dogs.length" class="event-note">
                     {{ t('You need a dog to enter this event.') }}
                 </p>
+                <GameEventPreparation
+                    v-if="selectedDog && editable"
+                    :dog="selectedDog"
+                    :discipline="event.discipline"
+                    :closes-at="event.closesAt"
+                    :updated-at="preparationUpdatedAt"
+                    :refreshing="refreshingPreparation"
+                    :disabled="pending"
+                    @refresh="refreshPreparation"
+                />
                 <div
                     v-if="selectedDog && event.discipline === 'conformation'"
                     class="event-exterior"
@@ -127,10 +193,10 @@ const {
                             <dd>{{ number(value) }} / 100</dd>
                         </div>
                     </dl>
-                    <p>
+                    <p class="event-note">
                         {{
                             t(
-                                'Handling helps show your dog’s strengths. It does not change inherited conformation.',
+                                'Exterior contributes 80%; presentation contributes 20%. Cleanliness, health and focus support presentation.',
                             )
                         }}
                     </p>
@@ -183,15 +249,47 @@ const {
                 </fieldset>
 
                 <template v-if="event.discipline !== 'progeny'">
-                    <div class="event-plan-heading">
+                    <div class="event-plan-heading surface-heading-help">
                         <h3>{{ t('Your performance plan') }}</h3>
-                        <p class="event-note">
-                            {{
+                        <HelpHint
+                            :text="
                                 t(
                                     'Each stage affects the next. A bold start can cost focus or stamina later.',
                                 )
-                            }}
-                        </p>
+                            "
+                        />
+                    </div>
+                    <div
+                        v-if="editable"
+                        class="event-plan-presets"
+                        :aria-label="t('Plan presets')"
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :disabled="pending"
+                            @click="preset(['careful', 'careful', 'careful'])"
+                            >{{ t('Steady throughout') }}</Button
+                        >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :disabled="pending"
+                            @click="
+                                preset(['balanced', 'balanced', 'balanced'])
+                            "
+                            >{{ t('Balanced throughout') }}</Button
+                        >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            :disabled="pending"
+                            @click="preset(['careful', 'balanced', 'bold'])"
+                            >{{ t('Save for the finish') }}</Button
+                        >
                     </div>
                     <fieldset
                         v-for="(stage, stageIndex) in event.stages"
@@ -203,6 +301,19 @@ const {
                             <span>{{ number(stageIndex + 1) }}</span
                             >{{ stageLabel(stage.key) }}
                         </legend>
+                        <p
+                            v-if="stageWeights(stage.key)"
+                            class="event-stage-weights"
+                        >
+                            {{
+                                t(
+                                    event.discipline === 'conformation'
+                                        ? 'Error control: {weights}'
+                                        : 'Quality inputs: {weights}',
+                                    { weights: stageWeights(stage.key) },
+                                )
+                            }}
+                        </p>
                         <div class="event-tactics">
                             <label
                                 v-for="choice in [
@@ -230,13 +341,15 @@ const {
                                         choice,
                                     )
                                 }}</strong>
-                                <span>{{
-                                    t(
-                                        `events.tactic.${event.discipline}.${choice}`,
-                                    )
-                                }}</span>
                             </label>
                         </div>
+                        <p class="event-tactic-effect">
+                            {{
+                                t(
+                                    `events.tactic.${event.discipline}.${form.plan.stages[stageIndex]}`,
+                                )
+                            }}
+                        </p>
                     </fieldset>
                 </template>
                 <section v-else class="event-exterior">
@@ -262,22 +375,57 @@ const {
 
                 <template v-if="event.discipline !== 'progeny'">
                     <div class="event-gear-heading">
-                        <h3>{{ t('Competition equipment') }}</h3>
+                        <div class="surface-heading-help">
+                            <h3>{{ t('Competition equipment') }}</h3>
+                            <HelpHint
+                                :text="
+                                    [
+                                        t(
+                                            'Choose one item per slot. The best fit depends on your dog and your plan.',
+                                        ),
+                                        t(
+                                            `events.equipmentRule.${event.discipline}`,
+                                        ),
+                                        t(
+                                            'One use is spent when registration closes. Each combined modifier is capped at 20%.',
+                                        ),
+                                    ].join(' ')
+                                "
+                            />
+                        </div>
                         <Button as-child variant="outline" size="sm"
                             ><Link :href="shop()">{{
                                 t('Visit the shop')
                             }}</Link></Button
                         >
                     </div>
-                    <p class="event-note">
+                    <div
+                        v-if="selectedModifiers.length"
+                        class="event-gear-modifiers"
+                        :aria-label="t('Combined equipment effect')"
+                    >
+                        <span
+                            v-for="[key, value] in selectedModifiers"
+                            :key="key"
+                            >{{ modifierEffect(key, value) }}</span
+                        >
+                        <HelpHint
+                            :text="
+                                t(
+                                    'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                                )
+                            "
+                        />
+                    </div>
+                    <p
+                        v-if="event.discipline === 'conformation'"
+                        class="event-note"
+                    >
                         {{
                             t(
-                                'Choose one item per slot. The best fit depends on your dog and your plan.',
+                                'For conformation, focus and precision help judging; stamina limits fatigue. Pace equipment does not increase the final score.',
                             )
                         }}
-                    </p>
-                    <p class="event-note">
-                        {{ t(`events.equipmentRule.${event.discipline}`) }}
                     </p>
                     <div
                         v-if="validEquipment.length && selectedDog"
@@ -313,15 +461,18 @@ const {
                             >
                             <span
                                 v-if="gearDescription(gear)"
-                                class="event-note"
+                                :class="
+                                    form.gear_ids.includes(gear.id)
+                                        ? 'event-note'
+                                        : 'sr-only'
+                                "
                                 >{{ gearDescription(gear) }}</span
                             >
                             <span class="event-gear-modifiers"
                                 ><span
                                     v-for="(value, key) in gear.modifiers"
                                     :key="key"
-                                    >{{ t(`events.modifier.${key}`) }}
-                                    {{ modifier(value) }}</span
+                                    >{{ modifierEffect(key, value) }}</span
                                 ></span
                             >
                         </button>
@@ -334,21 +485,21 @@ const {
                         }}
                     </p>
                 </template>
-                <p v-if="missingKit" class="event-note">
+                <p v-if="editable && missingKit" class="event-note">
                     {{
                         t(
                             'Canicross requires a pulling harness, tugline and handler belt. Select all three before entering.',
                         )
                     }}
                 </p>
-                <p v-if="missingOffspring" class="event-note">
+                <p v-if="editable && missingOffspring" class="event-note">
                     {{
                         t(
                             'Select at least three direct offspring before entering.',
                         )
                     }}
                 </p>
-                <p v-if="insufficientFunds" class="event-note">
+                <p v-if="editable && insufficientFunds" class="event-note">
                     {{
                         t('You need {amount} more coins.', {
                             amount: number(shortfall),
@@ -430,95 +581,107 @@ const {
             </form>
         </SurfaceCard>
         <aside class="event-rules">
-            <SurfaceCard :title="t('Participation rules')">
-                <p>
-                    {{
-                        t(
-                            'A player may enter up to {limit} events per Moscow day across all dogs and disciplines.',
-                            {
-                                limit: number(
-                                    event.participationRules.playerDailyLimit,
-                                ),
-                            },
-                        )
-                    }}
-                </p>
-                <p v-if="event.discipline === 'progeny'">
-                    {{
-                        t(
-                            'Progeny judging does not count toward the dog’s physical event limit and does not require event rest. The player’s daily limit still applies.',
-                        )
-                    }}
-                </p>
-                <template v-else>
+            <details class="event-explanation event-rules-disclosure">
+                <summary>
+                    {{ t('Rules and judging')
+                    }}<ChevronDown :size="16" aria-hidden="true" />
+                </summary>
+                <SurfaceCard :title="t('Participation rules')">
                     <p>
                         {{
                             t(
-                                'A dog may enter up to {limit} physical competitions and exhibitions combined per Moscow day.',
+                                'A player may enter up to {limit} events per Moscow day across all dogs and disciplines.',
                                 {
                                     limit: number(
-                                        event.participationRules.petDailyLimit,
+                                        event.participationRules
+                                            .playerDailyLimit,
                                     ),
                                 },
                             )
                         }}
                     </p>
+                    <p v-if="event.discipline === 'progeny'">
+                        {{
+                            t(
+                                'Progeny judging does not count toward the dog’s physical event limit and does not require event rest. The player’s daily limit still applies.',
+                            )
+                        }}
+                    </p>
+                    <template v-else>
+                        <p>
+                            {{
+                                t(
+                                    'A dog may enter up to {limit} physical competitions and exhibitions combined per Moscow day.',
+                                    {
+                                        limit: number(
+                                            event.participationRules
+                                                .petDailyLimit,
+                                        ),
+                                    },
+                                )
+                            }}
+                        </p>
+                        <p>
+                            {{
+                                t(
+                                    'Allow at least {hours} h from the previous event’s end until the next event’s registration closes, when preparation begins.',
+                                    {
+                                        hours: number(
+                                            event.participationRules
+                                                .petRestHours,
+                                        ),
+                                    },
+                                )
+                            }}
+                        </p>
+                    </template>
+                </SurfaceCard>
+                <SurfaceCard :title="t('How judging works')"
+                    ><p>{{ t(`events.judging.${event.discipline}`) }}</p>
                     <p>
                         {{
                             t(
-                                'Allow at least {hours} h from the previous event’s end until the next event’s registration closes, when preparation begins.',
-                                {
-                                    hours: number(
-                                        event.participationRules.petRestHours,
-                                    ),
-                                },
+                                'Compete within your division. Club dogs fill empty places and follow the same rules.',
                             )
                         }}
                     </p>
-                </template>
-            </SurfaceCard>
-            <SurfaceCard :title="t('How judging works')"
-                ><p>{{ t(`events.judging.${event.discipline}`) }}</p>
-                <p>
-                    {{
-                        t(
-                            'Compete within your division. Club dogs fill empty places and follow the same rules.',
-                        )
-                    }}
-                </p>
-                <p v-if="event.discipline !== 'progeny'">
-                    {{
-                        t(
-                            'A title records an achievement. Experience helps in its own discipline, with a limited effect.',
-                        )
-                    }}
-                </p></SurfaceCard
-            >
-            <SurfaceCard
-                v-if="
-                    selectedDog?.titles.length && event.discipline !== 'progeny'
-                "
-                :title="t('Dog titles')"
-                ><ul class="event-title-list">
-                    <li
-                        v-for="(title, titleIndex) in selectedDog.titles"
-                        :key="titleIndex"
-                    >
-                        <Trophy :size="17" aria-hidden="true" /><span
-                            >{{ title.name
-                            }}<small
-                                >{{
-                                    t(`events.discipline.${title.discipline}`)
-                                }}
-                                ·
-                                {{
-                                    t(`events.frequency.${title.frequency}`)
-                                }}</small
-                            ></span
+                    <p v-if="event.discipline !== 'progeny'">
+                        {{
+                            t(
+                                'A title records an achievement. Experience helps in its own discipline, with a limited effect.',
+                            )
+                        }}
+                    </p></SurfaceCard
+                >
+                <SurfaceCard
+                    v-if="
+                        selectedDog?.titles.length &&
+                        event.discipline !== 'progeny'
+                    "
+                    :title="t('Dog titles')"
+                    ><ul class="event-title-list">
+                        <li
+                            v-for="(title, titleIndex) in selectedDog.titles"
+                            :key="titleIndex"
                         >
-                    </li>
-                </ul></SurfaceCard
-            >
+                            <Trophy :size="17" aria-hidden="true" /><span
+                                >{{ title.name
+                                }}<small
+                                    >{{
+                                        t(
+                                            `events.discipline.${title.discipline}`,
+                                        )
+                                    }}
+                                    ·
+                                    {{
+                                        t(`events.frequency.${title.frequency}`)
+                                    }}</small
+                                ></span
+                            >
+                        </li>
+                    </ul></SurfaceCard
+                >
+            </details>
         </aside>
     </div>
 </template>

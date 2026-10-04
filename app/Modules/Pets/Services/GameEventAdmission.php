@@ -11,10 +11,8 @@ use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
-use App\Modules\Pets\DTO\GameEventProtocol;
-use App\Modules\Pets\DTO\PetStatSnapshot;
+use App\Modules\Pets\DTO\PetCompetitionSnapshot;
 use App\Modules\Pets\Enums\GameEventDiscipline;
-use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use Carbon\CarbonImmutable;
 
@@ -144,19 +142,7 @@ final class GameEventAdmission
      */
     public function snapshot(GameEvent $event, Pet $pet, array $plan, array $gear): array
     {
-        $pet->loadMissing(['dog', 'skills']);
-        $stats = [];
-        $potentials = [];
-        foreach (PetStat::cases() as $stat) {
-            $stats[$stat->value] = (int) $pet->getAttribute($stat->value);
-            $potentials[$stat->value] = (int) $pet->getAttribute($stat->potentialColumn());
-        }
-        $skills = [];
-        foreach ($pet->skills as $skill) {
-            if ($this->skills->isActive(new PetStatSnapshot($stats, $potentials), $skill->levels, $skill->is_active, $skill->pivot->level, ! $pet->isActive())) {
-                $skills[$skill->code] = $skill->pivot->level;
-            }
-        }
+        $pet->loadMissing(['dog', 'skills', 'sportRecords']);
         $modifiers = array_fill_keys(['precision', 'stamina', 'pace', 'focus'], 0.0);
         foreach ($gear as $item) {
             foreach ($item['modifiers'] as $key => $value) {
@@ -179,11 +165,7 @@ final class GameEventAdmission
         }
 
         return [
-            'version' => GameEventProtocol::SNAPSHOT_VERSION,
-            'name' => $pet->name, 'breed' => $pet->dog->breed, 'breed_id' => $pet->dog_id, 'size' => $pet->size->value,
-            'stats' => $stats, 'potentials' => $potentials, 'states' => $pet->statePercentages(null),
-            'skills' => $skills, 'exterior' => $pet->getAttribute('exterior') ?? [],
-            'career_experience' => (int) (PetSportRecord::query()->where('pet_id', $pet->id)->where('discipline', $event->discipline)->value('experience') ?? 0),
+            ...PetCompetitionSnapshot::fromPet($pet, $this->skills, $event->discipline),
             'gear' => $gear, 'modifiers' => $modifiers, 'offspring' => $offspring,
         ];
     }

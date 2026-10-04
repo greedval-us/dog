@@ -14,6 +14,7 @@ use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -73,10 +74,7 @@ final class RegisterGameEvent
             }
             $this->reservations->assertCanRegister($pet, $event);
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $division = $this->admission->division($event, $pet);
-            if ($event->entries()->where('division', $division)->whereIn('status', ['registered', 'frozen'])->count() >= ($event->rules['field_size'] ?? 8)) {
-                throw new GameEventUnavailable('events.errors.full');
-            }
+            $division = $this->availableDivision($event, $this->admission->division($event, $pet));
             try {
                 $this->wallet->change($owner, 'coins', -$expectedFee, 'event-registration:'.$token, 'event_registration');
             } catch (InsufficientFunds) {
@@ -89,5 +87,21 @@ final class RegisterGameEvent
                 'status' => 'registered', 'fee' => $expectedFee, 'plan' => $preparation['plan'], 'gear_ids' => $gearIds,
             ]);
         }, attempts: 3);
+    }
+
+    private function availableDivision(GameEvent $event, string $baseDivision): string
+    {
+        $fieldSize = $event->rules['field_size'] ?? 8;
+        $counts = $event->entries()->whereIn('status', ['registered', 'frozen'])
+            ->where(fn (Builder $query): Builder => $query->where('division', $baseDivision)->orWhere('division', 'like', $baseDivision.':heat-%'))
+            ->toBase()->select('division')->selectRaw('COUNT(*) AS entries_count')
+            ->groupBy('division')->pluck('entries_count', 'division');
+        $heat = 1;
+        do {
+            $division = $heat === 1 ? $baseDivision : $baseDivision.':heat-'.$heat;
+            $heat++;
+        } while (($counts[$division] ?? 0) >= $fieldSize);
+
+        return $division;
     }
 }

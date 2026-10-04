@@ -30,9 +30,7 @@ export function useGameEventEntry(props: GameEventEntryProps) {
         pet_id:
             ownEntry.value?.petId ??
             props.dogs.find(
-                (dog) =>
-                    props.event.discipline === 'progeny' ||
-                    (dog.isActive && !dog.isBusy),
+                (dog) => props.event.discipline === 'progeny' || dog.isActive,
             )?.id ??
             null,
         fee: props.event.fee,
@@ -82,6 +80,9 @@ export function useGameEventEntry(props: GameEventEntryProps) {
                 item.disciplines.includes(props.event.discipline) &&
                 (props.event.discipline !== 'agility' ||
                     item.phase === 'preparation') &&
+                (props.event.discipline !== 'canicross' ||
+                    !['body', 'line', 'handler'].includes(item.slot) ||
+                    item.phase === 'performance') &&
                 (!item.sizes.length ||
                     item.sizes.includes(selectedDog.value?.size ?? '')),
         ),

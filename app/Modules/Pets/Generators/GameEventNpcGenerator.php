@@ -31,7 +31,32 @@ final class GameEventNpcGenerator
             'states' => ['health' => 100, 'energy' => 90, 'satiety' => 90, 'hydration' => 90, 'mood' => 85, 'cleanliness' => 90, 'bond' => 70],
             'skills' => ['keen_nose' => $tier + 1, 'search' => $tier + 1], 'exterior' => $exterior,
             'career_experience' => $tier * 40, 'gear' => [], 'modifiers' => [],
-            'offspring' => array_fill(0, 3, ['exterior' => $exterior, 'titles' => $tier > 0 ? [['code' => 'conformation_daily_winner']] : []]),
+            'offspring' => $this->offspring($tier, $key),
         ];
+    }
+
+    /**
+     * @return list<array{exterior:array<string, float>, titles:list<array{code:string}>}>
+     */
+    private function offspring(int $tier, string $key): array
+    {
+        $familyDraws = $this->randomness->draws($key.':offspring:family', 3);
+        $offspring = [];
+        for ($index = 0; $index < 3; $index++) {
+            $draws = $this->randomness->draws($key.':offspring:'.$index, 4);
+            $exterior = [];
+            foreach (['type', 'structure', 'movement'] as $offset => $trait) {
+                $familyQuality = 60 + $tier * 8 + $familyDraws[$offset] * 15;
+                $exterior[$trait] = max(0.0, min(100.0, $familyQuality + $draws[$offset] * 10 - 5));
+            }
+            $titleCount = $tier === 0 ? 0 : $tier - 1 + (int) ($draws[3] < 0.5);
+            $titles = array_slice([
+                ['code' => 'conformation_daily_winner'],
+                ['code' => 'conformation_weekly_winner'],
+            ], 0, $titleCount);
+            $offspring[] = ['exterior' => $exterior, 'titles' => $titles];
+        }
+
+        return $offspring;
     }
 }

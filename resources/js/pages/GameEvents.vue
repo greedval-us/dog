@@ -241,9 +241,33 @@ function filter() {
                                         t('Entries')
                                     }}
                                 </dt>
-                                <dd>{{ number(event.entryCount) }}</dd>
+                                <dd>
+                                    {{ number(event.entryCount)
+                                    }}<HelpHint
+                                        :text="
+                                            t(
+                                                '{humans} players · {clubs} club dogs',
+                                                {
+                                                    humans: number(
+                                                        event.humanCount,
+                                                    ),
+                                                    clubs: number(
+                                                        event.clubCount,
+                                                    ),
+                                                },
+                                            )
+                                        "
+                                    />
+                                </dd>
                             </div>
                         </dl>
+                        <p class="event-note">
+                            {{
+                                t('Up to {count} dogs per division', {
+                                    count: number(event.fieldSize),
+                                })
+                            }}
+                        </p>
                         <Button
                             as-child
                             :variant="

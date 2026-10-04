@@ -25,6 +25,25 @@ export type EventTitle = {
     awardedAt: string;
 };
 
+export type EventModifier = 'precision' | 'stamina' | 'pace' | 'focus';
+export type EventPreparationSnapshot = {
+    careMultiplier: number;
+    initialFatigue: number;
+    initialFocus: number;
+    states: Record<string, number>;
+    normalizedStats: Record<string, number>;
+    modifiers: Record<EventModifier, number>;
+};
+export type EventPreparation = EventPreparationSnapshot & {
+    stats: Record<string, number>;
+    potentials: Record<string, number>;
+    skills: Record<string, number>;
+    stages: { key: string; weights: Record<string, number>; quality: number }[];
+    pedigree: { generation: number; knownParents: number };
+    divisionLabel: string;
+    blockingReasons: string[];
+};
+
 export type EventDog = {
     id: number;
     name: string;
@@ -40,6 +59,7 @@ export type EventDog = {
         exterior: EventExterior;
         titlesCount: number;
     }[];
+    preparation?: EventPreparation;
 };
 
 export type EventEquipment = CompetitionGear & {
@@ -59,6 +79,10 @@ export type GameEventSummary = {
     fee: number;
     prizes: number[];
     entryCount: number;
+    calculationVersion: number;
+    fieldSize: number;
+    humanCount: number;
+    clubCount: number;
     participationRules: {
         playerDailyLimit: number;
         petDailyLimit: number;
@@ -100,6 +124,7 @@ export type GameEventEntry = {
         score: number;
         eliminated: boolean;
         reason?: string;
+        preparation?: EventPreparationSnapshot;
         stages: {
             key: string;
             decision: EventDecision;
@@ -109,6 +134,16 @@ export type GameEventEntry = {
             fatigue: number;
             focus: number;
             reason: string;
+            factors?: {
+                quality: number;
+                careMultiplier: number;
+                mistakeChance: number;
+                startFatigue: number;
+                startFocus: number;
+                exterior: number | null;
+                exteriorContribution: number;
+                presentationContribution: number;
+            };
         }[];
     } | null;
 };
@@ -116,4 +151,11 @@ export type GameEventEntry = {
 export type GameEventDetail = GameEventSummary & {
     entries: GameEventEntry[];
     ownEntry?: GameEventEntry | null;
+    divisions: {
+        key: string;
+        label: string;
+        humanCount: number;
+        clubCount: number;
+    }[];
+    activeDivision: string | null;
 };

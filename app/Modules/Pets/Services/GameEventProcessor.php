@@ -70,7 +70,7 @@ final class GameEventProcessor
                 || ($event->status === 'frozen' && $event->ends_at->isAfter($at))) {
                 return false;
             }
-            $entries = $event->entries()->orderBy('id')->get();
+            $entries = $event->entries()->whereIn('status', ['registered', 'frozen'])->orderBy('id')->get();
             $ownerIds = $entries->pluck('user_id')->filter();
             if ($at->greaterThanOrEqualTo($event->ends_at)) {
                 $breeders = BreedingLitter::query()->whereNotNull('initiator_id')->whereNotNull('delivered_at')

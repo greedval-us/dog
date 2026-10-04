@@ -6,6 +6,7 @@ import { expect, it, vi } from 'vite-plus/test';
 import GameEventShow from './GameEventShow.vue';
 import type {
     EventDog,
+    EventEquipment,
     GameEventDetail,
     GameEventEntry,
 } from '@/types/game-event';
@@ -22,6 +23,10 @@ function eventFixture(): GameEventDetail {
         fee: 25,
         prizes: [70, 40, 25],
         entryCount: 0,
+        calculationVersion: 2,
+        fieldSize: 8,
+        humanCount: 0,
+        clubCount: 0,
         participationRules: {
             playerDailyLimit: 3,
             petDailyLimit: 2,
@@ -34,6 +39,8 @@ function eventFixture(): GameEventDetail {
             options: ['careful', 'balanced', 'bold'],
         })),
         entries: [],
+        divisions: [],
+        activeDivision: null,
     };
 }
 function dogFixture(): EventDog {
@@ -71,8 +78,9 @@ async function renderEvent(
     locale = 'en',
     dog = dogFixture(),
     serverNow = '2026-10-04T12:00:00Z',
+    equipment: EventEquipment[] = [],
 ): Promise<string> {
-    const props = { event, entry, dogs: [dog], equipment: [], serverNow };
+    const props = { event, entry, dogs: [dog], equipment, serverNow };
     const panel = defineComponent({
         setup: () => () => h(GameEventShow, props),
     });
@@ -225,6 +233,180 @@ it('keeps a withdrawn entry as a refunded receipt without offering registration 
     } finally {
         vi.useRealTimers();
     }
+});
+
+it('shows server preparation and blockers while allowing a busy dog to be selected', async () => {
+    const dog = dogFixture();
+    dog.isBusy = true;
+    dog.preparation = {
+        careMultiplier: 0.86,
+        initialFocus: 62,
+        initialFatigue: 24,
+        states: {
+            health: 58,
+            energy: 70,
+            hydration: 65,
+            satiety: 80,
+            mood: 85,
+            bond: 90,
+        },
+        normalizedStats: { speed: 60, agility: 50 },
+        stats: { speed: 105, agility: 70 },
+        potentials: { speed: 220, agility: 200 },
+        skills: {},
+        modifiers: { precision: 0, focus: 0, stamina: 0, pace: 0 },
+        stages: [
+            {
+                key: 'approach',
+                quality: 56,
+                weights: { speed: 0.6, agility: 0.4 },
+            },
+        ],
+        pedigree: { generation: 2, knownParents: 2 },
+        divisionLabel: 'Novice · large',
+        blockingReasons: ['Health must be at least 60%.'],
+    };
+
+    const html = await renderEvent(eventFixture(), null, 'en', dog);
+
+    expect(html).toContain('Health must be at least 60%.');
+    expect(html).toContain('Care effect on quality');
+    expect(html).toContain('0.86');
+    expect(html).toContain('Hydration');
+    expect(html).toContain('Speed 60% · Agility 40%');
+    expect(html).toContain('href="/dashboard?pet=1"');
+    expect(html).toContain('href="/pets/1/pedigree"');
+    expect(html).toMatch(
+        /<option(?=[^>]*value="1")(?=[^>]*selected)(?![^>]*disabled)[^>]*>/,
+    );
+});
+
+it('keeps recorded condition separate from current care in completed results', async () => {
+    const event = eventFixture();
+    event.status = 'completed';
+    event.canRegister = false;
+    const entry = entryFixture();
+    entry.result = {
+        time: 24,
+        score: -24,
+        penalties: 1,
+        eliminated: false,
+        preparation: {
+            careMultiplier: 0.81,
+            initialFocus: 42,
+            initialFatigue: 30,
+            states: { health: 70 },
+            normalizedStats: { speed: 50 },
+            modifiers: { precision: 0.1, focus: 0, stamina: 0, pace: 0 },
+        },
+        stages: [
+            {
+                key: 'approach',
+                decision: 'careful',
+                time: 24,
+                score: -24,
+                penalties: 1,
+                fatigue: 38,
+                focus: 43,
+                reason: 'A mistake on the first stage.',
+                factors: {
+                    quality: 40.5,
+                    careMultiplier: 0.81,
+                    mistakeChance: 0.18,
+                    startFatigue: 30,
+                    startFocus: 42,
+                    exterior: null,
+                    exteriorContribution: 0,
+                    presentationContribution: 0,
+                },
+            },
+        ],
+    };
+    event.entries = [entry];
+
+    const html = await renderEvent(event, entry);
+
+    expect(html).toContain('Condition recorded when registration closed');
+    expect(html).toContain('0.81');
+    expect(html).toContain('18%');
+    expect(html).toContain('40.5');
+    expect(html).toContain('Recorded equipment effect');
+    expect(html).toContain('Base error risk: -10 pp');
+    expect(html).not.toContain('Preparation at a glance');
+    expect(html.indexOf('Your result')).toBeLessThan(
+        html.indexOf('Saved entry and rules'),
+    );
+});
+
+it('links division filters while retaining the own result outside the selected group', async () => {
+    const event = eventFixture();
+    event.status = 'completed';
+    event.activeDivision = 'novice:small:heat-2';
+    event.divisions = [
+        {
+            key: 'novice:large',
+            label: 'Large · group 1',
+            humanCount: 5,
+            clubCount: 3,
+        },
+        {
+            key: 'novice:small:heat-2',
+            label: 'Small · group 2',
+            humanCount: 6,
+            clubCount: 2,
+        },
+    ];
+    const entry = entryFixture();
+    entry.rank = 2;
+    entry.result = {
+        time: 42,
+        score: -42,
+        penalties: 0,
+        eliminated: false,
+        stages: [],
+    };
+
+    const html = await renderEvent(event, entry);
+
+    expect(html).toContain('/game-events/7?division=novice%3Asmall%3Aheat-2');
+    expect(html).toContain('6 players · 2 club dogs');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('Performance replay — Rey');
+    expect(html).toContain('Place 2');
+});
+
+it('does not count preparation-only equipment toward the required canicross kit', async () => {
+    const event = eventFixture();
+    event.discipline = 'canicross';
+    const entry = entryFixture();
+    entry.gearIds = [10, 11, 12];
+    const equipment: EventEquipment[] = ['body', 'line', 'handler'].map(
+        (slot, index) => ({
+            id: 10 + index,
+            name: `Invalid ${slot}`,
+            slot,
+            disciplines: ['canicross'],
+            phase: 'preparation',
+            sizes: [],
+            modifiers: {},
+            remainingUses: 3,
+        }),
+    );
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        dogFixture(),
+        '2026-10-04T12:00:00Z',
+        equipment,
+    );
+
+    expect(html).not.toContain('Invalid body');
+    expect(html).toContain('Select all three before entering.');
+    expect(html).toMatch(
+        /<button(?=[^>]*type="submit")(?=[^>]*disabled)[^>]*>/,
+    );
 });
 
 it('shows the server-localized automatic withdrawal reason without claiming a performance took place', async () => {

@@ -144,7 +144,7 @@ test('the event page presents frozen replay stages and clearly marks club partic
     $entry = GameEventEntry::factory()->for($event, 'event')->for($user)->create([
         'status' => 'completed', 'rank' => 1, 'prize' => 100,
         'snapshot' => ['name' => 'Рей'],
-        'result' => ['version' => 1, 'score' => -160, 'time' => 160, 'penalties' => 0, 'eliminated' => false, 'stages' => [
+        'result' => ['version' => 2, 'score' => -160, 'time' => 160, 'penalties' => 0, 'eliminated' => false, 'stages' => [
             ['key' => 'technical', 'decision' => 'careful', 'time' => 55, 'score' => -55, 'penalties' => 0, 'fatigue' => 16, 'focus' => 90, 'note' => 'controlled'],
         ]],
     ]);

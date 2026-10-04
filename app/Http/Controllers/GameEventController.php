@@ -41,16 +41,17 @@ class GameEventController extends Controller
     public function show(Request $request, GameEvent $gameEvent, GetGameEvents $events): Response
     {
         $user = $this->player($request);
+        $filters = $request->validate(['division' => ['nullable', 'string', 'max:120']]);
         $locale = app()->getLocale();
         $state = null;
-        $showState = function () use ($events, $user, $gameEvent, $locale, &$state): array {
-            return $state ??= $events->showState($user, $gameEvent->refresh(), $locale);
+        $showState = function () use ($events, $user, $gameEvent, $locale, $filters, &$state): array {
+            return $state ??= $events->showState($user, $gameEvent->refresh(), $locale, $filters['division'] ?? null);
         };
 
         return Inertia::render('GameEventShow', [
             'event' => fn () => $showState()['event'],
             'entry' => fn () => $showState()['entry'],
-            'dogs' => fn () => $events->registrationDogs($user, $locale),
+            'dogs' => fn () => $events->registrationDogs($user, $locale, $gameEvent),
             'equipment' => fn () => $events->registrationEquipment($user, $locale),
             'serverNow' => fn () => now()->toIso8601String(),
         ]);

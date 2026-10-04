@@ -51,5 +51,18 @@ export function useGameEventPresentation() {
                 : (gear.description?.[locale.value] ?? gear.description?.en),
         modifier: (value: number) =>
             `${value > 0 ? '+' : ''}${number(value * 100)}%`,
+        modifierEffect: (key: string, value: number) => {
+            const signed = (value: number) =>
+                `${value > 0 ? '+' : ''}${decimalFormatter.value.format(value)}`;
+            if (key === 'precision')
+                return t('Base error risk: {value} pp', {
+                    value: signed(-value * 100),
+                });
+            if (key === 'focus')
+                return t('Focus: {value} points', {
+                    value: signed(value * 100),
+                });
+            return `${t(`events.modifier.${key}`)} ${signed(value * 100)}%`;
+        },
     };
 }

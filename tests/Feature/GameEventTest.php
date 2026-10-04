@@ -263,7 +263,7 @@ test('a physically reserved dog can enter documentary progeny judging at the sam
     expect($parent->fresh()->energy)->toBe(100.0);
 });
 
-test('three starts per Moscow day and eight humans per division are enforced before charging', function () {
+test('three starts per Moscow day are enforced while a ninth competitor enters another heat', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-04 05:00:00', 'UTC'));
     $owner = User::factory()->create(['coins' => 500]);
     $pets = Pet::factory()->count(3)->for($owner)->create();
@@ -284,8 +284,9 @@ test('three starts per Moscow day and eight humans per division are enforced bef
         registerDogEvent($competitor, $full);
     }
     $outsider = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
-    expect(fn () => registerDogEvent($outsider, $full))->toThrow(GameEventUnavailable::class, 'events.errors.full');
-    $this->assertDatabaseHas('users', ['id' => $outsider->user_id, 'coins' => 500]);
+    $entry = registerDogEvent($outsider, $full);
+    expect($entry->division)->toBe('novice:medium:heat-2');
+    $this->assertDatabaseHas('users', ['id' => $outsider->user_id, 'coins' => 475]);
 });
 
 test('a wallet debit without its registration receipt cannot grant another entry', function () {

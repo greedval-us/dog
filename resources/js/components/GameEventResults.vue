@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { PawPrint } from '@lucide/vue';
+import { ChevronDown, PawPrint, Trophy } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
@@ -12,6 +13,7 @@ import {
     isExhibition,
 } from '@/lib/gameEventEntries';
 import { show as dogProfile } from '@/routes/pets';
+import { show as eventShow } from '@/routes/game-events';
 import type { GameEventDetail, GameEventEntry } from '@/types/game-event';
 
 const props = defineProps<{
@@ -19,7 +21,8 @@ const props = defineProps<{
     entry: GameEventEntry | null;
 }>();
 const { t, number } = useI18n();
-const { decimal, stageLabel, optionLabel } = useGameEventPresentation();
+const { decimal, stageLabel, optionLabel, modifierEffect } =
+    useGameEventPresentation();
 const ownEntry = computed(() => props.entry);
 const isShow = computed(() => isExhibition(props.event.discipline));
 const entriesByDivision = computed(() =>
@@ -58,11 +61,69 @@ watch(
 <template>
     <div class="event-outcomes">
         <SurfaceCard
+            v-if="ownEntry?.result"
+            class="event-own-result"
+            :title="t('Your result')"
+        >
+            <div class="event-own-result-heading">
+                <Trophy :size="25" aria-hidden="true" />
+                <strong>{{ ownEntry.name }}</strong>
+                <span v-if="entryWasWithdrawn(ownEntry)">{{
+                    t('Withdrawn')
+                }}</span>
+                <span v-else-if="ownEntry.result.eliminated">{{
+                    t('Eliminated')
+                }}</span>
+                <span v-else-if="ownEntry.rank !== null">{{
+                    t('Place {rank}', { rank: number(ownEntry.rank) })
+                }}</span>
+                <span v-if="ownEntry.prize > 0" class="event-badge">{{
+                    t('{amount} coins', { amount: number(ownEntry.prize) })
+                }}</span>
+            </div>
+            <p v-if="ownEntry.divisionLabel" class="event-note">
+                {{ ownEntry.divisionLabel }}
+            </p>
+        </SurfaceCard>
+        <SurfaceCard
             :title="
                 t(event.status === 'completed' ? 'Results' : 'Participants')
             "
             class="event-results"
         >
+            <nav
+                v-if="event.divisions?.length"
+                class="event-division-tabs"
+                :aria-label="t('Competition divisions')"
+            >
+                <Link
+                    v-for="division in event.divisions"
+                    :key="division.key"
+                    :href="
+                        eventShow(event.id, {
+                            query: { division: division.key },
+                        })
+                    "
+                    :only="['event', 'entry', 'serverNow']"
+                    preserve-scroll
+                    preserve-state
+                    :aria-current="
+                        division.key === event.activeDivision
+                            ? 'page'
+                            : undefined
+                    "
+                    :class="{
+                        'is-active': division.key === event.activeDivision,
+                    }"
+                    >{{ division.label
+                    }}<small>{{
+                        t('{humans} players · {clubs} club dogs', {
+                            humans: number(division.humanCount),
+                            clubs: number(division.clubCount),
+                        })
+                    }}</small></Link
+                >
+            </nav>
             <p v-if="!event.entries.length" class="event-note">
                 {{
                     t(
@@ -226,15 +287,101 @@ watch(
             >
                 {{ replay.result.reason }}
             </p>
-            <p v-else-if="!replayWithdrawn" class="event-note">
-                {{
-                    t(
-                        event.discipline === 'progeny'
-                            ? 'The evaluation shows how the selected offspring scored against each judging criterion.'
-                            : 'The replay shows your saved decisions, mistakes and condition after every stage.',
-                    )
-                }}
-            </p>
+            <div
+                v-else-if="!replayWithdrawn"
+                class="surface-heading-help event-replay-intro"
+            >
+                <span>{{ t('What shaped the result') }}</span>
+                <HelpHint
+                    :text="
+                        t(
+                            event.discipline === 'progeny'
+                                ? 'The evaluation shows how the selected offspring scored against each judging criterion.'
+                                : 'The replay shows your saved decisions, mistakes and condition after every stage.',
+                        )
+                    "
+                />
+            </div>
+            <div
+                v-if="
+                    !replayWithdrawn &&
+                    replay.result.preparation &&
+                    event.discipline !== 'progeny'
+                "
+                class="event-result-preparation"
+            >
+                <p class="event-note">
+                    {{
+                        t(
+                            'Condition recorded when registration closed; later care does not change this result.',
+                        )
+                    }}
+                </p>
+                <dl class="event-readiness-metrics">
+                    <div>
+                        <dt>{{ t('Care effect on quality') }}</dt>
+                        <dd>
+                            ×
+                            {{
+                                decimal(
+                                    replay.result.preparation.careMultiplier,
+                                )
+                            }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{{ t('Starting focus') }}</dt>
+                        <dd>
+                            {{
+                                decimal(replay.result.preparation.initialFocus)
+                            }}
+                            / 100
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>{{ t('Starting fatigue') }}</dt>
+                        <dd>
+                            {{
+                                decimal(
+                                    replay.result.preparation.initialFatigue,
+                                )
+                            }}
+                            / 100
+                        </dd>
+                    </div>
+                </dl>
+                <details class="event-explanation">
+                    <summary>
+                        {{ t('Recorded equipment effect')
+                        }}<ChevronDown :size="16" aria-hidden="true" />
+                    </summary>
+                    <div class="event-gear-modifiers">
+                        <span
+                            v-for="(value, key) in replay.result.preparation
+                                .modifiers"
+                            :key="key"
+                            >{{ modifierEffect(key, value) }}</span
+                        >
+                    </div>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                            )
+                        }}
+                    </p>
+                    <p
+                        v-if="event.discipline === 'conformation'"
+                        class="event-note"
+                    >
+                        {{
+                            t(
+                                'For conformation, focus and precision help judging; stamina limits fatigue. Pace equipment does not increase the final score.',
+                            )
+                        }}
+                    </p>
+                </details>
+            </div>
             <ol
                 v-if="!replayWithdrawn && replay.result.stages.length"
                 class="event-replay-stages"
@@ -256,8 +403,89 @@ watch(
                             )
                         }}</strong>
                         <p>{{ t(stage.reason) }}</p>
+                        <details
+                            v-if="
+                                stage.factors && event.discipline !== 'progeny'
+                            "
+                            class="event-explanation event-stage-factors"
+                        >
+                            <summary>
+                                {{ t('Stage factors')
+                                }}<ChevronDown :size="16" aria-hidden="true" />
+                            </summary>
+                            <dl class="event-replay-metrics">
+                                <div>
+                                    <dt>{{ t('Stage quality') }}</dt>
+                                    <dd>
+                                        {{ decimal(stage.factors.quality) }}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>{{ t('Error risk') }}</dt>
+                                    <dd>
+                                        {{
+                                            decimal(
+                                                stage.factors.mistakeChance *
+                                                    100,
+                                            )
+                                        }}%
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>{{ t('Starting focus') }}</dt>
+                                    <dd>
+                                        {{ decimal(stage.factors.startFocus) }}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>{{ t('Starting fatigue') }}</dt>
+                                    <dd>
+                                        {{
+                                            decimal(stage.factors.startFatigue)
+                                        }}
+                                    </dd>
+                                </div>
+                                <template
+                                    v-if="stage.factors.exterior !== null"
+                                >
+                                    <div>
+                                        <dt>
+                                            {{ t('Exterior contribution') }}
+                                        </dt>
+                                        <dd>
+                                            {{
+                                                decimal(
+                                                    stage.factors
+                                                        .exteriorContribution,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>
+                                            {{ t('Presentation contribution') }}
+                                        </dt>
+                                        <dd>
+                                            {{
+                                                decimal(
+                                                    stage.factors
+                                                        .presentationContribution,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                </template>
+                            </dl>
+                            <p class="event-note">
+                                {{
+                                    t(
+                                        'Error risk describes the stage calculation, not the chance of winning. Random mistakes and the other dogs also affect placement.',
+                                    )
+                                }}
+                            </p>
+                        </details>
                         <dl class="event-replay-metrics">
-                            <div v-if="event.discipline !== 'progeny'">
+                            <div v-if="!isShow">
                                 <dt>{{ t('Time') }}</dt>
                                 <dd>
                                     {{
