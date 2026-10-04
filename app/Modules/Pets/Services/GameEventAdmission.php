@@ -9,6 +9,7 @@ use App\Models\PetSportRecord;
 use App\Models\PetTitle;
 use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
+use App\Modules\Pets\Calculators\GameEventAdmissionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
 use App\Modules\Pets\DTO\PetCompetitionSnapshot;
@@ -18,7 +19,7 @@ use Carbon\CarbonImmutable;
 
 final class GameEventAdmission
 {
-    public function __construct(private PetDecayCalculator $decay, private SkillRules $skills, private CompetitionAmmunitionRules $ammunition) {}
+    public function __construct(private PetDecayCalculator $decay, private SkillRules $skills, private CompetitionAmmunitionRules $ammunition, private GameEventAdmissionRules $admissionRules) {}
 
     /**
      * @param  array<string, mixed>  $plan
@@ -69,21 +70,16 @@ final class GameEventAdmission
             return null;
         }
         $pet->advanceTo($at, $this->decay);
-        if (! $pet->isActive() || $pet->automaticRetirementAt()->lessThanOrEqualTo($event->ends_at)) {
-            return 'events.errors.archived';
-        }
         $states = $pet->statePercentages(null);
-        if ($states['health'] < 60 || $pet->activeDiseaseEpisodes()->exists()) {
-            return 'events.errors.health';
-        }
-        if ($states['energy'] < 35 || $pet->energy < ($event->rules['energy_cost'] ?? 0)) {
-            return 'events.errors.energy';
-        }
-        if ($pet->isBusy() && ($pet->activity_ends_at === null || $pet->activity_ends_at->greaterThan($event->closes_at))) {
-            return 'events.errors.busy';
-        }
 
-        return null;
+        return $this->admissionRules->blockingReasons(GameEventDiscipline::from($event->discipline), [
+            'active' => $pet->isActive(), 'retiresAt' => $pet->automaticRetirementAt(),
+            'health' => $states['health'], 'hasDisease' => $pet->activeDiseaseEpisodes()->exists(),
+            'energyPercentage' => $states['energy'], 'energy' => $pet->energy,
+            'busy' => $pet->isBusy(), 'activityEndsAt' => $pet->activity_ends_at,
+        ], [
+            'endsAt' => $event->ends_at, 'closesAt' => $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
+        ])[0] ?? null;
     }
 
     /**

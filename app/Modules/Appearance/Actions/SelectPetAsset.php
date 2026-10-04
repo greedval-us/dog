@@ -24,6 +24,7 @@ final class SelectPetAsset
                 throw new AppearanceUnavailable('This dog is no longer active.');
             }
             $asset = GameAsset::query()->sharedLock()->findOrFail($assetId);
+            $this->lifecycle->assertCanAdvance($owner);
 
             $this->availability->ensureAvailable($owner, $pet, $asset);
 

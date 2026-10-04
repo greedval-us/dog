@@ -69,6 +69,7 @@ final class RegisterGameEvent
                 throw new GameEventUnavailable('events.errors.daily_limit');
             }
             $pet = Pet::query()->where('user_id', $owner->id)->lockForUpdate()->findOrFail($petId);
+            $this->lifecycle->assertCanAdvance($owner, $at);
             if (($reason = $this->admission->reason($event, $pet, $at)) !== null) {
                 throw new GameEventUnavailable($reason);
             }

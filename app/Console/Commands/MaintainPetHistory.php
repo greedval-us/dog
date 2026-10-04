@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Pet;
 use App\Models\PetHistoryEntry;
 use App\Modules\Pets\Actions\RecordPetThought;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Players\Enums\PlayerStatus;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -35,7 +36,7 @@ class MaintainPetHistory extends Command
                             if ($pet->user !== null && $thought->handle($pet->user, $pet->id) !== null) {
                                 $recorded++;
                             }
-                        } catch (ModelNotFoundException) {
+                        } catch (ModelNotFoundException|PendingGameEventRegistration) {
                             continue;
                         }
                     }

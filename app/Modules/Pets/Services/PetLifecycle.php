@@ -15,4 +15,10 @@ final class PetLifecycle
     {
         $this->synchronization->synchronizeOwner($user, $at);
     }
+
+    /** Recheck chronology while the caller holds the owner lock in its gameplay transaction. */
+    public function assertCanAdvance(User $user, ?CarbonImmutable $at = null): void
+    {
+        $this->synchronization->assertCanAdvance($user, $at);
+    }
 }

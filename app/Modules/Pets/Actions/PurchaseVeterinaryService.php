@@ -82,6 +82,7 @@ final class PurchaseVeterinaryService
                 throw new PetUnavailable('The price has changed. Refresh the page before purchasing.');
             }
             $at = now()->startOfSecond();
+            $this->lifecycle->assertCanAdvance($owner, $at);
             $pet->advanceTo($at, $this->decay);
             if (! $pet->isActive()) {
                 throw new PetUnavailable('This dog is no longer active.');

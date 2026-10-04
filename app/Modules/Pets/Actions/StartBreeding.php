@@ -90,6 +90,9 @@ final class StartBreeding
                 throw new BreedingUnavailable('breeding.errors.unavailable');
             }
             $at = now()->startOfSecond();
+            foreach ($owners as $lockedOwner) {
+                $this->lifecycle->assertCanAdvance($lockedOwner, $at);
+            }
             $own->advanceTo($at, $this->states);
             if ($kind === 'listing') {
                 $other->advanceTo($at, $this->states);

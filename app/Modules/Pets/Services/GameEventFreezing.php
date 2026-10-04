@@ -9,8 +9,8 @@ use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
-use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Calculators\GameEventRandomness;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
@@ -24,11 +24,12 @@ final class GameEventFreezing
 {
     public function __construct(
         private GameEventAdmission $admission,
-        private PetLifecycle $lifecycle,
+        private PetLifecycleSynchronization $lifecycle,
+        private PetDecayCalculator $decay,
         private InventoryConsumption $inventory,
         private PlayerWallet $wallet,
         private PetCareCompletion $careCompletion,
-        private CompleteDogWork $workCompletion,
+        private DogWorkCompletion $workCompletion,
         private GameEventRandomness $randomness,
         private GameEventNpcGenerator $npcs,
     ) {}
@@ -104,11 +105,13 @@ final class GameEventFreezing
         $shift = DogWorkShift::query()->where('pet_id', $pet->id)->where('activity_token', $pet->activity_token)
             ->whereNull('completed_at')->whereNull('cancelled_at')->where('ends_at', '<=', $closedAt)->lockForUpdate()->first();
         if ($shift !== null) {
-            $this->workCompletion->handle($owner, $shift->token, $closedAt);
+            $this->workCompletion->complete($owner, $pet, $shift, $closedAt);
             $pet->refresh();
         }
-        $this->lifecycle->synchronizeOwner($owner, $closedAt);
-        $pet->refresh();
+        $pet->advanceTo($closedAt, $this->decay);
+        if ($pet->archivedAt() !== null) {
+            $this->lifecycle->persist($pet);
+        }
     }
 
     /** @param list<array<string, mixed>> $gear */

@@ -25,6 +25,7 @@ final class RecordPetThought
         return DB::transaction(function () use ($user, $petId, $at): ?PetHistoryEntry {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
+            $this->lifecycle->assertCanAdvance($owner, $at);
             if ($owner->status !== PlayerStatus::Active || ! $pet->isActive()) {
                 return null;
             }

@@ -28,7 +28,7 @@ arch('modules do not depend on HTTP requests or build HTTP responses')
 
 arch('public lifecycle operation hides locked persistence and care receipt details')
     ->expect(PetLifecycle::class)
-    ->not->toHavePublicMethodsBesides(['__construct', 'synchronizeOwner']);
+    ->not->toHavePublicMethodsBesides(['__construct', 'synchronizeOwner', 'assertCanAdvance']);
 
 arch('module DTOs are immutable and independent of the application operations')
     ->expect($layers['DTO'])

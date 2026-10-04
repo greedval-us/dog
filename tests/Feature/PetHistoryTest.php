@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\GameEvent;
+use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\PetHistoryEntry;
@@ -161,6 +163,24 @@ test('inactive and malformed thought rules are skipped instead of breaking the s
     $this->artisan('pets:maintain-history')->assertSuccessful();
 
     $this->assertDatabaseCount('pet_history_entries', 0);
+});
+
+test('thought maintenance skips an unprocessed registration and continues with other owners', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->create(['satiety' => 5]);
+    $other = Pet::factory()->create(['satiety' => 5]);
+    $event = GameEvent::factory()->create(['closes_at' => now()]);
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($pet)->for($pet->user)->create();
+    $thought = PetHistoryEvent::factory()->thought()->create();
+    PetHistoryPhrase::factory()->create(['pet_history_event_id' => $thought->id]);
+    $before = $pet->fresh()->getAttributes();
+
+    $this->artisan('pets:maintain-history')->assertSuccessful();
+
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($entry->fresh()->snapshot)->toBeNull();
+    $this->assertDatabaseMissing('pet_history_entries', ['pet_id' => $pet->id]);
+    $this->assertDatabaseHas('pet_history_entries', ['pet_id' => $other->id, 'event_code' => $thought->code]);
 });
 
 test('maintenance prunes only history older than 30 days and keeps action receipts and phrase memory', function () {

@@ -75,6 +75,8 @@ final class PurchaseKennelPet
                 throw new StarterBreedUnavailable;
             }
 
+            $this->lifecycle->assertCanAdvance($owner);
+
             try {
                 $entry = $this->wallet->change($owner, 'coins', -$price, $operationKey, 'kennel_purchase');
             } catch (InsufficientFunds) {

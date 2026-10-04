@@ -9,6 +9,7 @@ use App\Models\InventoryItem;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
+use App\Modules\Pets\Calculators\GameEventAdmissionRules;
 use App\Modules\Pets\Calculators\GameEventPerformance;
 use App\Modules\Pets\Calculators\GameEventSimulator;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
@@ -27,6 +28,7 @@ final class GetGameEvents
         private CompetitionAmmunitionRules $ammunition,
         private SkillRules $skills,
         private GameEventPerformance $performance,
+        private GameEventAdmissionRules $admissionRules,
     ) {}
 
     /**
@@ -193,21 +195,14 @@ final class GetGameEvents
         $preparation = $this->performance->preparation($event->discipline, $snapshot);
         $kind = GameEventDiscipline::from($event->discipline);
         $states = $snapshot['states'];
-        $reasons = [];
-        if (! $kind->isDocumentary()) {
-            if (! $pet->isActive() || $pet->automaticRetirementAt()->lessThanOrEqualTo($event->ends_at)) {
-                $reasons[] = __('events.errors.archived', [], $locale);
-            }
-            if ($states['health'] < 60 || $pet->getAttribute('active_disease_episodes_exists')) {
-                $reasons[] = __('events.errors.health', [], $locale);
-            }
-            if ($states['energy'] < 35 || $pet->energy < ($event->rules['energy_cost'] ?? 0)) {
-                $reasons[] = __('events.errors.energy', [], $locale);
-            }
-            if ($pet->isBusy() && ($pet->activity_ends_at === null || $pet->activity_ends_at->greaterThan($event->closes_at))) {
-                $reasons[] = __('events.errors.busy', [], $locale);
-            }
-        }
+        $reasons = $this->admissionRules->blockingReasons($kind, [
+            'active' => $pet->isActive(), 'retiresAt' => $pet->automaticRetirementAt(),
+            'health' => $states['health'], 'hasDisease' => (bool) $pet->getAttribute('active_disease_episodes_exists'),
+            'energyPercentage' => $states['energy'], 'energy' => $pet->energy,
+            'busy' => $pet->isBusy(), 'activityEndsAt' => $pet->activity_ends_at,
+        ], [
+            'endsAt' => $event->ends_at, 'closesAt' => $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
+        ]);
         $tier = (int) ($pet->sportRecords->firstWhere('discipline', $event->discipline)->tier ?? 0);
         $division = ['novice', 'open', 'champion'][min(2, $tier)].':'.$kind->divisionGroup($pet->size->value, $pet->dog_id);
         $stageKeys = array_values($event->rules['stages']);
@@ -216,7 +211,7 @@ final class GetGameEvents
             ...$preparation,
             'stats' => $snapshot['stats'], 'potentials' => $snapshot['potentials'], 'skills' => $snapshot['skills'],
             'pedigree' => $snapshot['pedigree'], 'divisionLabel' => GameEventDivisionData::label($division, $locale, $pet->dog),
-            'blockingReasons' => $reasons,
+            'blockingReasons' => array_map(fn (string $reason): string => __($reason, [], $locale), $reasons),
             'stages' => array_map(fn (int $index, string $key): array => [
                 'key' => $key,
                 'weights' => $this->performance->stageWeights($event->discipline, $index),

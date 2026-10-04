@@ -6,9 +6,10 @@ use App\Models\Pet;
 use App\Modules\Pets\Calculators\SkillRules;
 use App\Modules\Pets\Enums\PetStat;
 
+/** @phpstan-import-type PetSnapshot from GameEventProtocol */
 final readonly class PetCompetitionSnapshot
 {
-    /** @return array<string, mixed> */
+    /** @return PetSnapshot */
     public static function fromPet(Pet $pet, SkillRules $skillRules, string $discipline): array
     {
         $stats = [];

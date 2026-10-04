@@ -7,6 +7,8 @@ use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\User;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
+use App\Modules\Pets\Queries\GetPendingEventRegistrations;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,7 @@ final class PetLifecycleSynchronization
         private PetDecayCalculator $decay,
         private PetHistoryRecorder $history,
         private PetCareCompletion $careCompletion,
+        private GetPendingEventRegistrations $registrations,
     ) {}
 
     /** @return list<int> Care receipts settled before a possible lifecycle transition. */
@@ -29,6 +32,7 @@ final class PetLifecycleSynchronization
         return DB::transaction(function () use ($user, $at, &$thresholds): array {
             $completedCareIds = [];
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+            $this->assertCanAdvance($owner, $at);
             $pets = $owner->pets()->whereNull('retired_at')->whereNull('died_at')->orderBy('id')->lockForUpdate()->get();
             foreach ($pets as $pet) {
                 $elapsed = clone $pet;
@@ -52,6 +56,16 @@ final class PetLifecycleSynchronization
 
             return $completedCareIds;
         }, attempts: 3);
+    }
+
+    /** The caller holds the owner row lock in the transaction that will change gameplay state. */
+    public function assertCanAdvance(User $owner, ?CarbonImmutable $at = null): void
+    {
+        $current = CarbonImmutable::now();
+        $through = $at === null ? $current : max($at, $current);
+        if ($this->registrations->handle($owner, $through)) {
+            throw new PendingGameEventRegistration;
+        }
     }
 
     /** The caller must hold the owner and pet row locks in that order. */

@@ -35,6 +35,8 @@ final class AdoptStarterPet
                 throw new AdoptionUnavailable('You need a free dog slot. Unlock a place on the My dog page.');
             }
 
+            $this->lifecycle->assertCanAdvance($owner);
+
             $claimed = User::query()
                 ->whereKey($user->id)
                 ->eligibleForStarterPet()

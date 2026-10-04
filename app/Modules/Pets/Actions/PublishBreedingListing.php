@@ -37,8 +37,10 @@ final class PublishBreedingListing
             if ($pet === null || $pet->user_id !== $owner->id || $pet->sex !== PetSex::Male || ! $pet->is_purebred) {
                 throw new BreedingUnavailable('breeding.errors.unavailable');
             }
-            $pet->advanceTo(now(), $this->states);
-            $reason = $this->eligibility->reason($pet, now());
+            $at = now();
+            $this->lifecycle->assertCanAdvance($owner, $at);
+            $pet->advanceTo($at, $this->states);
+            $reason = $this->eligibility->reason($pet, $at);
             if ($reason !== null) {
                 throw new BreedingUnavailable($reason);
             }

@@ -6,6 +6,7 @@ use App\Models\BreedingLitter;
 use App\Models\GameEvent;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Queries\GetPendingEventRegistrations;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use InvalidArgumentException;
 
 final class GameEventProcessor
 {
-    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement) {}
+    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement, private GetPendingEventRegistrations $registrations) {}
 
     public function processDue(?CarbonImmutable $at = null, ?User $owner = null, ?int $limit = null): int
     {
@@ -37,8 +38,7 @@ final class GameEventProcessor
 
     public function hasDueRegistrations(User $owner, ?CarbonImmutable $at = null): bool
     {
-        return GameEvent::query()->where('status', 'registration')->where('closes_at', '<=', $at ?? CarbonImmutable::now())
-            ->whereHas('entries', fn (Builder $entries) => $entries->where('user_id', $owner->id)->where('status', 'registered'))->exists();
+        return $this->registrations->handle($owner, $at ?? CarbonImmutable::now());
     }
 
     public function hasDueEvents(?CarbonImmutable $at = null, ?User $owner = null): bool

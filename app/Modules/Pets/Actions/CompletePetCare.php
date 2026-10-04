@@ -36,13 +36,14 @@ final class CompletePetCare
             if ($care->completed_at !== null || $care->cancelled_at !== null) {
                 return in_array($care->id, $completedCareIds, true);
             }
+            $at = now();
+            $this->lifecycle->assertCanAdvance($owner, $at);
             if (! $pet->isActive()) {
                 $this->lifecycle->persist($pet);
 
                 return false;
             }
 
-            $at = now();
             $completed = $this->completion->complete($owner, $pet, $care, $at, $thresholds);
             $this->state->advance($pet, $at);
             $this->lifecycle->persist($pet);

@@ -59,6 +59,9 @@ final class PurchasePuppy
                 if (! is_int($price) || $price < 1 || $price !== $expectedPrice) {
                     throw new PetUnavailable('The price has changed. Refresh the page before purchasing.');
                 }
+                foreach ($owners as $lockedOwner) {
+                    $this->lifecycle->assertCanAdvance($lockedOwner);
+                }
                 if ($buyer->pets()->active()->count() >= $buyer->pet_slots) {
                     throw new PetUnavailable('You need a free dog slot. Unlock a place on the My dog page.');
                 }

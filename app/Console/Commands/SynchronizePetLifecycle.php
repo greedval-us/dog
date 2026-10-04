@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Services\GameEventProcessor;
 use App\Modules\Pets\Services\PetLifecycle;
 use Carbon\CarbonImmutable;
@@ -27,7 +28,11 @@ class SynchronizePetLifecycle extends Command
             if ($events->hasDueRegistrations($user, $at)) {
                 continue;
             }
-            $lifecycle->synchronizeOwner($user, $at);
+            try {
+                $lifecycle->synchronizeOwner($user, $at);
+            } catch (PendingGameEventRegistration) {
+                continue;
+            }
             $count++;
         }
         $this->info('Synchronized pet lifetimes for '.$count.' players.');

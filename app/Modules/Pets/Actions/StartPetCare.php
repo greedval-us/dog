@@ -78,6 +78,7 @@ final class StartPetCare
             }
 
             if ($pet->isBusy()) {
+                $this->lifecycle->assertCanAdvance($owner);
                 $finished = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $petId)
                     ->where('activity_token', $pet->activity_token)->whereNull('completed_at')->whereNull('cancelled_at')
                     ->where('ends_at', '<=', now())->lockForUpdate()->first();
@@ -97,6 +98,7 @@ final class StartPetCare
             }
 
             $at = now();
+            $this->lifecycle->assertCanAdvance($owner, $at);
             $status = $this->state->advance($pet, $at);
             if ($pet->died_at !== null || $pet->retired_at !== null || $pet->health <= 0) {
                 throw PetUnavailable::forCare(CareRefusal::Inactive);

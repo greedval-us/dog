@@ -3,12 +3,17 @@
 use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
+use App\Models\PetDisease;
 use App\Models\User;
+use App\Modules\Pets\Actions\RegisterGameEvent;
 use App\Modules\Pets\Calculators\GameEventSimulator;
 use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Exceptions\GameEventUnavailable;
+use App\Modules\Pets\Queries\GetGameEvents;
 use App\Modules\Pets\Services\GameEventAdmission;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -48,9 +53,9 @@ test('preparation explains current care and inherited training potential using t
 });
 
 test('preparation exposes health energy and conflicting activity before a player pays', function () {
-    $owner = User::factory()->create();
+    $owner = User::factory()->create(['coins' => 500]);
     $event = GameEvent::factory()->create();
-    Pet::factory()->for($owner)->create([
+    $pet = Pet::factory()->for($owner)->create([
         'health' => 50, 'health_max' => 100, 'energy' => 10, 'energy_max' => 100,
         'activity' => PetActivity::Sleep, 'activity_started_at' => now(), 'activity_ends_at' => $event->ends_at,
     ]);
@@ -60,8 +65,49 @@ test('preparation exposes health energy and conflicting activity before a player
             __('events.errors.health'), __('events.errors.energy'), __('events.errors.busy'),
         ]));
 
+    expect(fn () => app(RegisterGameEvent::class)->handle($owner, $event->id, $pet->id,
+        ['stages' => ['balanced', 'balanced', 'balanced']], [], 25, (string) Str::uuid()))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.health');
+
     $this->assertDatabaseCount('game_event_entries', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 500]);
+});
+
+test('preparation and direct registration reject a dog retiring exactly when the event ends', function () {
+    $owner = User::factory()->create(['coins' => 500]);
+    $event = GameEvent::factory()->create();
+    $pet = Pet::factory()->for($owner)->create([
+        'born_at' => $event->ends_at->subMonthsNoOverflow(6), 'health' => 100, 'health_max' => 100,
+        'energy' => 100, 'energy_max' => 100,
+    ]);
+
+    $dogs = app(GetGameEvents::class)->registrationDogs($owner, 'en', $event);
+
+    expect($dogs[0]['preparation']['blockingReasons'])->toBe([__('events.errors.archived', [], 'en')]);
+    expect(fn () => app(RegisterGameEvent::class)->handle($owner, $event->id, $pet->id,
+        ['stages' => ['balanced', 'balanced', 'balanced']], [], 25, (string) Str::uuid()))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.archived');
+    $this->assertDatabaseCount('game_event_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 500]);
+});
+
+test('direct registration checks a disease acquired after an eligible preparation preview', function () {
+    $owner = User::factory()->create(['coins' => 500]);
+    $event = GameEvent::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['health' => 100, 'energy' => 100]);
+    $dogs = app(GetGameEvents::class)->registrationDogs($owner, 'en', $event);
+    expect($dogs[0]['preparation']['blockingReasons'])->toBe([]);
+    PetDisease::factory()->for($pet)->create();
+
+    expect(fn () => app(RegisterGameEvent::class)->handle($owner, $event->id, $pet->id,
+        ['stages' => ['balanced', 'balanced', 'balanced']], [], 25, (string) Str::uuid()))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.health');
+
+    $this->assertDatabaseCount('game_event_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 500]);
 });
 
 test('an activity ending before registration closes is not presented as a conflict', function () {
@@ -112,13 +158,18 @@ test('adding dogs to preparation does not add a query for each dogs skills or sp
     $event = GameEvent::factory()->create();
     Pet::factory()->for($owner)->count(4)->create();
     $queries = [];
-    DB::listen(function (QueryExecuted $query) use (&$queries): void {
+    $diseaseQueries = [];
+    DB::listen(function (QueryExecuted $query) use (&$queries, &$diseaseQueries): void {
         if (str_contains($query->sql, 'from "skills"') || str_contains($query->sql, 'from "pet_sport_records"')) {
             $queries[] = $query->sql;
+        }
+        if (str_contains($query->sql, 'from "pet_diseases"')) {
+            $diseaseQueries[] = $query->sql;
         }
     });
 
     $this->actingAs($owner)->get(route('game-events.show', $event))->assertInertia(fn (Assert $page) => $page->has('dogs', 4));
 
     expect($queries)->toHaveCount(2);
+    expect($diseaseQueries)->toHaveCount(1);
 });

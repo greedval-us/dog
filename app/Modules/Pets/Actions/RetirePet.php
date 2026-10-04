@@ -25,6 +25,7 @@ final class RetirePet
                 throw new PetUnavailable('Your account is blocked.');
             }
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
+            $this->lifecycle->assertCanAdvance($owner, $at);
             if ($pet->died_at !== null) {
                 throw new PetUnavailable('This dog is no longer active.');
             }

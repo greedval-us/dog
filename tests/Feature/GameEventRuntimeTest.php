@@ -1,12 +1,22 @@
 <?php
 
+use App\Models\DogWorkShift;
 use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
+use App\Models\PetCareAction;
 use App\Models\User;
+use App\Modules\Pets\Actions\CompleteDogWork;
+use App\Modules\Pets\Actions\CompletePetCare;
+use App\Modules\Pets\Actions\RetirePet;
+use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Enums\PetActivity;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Services\GameEventProcessor;
+use App\Modules\Pets\Services\PetLifecycle;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('running frozen events do not reacquire participant locks before settlement is due', function () {
@@ -29,6 +39,181 @@ test('running frozen events do not reacquire participant locks before settlement
         'lockingQueries' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'for update'))),
     ])->toBe(['processed' => 0, 'queries' => 1, 'lockingQueries' => 0]);
     expect($event->fresh()->status)->toBe('frozen');
+});
+
+test('direct lifecycle and gameplay calls preserve a registration snapshot before overdue retirement', function (string $operation) {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create([
+        'born_at' => now()->subMonthsNoOverflow(6)->subHour(),
+        'state_updated_at' => now()->subHours(3), 'stats_updated_at' => now()->subHours(3),
+    ]);
+    $event = GameEvent::factory()->create([
+        'closes_at' => now()->subHours(2), 'starts_at' => now()->subMinutes(105), 'ends_at' => now()->subMinutes(95),
+    ]);
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $before = $pet->fresh()->getAttributes();
+    $invoke = match ($operation) {
+        'lifecycle' => fn () => app(PetLifecycle::class)->synchronizeOwner($owner),
+        'care' => fn () => app(StartPetCare::class)->handle($owner, $pet->id, 'water', [], (string) Str::uuid()),
+        'retirement' => fn () => app(RetirePet::class)->handle($owner, $pet->id),
+    };
+
+    expect($invoke)->toThrow(PendingGameEventRegistration::class, 'events.errors.processing');
+
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($entry->fresh()->snapshot)->toBeNull();
+    expect($event->fresh()->status)->toBe('registration');
+    $this->assertDatabaseCount('pet_care_actions', 0);
+    $this->assertDatabaseCount('pet_history_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+})->with(['lifecycle', 'care', 'retirement']);
+
+test('lifecycle ignores future registrations and registrations belonging to another owner', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $future = GameEvent::factory()->create();
+    GameEventEntry::factory()->for($future, 'event')->for($owner)->for($pet)->create();
+    $other = GameEvent::factory()->create([
+        'closes_at' => now()->subMinute(), 'starts_at' => now()->addMinutes(14), 'ends_at' => now()->addMinutes(24),
+    ]);
+    GameEventEntry::factory()->for($other, 'event')->create();
+
+    app(PetLifecycle::class)->synchronizeOwner($owner);
+
+    expect($pet->fresh()->retired_at)->toEqual($pet->automaticRetirementAt());
+    expect($future->fresh()->status)->toBe('registration');
+    expect($other->fresh()->status)->toBe('registration');
+});
+
+test('direct completion cannot advance a dog when registration closes exactly now', function (string $operation) {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create();
+    $receipt = match ($operation) {
+        'care' => PetCareAction::factory()->create(['pet_id' => $pet->id, 'user_id' => $owner->id, 'ends_at' => now()->subMinutes(5)]),
+        'work' => DogWorkShift::factory()->create([
+            'pet_id' => $pet->id, 'user_id' => $owner->id, 'started_at' => now()->subHour(), 'ends_at' => now()->subMinutes(5),
+        ]),
+    };
+    $pet->forceFill([
+        'activity' => $operation === 'care' ? PetActivity::Play : PetActivity::Work,
+        'activity_token' => $receipt->activity_token, 'activity_started_at' => now()->subHour(), 'activity_ends_at' => $receipt->ends_at,
+    ])->save();
+    $event = GameEvent::factory()->create(['closes_at' => now()]);
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $before = $pet->fresh()->getAttributes();
+    $invoke = match ($operation) {
+        'care' => fn () => app(CompletePetCare::class)->handle($owner, $pet->id, $receipt->token),
+        'work' => fn () => app(CompleteDogWork::class)->handle($owner, $receipt->token, now()->subMinute()),
+    };
+
+    expect($invoke)->toThrow(PendingGameEventRegistration::class, 'events.errors.processing');
+
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($receipt->fresh()->completed_at)->toBeNull();
+    expect($receipt->fresh()->cancelled_at)->toBeNull();
+    expect($entry->fresh()->snapshot)->toBeNull();
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseCount('pet_history_entries', 0);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'experience' => 0]);
+})->with(['care', 'work']);
+
+test('a future lifecycle cutoff cannot pass a scheduled registration before it closes', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(6)->addHour()]);
+    $event = GameEvent::factory()->create();
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $before = $pet->fresh()->getAttributes();
+
+    expect(fn () => app(PetLifecycle::class)->synchronizeOwner($owner, $event->ends_at))
+        ->toThrow(PendingGameEventRegistration::class, 'events.errors.processing');
+
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($entry->fresh()->snapshot)->toBeNull();
+    $this->assertDatabaseCount('pet_history_entries', 0);
+});
+
+test('gameplay rechecks registration when it closes while acquiring the write lock', function (string $operation) {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(4)]);
+    $event = GameEvent::factory()->create();
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $before = $pet->fresh()->getAttributes();
+    $ownerLocks = 0;
+    DB::listen(function (QueryExecuted $query) use ($event, &$ownerLocks): void {
+        if (str_contains($query->sql, 'from "users"') && str_contains($query->sql, 'for update') && ++$ownerLocks === 2) {
+            $this->travelTo($event->closes_at);
+        }
+    });
+    $invoke = match ($operation) {
+        'care' => fn () => app(StartPetCare::class)->handle($owner, $pet->id, 'water', [], (string) Str::uuid()),
+        'retirement' => fn () => app(RetirePet::class)->handle($owner, $pet->id),
+    };
+
+    expect($invoke)->toThrow(PendingGameEventRegistration::class, 'events.errors.processing');
+
+    expect($ownerLocks)->toBeGreaterThanOrEqual(2);
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($entry->fresh()->snapshot)->toBeNull();
+    $this->assertDatabaseCount('pet_care_actions', 0);
+    $this->assertDatabaseCount('pet_history_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+})->with(['care', 'retirement']);
+
+test('HTTP presents a registration that closes inside the action as a processing refusal', function (bool $inertia) {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(4)]);
+    $event = GameEvent::factory()->create();
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $before = $pet->fresh()->getAttributes();
+    $ownerLocks = 0;
+    DB::listen(function (QueryExecuted $query) use ($event, &$ownerLocks): void {
+        if (str_contains($query->sql, 'from "users"') && str_contains($query->sql, 'for update') && ++$ownerLocks === 2) {
+            $this->travelTo($event->closes_at);
+        }
+    });
+    $this->actingAs($owner);
+
+    if ($inertia) {
+        $this->from(route('dashboard'))->withHeaders(['X-Inertia' => 'true', 'Accept' => 'text/html'])
+            ->post(route('pets.retire', $pet))->assertStatus(303)->assertRedirect(route('dashboard'))
+            ->assertSessionHasErrors(['event' => __('events.errors.processing')]);
+    } else {
+        $this->postJson(route('pets.retire', $pet))->assertStatus(503)
+            ->assertHeader('Retry-After', '60')->assertJsonPath('message', __('events.errors.processing'));
+    }
+
+    expect($pet->fresh()->getAttributes())->toBe($before);
+    expect($entry->fresh()->snapshot)->toBeNull();
+    $this->assertDatabaseCount('pet_history_entries', 0);
+})->with(['JSON' => false, 'Inertia' => true]);
+
+test('lifecycle maintenance skips a newly closed registration and continues with other owners', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $other = Pet::factory()->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $event = GameEvent::factory()->create();
+    $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
+    $closed = false;
+    DB::listen(function (QueryExecuted $query) use ($event, &$closed): void {
+        if (! $closed && str_contains($query->sql, 'from "users"') && str_contains($query->sql, 'for update')) {
+            $closed = true;
+            $this->travelTo($event->closes_at);
+        }
+    });
+
+    $this->artisan('pets:sync-lifecycle')->assertSuccessful();
+
+    expect($closed)->toBeTrue();
+    expect($pet->fresh()->retired_at)->toBeNull();
+    expect($entry->fresh()->snapshot)->toBeNull();
+    expect($other->fresh()->retired_at)->toEqual($other->automaticRetirementAt());
 });
 
 test('ordinary catalogues do not settle events or advance dog lifetimes', function (string $route) {

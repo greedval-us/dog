@@ -8,7 +8,14 @@ use InvalidArgumentException;
 /**
  * @phpstan-type Decision 'careful'|'balanced'|'bold'
  * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>}
- * @phpstan-type Snapshot array{version:int, name:string, breed:array<string, string>, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, gear:list<array<string, mixed>>, modifiers:array<string, float>, offspring:list<array{id?:int, name?:string, exterior:array<string, int|float>, titles:list<array<string, mixed>>}>}
+ * @phpstan-type Pedigree array{generation:int, knownParents:int<0, 2>}
+ * @phpstan-type BaseSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree}
+ * @phpstan-type PetSnapshot BaseSnapshot&array{pedigree:Pedigree}
+ * @phpstan-type GearModifiers array{precision?:int|float, stamina?:int|float, pace?:int|float, focus?:int|float}
+ * @phpstan-type Gear array{id:int, name:array<string, string>, slot:'body'|'line'|'handler'|'preparation', phase:'preparation'|'performance', modifiers:GearModifiers}
+ * @phpstan-type OffspringTitle array{code:string, discipline?:string, frequency?:string}
+ * @phpstan-type Offspring array{id?:int, name?:string, exterior:array<string, int|float>, titles:list<OffspringTitle>}
+ * @phpstan-type Snapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree, gear:list<Gear>, modifiers:GearModifiers, offspring:list<Offspring>}
  * @phpstan-type Rules array{version:int, fee:int, prizes:list<int>, stages:list<string>, energy_cost:int, field_size:int, time_limit:int}
  * @phpstan-type Modifiers array{precision:float, stamina:float, pace:float, focus:float}
  * @phpstan-type Preparation array{careMultiplier:float, initialFatigue:float, initialFocus:float, states:array<string, float>, normalizedStats:array<string, float>, modifiers:Modifiers}

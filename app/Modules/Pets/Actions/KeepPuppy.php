@@ -43,6 +43,8 @@ final class KeepPuppy
                     throw new PetUnavailable('This puppy is no longer available to keep.');
                 }
 
+                $this->lifecycle->assertCanAdvance($owner);
+
                 return $this->placements->place($owner, $puppy, $name, $token, 'keep', 0);
             }, attempts: 3);
         } catch (PetUnavailable $exception) {
