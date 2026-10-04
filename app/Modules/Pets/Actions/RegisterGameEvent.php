@@ -8,6 +8,7 @@ use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetLifecycle;
@@ -33,9 +34,14 @@ final class RegisterGameEvent
             throw new GameEventUnavailable('events.errors.invalid');
         }
         $hash = hash('sha256', serialize([$eventId, $petId, $expectedFee, $plan, $gearIds]));
-        $this->lifecycle->synchronizeOwner($user);
+        $pendingRegistration = null;
+        try {
+            $this->lifecycle->synchronizeOwner($user);
+        } catch (PendingGameEventRegistration $exception) {
+            $pendingRegistration = $exception;
+        }
 
-        return DB::transaction(function () use ($user, $eventId, $petId, $plan, $gearIds, $expectedFee, $token, $hash): GameEventEntry {
+        return DB::transaction(function () use ($user, $eventId, $petId, $plan, $gearIds, $expectedFee, $token, $hash, $pendingRegistration): GameEventEntry {
             $event = GameEvent::query()->lockForUpdate()->findOrFail($eventId);
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             if ($owner->status !== PlayerStatus::Active) {
@@ -48,6 +54,9 @@ final class RegisterGameEvent
                 }
 
                 return $existing;
+            }
+            if ($pendingRegistration !== null) {
+                throw $pendingRegistration;
             }
             $at = now()->startOfSecond();
             if ($event->status !== 'registration' || $at->lessThan($event->registration_opens_at) || $at->greaterThanOrEqualTo($event->closes_at)) {

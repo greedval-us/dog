@@ -7,7 +7,9 @@ use App\Models\User;
 use App\Modules\Pets\Actions\RegisterGameEvent;
 use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
+use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Services\GameEventProcessor;
+use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -176,13 +178,86 @@ test('original token replay returns its existing entry after the daily dog limit
     $token = (string) Str::uuid();
     $entry = enterParticipation($pet, $first, $token);
     enterParticipation($pet, participationEvent('2026-10-04 12:25:00', 'nosework'));
+    $petBefore = $pet->fresh()->getAttributes();
     $this->travelTo($first->closes_at);
 
     expect(enterParticipation($pet, $first, $token)->id)->toBe($entry->id);
 
+    expect($pet->fresh()->getAttributes())->toBe($petBefore);
+    $this->assertDatabaseHas('game_events', ['id' => $first->id, 'status' => 'registration']);
+    $this->assertDatabaseHas('game_event_entries', ['id' => $entry->id, 'status' => 'registered', 'snapshot' => null]);
+    $this->assertDatabaseCount('pet_history_entries', 0);
     $this->assertDatabaseCount('game_event_entries', 2);
     $this->assertDatabaseCount('currency_transactions', 2);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 450]);
+});
+
+test('registration replay rejects changed contents while its original registration is awaiting processing', function () {
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $event = participationEvent('2026-10-04 10:00:00');
+    $token = (string) Str::uuid();
+    enterParticipation($pet, $event, $token);
+    $this->travelTo($event->closes_at);
+
+    expect(fn () => enterParticipation($pet, $event, $token, ['stages' => ['careful', 'careful', 'careful']]))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.token');
+
+    $this->assertDatabaseCount('game_event_entries', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 475]);
+});
+
+test('registration replay checks the fresh owner status while its registration is awaiting processing', function () {
+    $owner = User::factory()->create(['coins' => 500]);
+    $pet = Pet::factory()->for($owner)->create();
+    $event = participationEvent('2026-10-04 10:00:00');
+    $token = (string) Str::uuid();
+    enterParticipation($pet, $event, $token);
+    User::query()->whereKey($owner->id)->update(['status' => PlayerStatus::Blocked]);
+    $this->travelTo($event->closes_at);
+
+    expect(fn () => enterParticipation($pet, $event, $token))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.blocked');
+
+    $this->assertDatabaseCount('game_event_entries', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 475]);
+});
+
+test('registration replay cannot return another owners receipt while awaiting processing', function () {
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $event = participationEvent('2026-10-04 10:00:00');
+    $token = (string) Str::uuid();
+    enterParticipation($pet, $event, $token);
+    $other = User::factory()->create(['coins' => 500]);
+    GameEventEntry::factory()->for($other)->for($event, 'event')->create();
+    $this->travelTo($event->closes_at);
+
+    expect(fn () => app(RegisterGameEvent::class)->handle($other, $event->id, $pet->id,
+        ['stages' => ['balanced', 'balanced', 'balanced']], [], 25, $token))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.token');
+
+    $this->assertDatabaseCount('game_event_entries', 2);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('users', ['id' => $other->id, 'coins' => 500]);
+});
+
+test('a new registration stays blocked until the owners overdue registration is processed', function () {
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $event = participationEvent('2026-10-04 10:00:00');
+    enterParticipation($pet, $event);
+    $next = participationEvent('2026-10-04 12:25:00', 'nosework');
+    $petBefore = $pet->fresh()->getAttributes();
+    $this->travelTo($event->closes_at);
+
+    expect(fn () => enterParticipation($pet, $next))
+        ->toThrow(PendingGameEventRegistration::class, 'events.errors.processing');
+
+    expect($pet->fresh()->getAttributes())->toBe($petBefore);
+    $this->assertDatabaseCount('game_event_entries', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseCount('pet_history_entries', 0);
+    $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 475]);
 });
 
 test('previously paid physical entries keep their eligibility after the new daily and rest limits are introduced', function () {
