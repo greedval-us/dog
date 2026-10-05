@@ -32,7 +32,7 @@ final class UpdateGameEventEntry
                 throw new GameEventUnavailable('events.errors.closed');
             }
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $entry->update(['plan' => $preparation['plan'], 'gear_ids' => $gearIds]);
+            $entry->update(['plan' => $preparation->plan, 'gear_ids' => $gearIds]);
 
             return $entry;
         }, attempts: 3);

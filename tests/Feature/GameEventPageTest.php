@@ -4,6 +4,9 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -97,6 +100,41 @@ test('invalid stage decisions are rejected without charging an entry fee', funct
         'plan' => ['stages' => ['impossible', 'bold', 'careful']], 'gear_ids' => [],
     ])->assertSessionHasErrors('plan.stages.0');
 
+    $this->assertDatabaseCount('game_event_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+});
+
+test('an expected insufficient funds refusal returns the localized event error without an entry', function () {
+    $this->freezeTime();
+    $user = User::factory()->create(['coins' => 24]);
+    $pet = Pet::factory()->for($user)->create();
+    $event = GameEvent::factory()->create();
+
+    $this->actingAs($user)->post(route('game-events.register', $event), [
+        'pet_id' => $pet->id, 'fee' => 25, 'token' => (string) Str::uuid(),
+        'plan' => ['stages' => ['careful', 'balanced', 'bold']], 'gear_ids' => [],
+    ])->assertSessionHasErrors(['event' => __('events.errors.funds')]);
+
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 24]);
+    $this->assertDatabaseCount('game_event_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+});
+
+test('an unexpected registration write failure is reported as a server error and rolls back the fee', function () {
+    $this->freezeTime();
+    $user = User::factory()->create(['coins' => 200]);
+    $pet = Pet::factory()->for($user)->create();
+    $event = GameEvent::factory()->create();
+    DB::unprepared("CREATE FUNCTION reject_event_registration() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''Simulated registration failure''; END'; CREATE TRIGGER reject_event_registration BEFORE INSERT ON game_event_entries FOR EACH ROW EXECUTE FUNCTION reject_event_registration()");
+    Exceptions::fake([QueryException::class]);
+
+    $this->actingAs($user)->post(route('game-events.register', $event), [
+        'pet_id' => $pet->id, 'fee' => 25, 'token' => (string) Str::uuid(),
+        'plan' => ['stages' => ['careful', 'balanced', 'bold']], 'gear_ids' => [],
+    ])->assertInternalServerError();
+
+    Exceptions::assertReported(QueryException::class);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 200]);
     $this->assertDatabaseCount('game_event_entries', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
 });

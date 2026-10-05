@@ -12,11 +12,18 @@ use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\GameEventAdmissionRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\SkillRules;
+use App\Modules\Pets\DTO\GameEventAdmissionData;
+use App\Modules\Pets\DTO\GameEventProtocol;
 use App\Modules\Pets\DTO\PetCompetitionSnapshot;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use Carbon\CarbonImmutable;
 
+/**
+ * @phpstan-import-type Plan from GameEventProtocol
+ * @phpstan-import-type Gear from GameEventProtocol
+ * @phpstan-import-type Snapshot from GameEventProtocol
+ */
 final class GameEventAdmission
 {
     public function __construct(private PetDecayCalculator $decay, private SkillRules $skills, private CompetitionAmmunitionRules $ammunition, private GameEventAdmissionRules $admissionRules) {}
@@ -24,28 +31,35 @@ final class GameEventAdmission
     /**
      * @param  array<string, mixed>  $plan
      * @param  array<array-key, mixed>  $gearIds
-     * @return array{plan:array<string, mixed>, gear:list<array<string, mixed>>}
+     *
+     * @throws GameEventUnavailable
      */
-    public function prepare(User $user, GameEvent $event, Pet $pet, array $plan, array $gearIds, bool $lockGear = false): array
+    public function prepare(User $user, GameEvent $event, Pet $pet, array $plan, array $gearIds, bool $lockGear = false): GameEventAdmissionData
     {
-        return [
-            'plan' => $this->plan($event, $pet, $plan),
-            'gear' => $this->gear($user, $event, $pet, $gearIds, $lockGear),
-        ];
+        return new GameEventAdmissionData(
+            $this->plan($event, $pet, $plan),
+            $this->gear($user, $event, $pet, $gearIds, $lockGear),
+        );
     }
 
     /**
      * @param  array<string, mixed>  $plan
-     * @return array<string, mixed>
+     * @return Plan
      */
     public function plan(GameEvent $event, Pet $pet, array $plan): array
     {
         $stages = $plan['stages'] ?? [];
-        if (! is_array($stages) || ! array_is_list($stages) || count($stages) !== 3
-            || count(array_filter($stages, fn ($stage): bool => is_string($stage) && in_array($stage, ['careful', 'balanced', 'bold'], true))) !== 3) {
+        if (! is_array($stages) || ! array_is_list($stages) || count($stages) !== 3) {
             throw new GameEventUnavailable('events.errors.plan');
         }
-        $result = ['stages' => $stages];
+        $decisions = [];
+        foreach ($stages as $stage) {
+            if (! in_array($stage, ['careful', 'balanced', 'bold'], true)) {
+                throw new GameEventUnavailable('events.errors.plan');
+            }
+            $decisions[] = $stage;
+        }
+        $result = ['stages' => $decisions];
         if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
             $ids = $plan['offspring_ids'] ?? [];
             if (! is_array($ids) || ! array_is_list($ids) || count($ids) < 3 || count($ids) > 5
@@ -84,7 +98,7 @@ final class GameEventAdmission
 
     /**
      * @param  array<array-key, mixed>  $ids
-     * @return list<array<string, mixed>>
+     * @return list<Gear>
      */
     public function gear(User $user, GameEvent $event, Pet $pet, array $ids, bool $lock = false): array
     {
@@ -132,9 +146,9 @@ final class GameEventAdmission
     }
 
     /**
-     * @param  array<string, mixed>  $plan
-     * @param  list<array<string, mixed>>  $gear
-     * @return array<string, mixed>
+     * @param  Plan  $plan
+     * @param  list<Gear>  $gear
+     * @return Snapshot
      */
     public function snapshot(GameEvent $event, Pet $pet, array $plan, array $gear): array
     {
@@ -150,12 +164,12 @@ final class GameEventAdmission
         }
         $offspring = [];
         if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
-            $children = Pet::query()->whereIn('id', $plan['offspring_ids'])->orderBy('id')
+            $children = Pet::query()->whereIn('id', $plan['offspring_ids'] ?? throw new GameEventUnavailable('events.errors.offspring'))->orderBy('id')
                 ->with(['titles' => fn ($query) => $query->reorder()->orderBy('id')->select(['pet_id', 'discipline', 'frequency', 'code'])])->get();
             foreach ($children as $child) {
                 $offspring[] = [
-                    'id' => $child->id, 'name' => $child->name, 'exterior' => $child->getAttribute('exterior') ?? [],
-                    'titles' => $child->titles->map(fn (PetTitle $title): array => $title->only(['discipline', 'frequency', 'code']))->all(),
+                    'id' => $child->id, 'name' => $child->name, 'exterior' => $child->exterior ?? [],
+                    'titles' => array_values($child->titles->map(fn (PetTitle $title): array => $title->only(['discipline', 'frequency', 'code']))->all()),
                 ];
             }
         }

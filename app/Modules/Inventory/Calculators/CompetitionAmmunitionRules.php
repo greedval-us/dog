@@ -2,7 +2,7 @@
 
 namespace App\Modules\Inventory\Calculators;
 
-/** @phpstan-type Ammunition array{slot: string, disciplines: list<string>, phase: string, sizes: list<string>, modifiers: array<string, float|int>, description: array{ru: string, en: string}} */
+/** @phpstan-type Ammunition array{slot: 'body'|'line'|'handler'|'preparation', disciplines: list<string>, phase: 'preparation'|'performance', sizes: list<string>, modifiers: array{precision?:float|int, stamina?:float|int, pace?:float|int, focus?:float|int}, description: array{ru: string, en: string}} */
 final class CompetitionAmmunitionRules
 {
     public const DISCIPLINES = ['agility', 'nosework', 'canicross', 'conformation', 'progeny'];

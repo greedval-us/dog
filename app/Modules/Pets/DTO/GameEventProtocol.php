@@ -10,7 +10,7 @@ use InvalidArgumentException;
  * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>}
  * @phpstan-type Pedigree array{generation:int, knownParents:int<0, 2>}
  * @phpstan-type BaseSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree}
- * @phpstan-type PetSnapshot BaseSnapshot&array{pedigree:Pedigree}
+ * @phpstan-type PetSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree:Pedigree}
  * @phpstan-type GearModifiers array{precision?:int|float, stamina?:int|float, pace?:int|float, focus?:int|float}
  * @phpstan-type Gear array{id:int, name:array<string, string>, slot:'body'|'line'|'handler'|'preparation', phase:'preparation'|'performance', modifiers:GearModifiers}
  * @phpstan-type OffspringTitle array{code:string, discipline?:string, frequency?:string}

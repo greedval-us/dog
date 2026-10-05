@@ -1,7 +1,22 @@
 <?php
 
 use App\Modules\Inventory\Services\InventoryConsumption;
+use App\Modules\Pets\Services\DogWorkCompletion;
+use App\Modules\Pets\Services\GameEventAdmission;
+use App\Modules\Pets\Services\GameEventFreezing;
+use App\Modules\Pets\Services\GameEventSettlement;
+use App\Modules\Pets\Services\PetActivityManager;
+use App\Modules\Pets\Services\PetCareCompletion;
+use App\Modules\Pets\Services\PetCarePreparation;
+use App\Modules\Pets\Services\PetDiseaseTracker;
+use App\Modules\Pets\Services\PetEventReservation;
+use App\Modules\Pets\Services\PetHistoryRecorder;
 use App\Modules\Pets\Services\PetLifecycle;
+use App\Modules\Pets\Services\PetLifecycleSynchronization;
+use App\Modules\Pets\Services\PetStateSynchronizer;
+use App\Modules\Pets\Services\PetTrainingPreparation;
+use App\Modules\Pets\Services\PuppyPlacementService;
+use App\Modules\Pets\Services\VeterinaryCare;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 
@@ -29,6 +44,34 @@ arch('modules do not depend on HTTP requests or build HTTP responses')
 arch('public lifecycle operation hides locked persistence and care receipt details')
     ->expect(PetLifecycle::class)
     ->not->toHavePublicMethodsBesides(['__construct', 'synchronizeOwner', 'assertCanAdvance']);
+
+arch('HTTP and console entry points do not bypass Pets scenario transaction owners')
+    ->expect(['App\Http', 'App\Console'])
+    ->not->toUse([
+        PetLifecycleSynchronization::class,
+        PetStateSynchronizer::class,
+        PetActivityManager::class,
+        PetCarePreparation::class,
+        PetTrainingPreparation::class,
+        PetCareCompletion::class,
+        DogWorkCompletion::class,
+        VeterinaryCare::class,
+        PetDiseaseTracker::class,
+        PetHistoryRecorder::class,
+        PetEventReservation::class,
+        GameEventAdmission::class,
+        GameEventFreezing::class,
+        GameEventSettlement::class,
+        PuppyPlacementService::class,
+    ]);
+
+arch('event freezing exposes only its processor-owned phase')
+    ->expect(GameEventFreezing::class)
+    ->not->toHavePublicMethodsBesides(['__construct', 'freeze']);
+
+arch('event settlement exposes only its processor-owned phase')
+    ->expect(GameEventSettlement::class)
+    ->not->toHavePublicMethodsBesides(['__construct', 'settle']);
 
 arch('module DTOs are immutable and independent of the application operations')
     ->expect($layers['DTO'])

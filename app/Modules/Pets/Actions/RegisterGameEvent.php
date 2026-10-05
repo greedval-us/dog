@@ -94,7 +94,7 @@ final class RegisterGameEvent
             return GameEventEntry::query()->create([
                 'game_event_id' => $event->id, 'user_id' => $owner->id, 'pet_id' => $pet->id,
                 'operation_token' => $token, 'registration_hash' => $hash, 'division' => $division,
-                'status' => 'registered', 'fee' => $expectedFee, 'plan' => $preparation['plan'], 'gear_ids' => $gearIds,
+                'status' => 'registered', 'fee' => $expectedFee, 'plan' => $preparation->plan, 'gear_ids' => $gearIds,
             ]);
         }, attempts: 3);
     }

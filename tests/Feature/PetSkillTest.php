@@ -410,7 +410,7 @@ test('skill seeding adds six distinct five level skills and preserves edited bal
     expect($hunter->levels[4])->toBe(['price' => 1320, 'requirements' => ['speed' => 100, 'endurance' => 80, 'intelligence' => 60]]);
 });
 
-test('the selected dogs skill data is deferred localized and isolated from other dogs', function () {
+test('the selected dogs skill data loads with deferred care and is localized and isolated from other dogs', function () {
     $this->freezeSecond();
     $owner = User::factory()->create(['locale' => 'ru', 'coins' => 500]);
     $pet = Pet::factory()->for($owner)->create(['intelligence' => 10, 'obedience' => 5]);
@@ -420,10 +420,11 @@ test('the selected dogs skill data is deferred localized and isolated from other
     $this->actingAs($owner->refresh());
 
     $this->get(route('dashboard', ['pet' => $pet->id]))->assertInertia(fn (Assert $page) => $page
-        ->missing('skills')->loadDeferredProps('skills', fn (Assert $deferred) => $deferred
-        ->where('skills.skills.0.name', 'Развитый нюх')->where('skills.skills.0.level', 0)
-        ->where('skills.skills.0.active', false)->where('skills.skills.0.canTrain', true)
-        ->has('skills.token')->missing('care')->missing('appearance')));
+        ->missing('skills')->missing('care')->missing('appearance')
+        ->loadDeferredProps('care', fn (Assert $deferred) => $deferred
+            ->where('skills.skills.0.name', 'Развитый нюх')->where('skills.skills.0.level', 0)
+            ->where('skills.skills.0.active', false)->where('skills.skills.0.canTrain', true)
+            ->has('skills.token')->has('care.token')->has('care.options')->missing('appearance')));
     $this->get(route('dashboard', ['pet' => $other->id]))->assertNotFound();
     expect(app(GetPetSkills::class)->handle($owner, $pet->id, 'en')['skills'][0]['name'])->toBe('Keen nose');
 });

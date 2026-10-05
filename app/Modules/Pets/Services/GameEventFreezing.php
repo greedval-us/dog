@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\GameEventAdmissionData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
@@ -56,10 +57,10 @@ final class GameEventFreezing
             if ($reason === null && ! $discipline->isDocumentary() && $pet->isBusy()) {
                 $reason = 'events.errors.busy';
             }
-            $gear = [];
+            $preparation = null;
             if ($reason === null) {
                 try {
-                    $gear = $this->admission->prepare($owner, $event, $pet, $entry->plan, $entry->gear_ids, lockGear: true)['gear'];
+                    $preparation = $this->admission->prepare($owner, $event, $pet, $entry->plan, $entry->gear_ids, lockGear: true);
                 } catch (GameEventUnavailable $exception) {
                     $reason = $exception->getMessage();
                 }
@@ -69,7 +70,7 @@ final class GameEventFreezing
 
                 continue;
             }
-            $this->freezeEntry($event, $entry, $owner, $pet, $gear);
+            $this->freezeEntry($event, $entry, $owner, $pet, $preparation);
         }
 
         $groups = $event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division');
@@ -114,13 +115,12 @@ final class GameEventFreezing
         }
     }
 
-    /** @param list<array<string, mixed>> $gear */
-    private function freezeEntry(GameEvent $event, GameEventEntry $entry, User $owner, Pet $pet, array $gear): void
+    private function freezeEntry(GameEvent $event, GameEventEntry $entry, User $owner, Pet $pet, GameEventAdmissionData $preparation): void
     {
-        $entry->snapshot = $this->admission->snapshot($event, $pet, $entry->plan, $gear);
+        $entry->snapshot = $this->admission->snapshot($event, $pet, $preparation->plan, $preparation->gear);
         $entry->status = 'frozen';
         $entry->save();
-        foreach ($gear as $item) {
+        foreach ($preparation->gear as $item) {
             $this->inventory->handle($owner, $item['id'], $this->randomness->token($event->seed.':usage:'.$entry->id.':'.$item['id']));
         }
         $discipline = GameEventDiscipline::from($event->discipline);

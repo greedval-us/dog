@@ -214,6 +214,14 @@ test('progeny entries permit a retired parent and require three actual direct ch
     expect($parent->fresh()->isBusy())->toBeFalse();
 });
 
+test('a documentary snapshot requires the validated offspring selection', function () {
+    $parent = Pet::factory()->retired()->create();
+    $event = GameEvent::factory()->create(['discipline' => 'progeny']);
+
+    expect(fn () => app(GameEventAdmission::class)->snapshot($event, $parent, gameEventPlan(), []))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.offspring');
+});
+
 test('event schedule repeats safely and uses Sunday and the calendar month end in Moscow', function () {
     $this->travelTo('2026-10-04 06:00:00 UTC');
     $schedule = app(GameEventSchedule::class);
