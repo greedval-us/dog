@@ -8,8 +8,9 @@ const props = withDefaults(
         breed: string | null;
         variant?: 'portrait' | 'icon';
         alt?: string;
+        lazy?: boolean;
     }>(),
-    { variant: 'portrait', alt: '' },
+    { variant: 'portrait', alt: '', lazy: false },
 );
 const failed = ref(false);
 watch(
@@ -29,6 +30,7 @@ watch(
             :width="variant === 'icon' ? 56 : 320"
             :height="variant === 'icon' ? 56 : 320"
             decoding="async"
+            :loading="lazy ? 'lazy' : 'eager'"
             @error="failed = true"
         />
         <PawPrint v-else :aria-label="alt || undefined" :aria-hidden="!alt" />

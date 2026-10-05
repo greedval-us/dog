@@ -106,6 +106,7 @@ const date = (value: string): string =>
                         aria-hidden="true"
                         width="80"
                         height="80"
+                        decoding="async"
                         loading="lazy"
                     />
                     <span class="achievement-status">

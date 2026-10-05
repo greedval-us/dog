@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 export const breed = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ breed.definition = {
 
 /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 breed.url = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions) => {
@@ -42,7 +42,7 @@ breed.url = (args: { breed: string | number, variant: string | number } | [breed
 
 /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 breed.get = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -51,7 +51,7 @@ breed.get = (args: { breed: string | number, variant: string | number } | [breed
 })
 /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 breed.head = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -61,7 +61,7 @@ breed.head = (args: { breed: string | number, variant: string | number } | [bree
 
     /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
     const breedForm = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -71,7 +71,7 @@ breed.head = (args: { breed: string | number, variant: string | number } | [bree
 
             /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
         breedForm.get = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -80,7 +80,7 @@ breed.head = (args: { breed: string | number, variant: string | number } | [bree
         })
             /**
 * @see \App\Http\Controllers\GameImageController::breed
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
         breedForm.head = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -96,7 +96,7 @@ breed.head = (args: { breed: string | number, variant: string | number } | [bree
     breed.form = breedForm
 /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 export const scene = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -111,7 +111,7 @@ scene.definition = {
 
 /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 scene.url = (options?: RouteQueryOptions) => {
@@ -120,7 +120,7 @@ scene.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 scene.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -129,7 +129,7 @@ scene.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 scene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -139,7 +139,7 @@ scene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
     const sceneForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -149,7 +149,7 @@ scene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
         sceneForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -158,7 +158,7 @@ scene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\GameImageController::scene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
         sceneForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -96,6 +96,8 @@ const { t, number } = useI18n();
                             "
                             alt=""
                             aria-hidden="true"
+                            decoding="async"
+                            loading="lazy"
                         />
                         <GameAssetArtwork
                             :asset-id="dog.portraitId"

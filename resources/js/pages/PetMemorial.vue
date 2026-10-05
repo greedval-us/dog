@@ -82,6 +82,8 @@ const date = (value: string): string =>
                         "
                         alt=""
                         aria-hidden="true"
+                        decoding="async"
+                        loading="lazy"
                     />
                     <GameAssetArtwork
                         :asset-id="pet.portraitId"

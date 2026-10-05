@@ -161,8 +161,10 @@ function submit() {
                                 :src="petScene.url()"
                                 alt=""
                                 aria-hidden="true"
+                                decoding="async"
+                                loading="lazy"
                             />
-                            <BreedArtwork :breed="breed.illustration" />
+                            <BreedArtwork :breed="breed.illustration" lazy />
                         </span>
                         <span class="breed-choice-check" aria-hidden="true"
                             ><Check v-if="form.dog_id === breed.id" :size="19"

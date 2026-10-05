@@ -89,7 +89,7 @@ const { t } = useI18n();
                 </div>
                 <div class="welcome-image">
                     <img
-                        src="/images/doglive-rey.png"
+                        src="/images/doglive-rey.webp"
                         :alt="
                             t(
                                 'A friendly shepherd dog among mountains and flowers',
@@ -97,6 +97,7 @@ const { t } = useI18n();
                         "
                         width="1536"
                         height="1024"
+                        decoding="async"
                         fetchpriority="high"
                     /><span
                         ><Heart :size="16" />

@@ -36,10 +36,11 @@ const showAccountTabs = computed(() =>
                     <p>{{ t('Your DogLive story starts here.') }}</p>
                 </div>
                 <img
-                    src="/images/doglive-rey.png"
+                    src="/images/doglive-rey.webp"
                     :alt="t('A shepherd dog in a sunny mountain meadow')"
                     width="1536"
                     height="1024"
+                    decoding="async"
                 />
                 <span class="auth-story-caption">{{
                     t('More care. More happy moments.')

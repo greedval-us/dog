@@ -23,6 +23,7 @@ Homestead.json
 .phpunit.result.cache
 
 /public/build
+/bootstrap/ssr/
 /storage/pail
 /tests/Browser/Screenshots
 /tests/Browser/Traces

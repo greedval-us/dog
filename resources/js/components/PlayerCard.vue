@@ -41,7 +41,12 @@ const progressText = computed(() =>
     <div class="player-card">
         <section class="player-card-hero" :aria-label="t('Player card')">
             <div class="player-card-cover">
-                <img :src="petScene.url()" alt="" aria-hidden="true" />
+                <img
+                    :src="petScene.url()"
+                    alt=""
+                    aria-hidden="true"
+                    decoding="async"
+                />
             </div>
             <div class="player-card-heading">
                 <div class="player-card-identity">

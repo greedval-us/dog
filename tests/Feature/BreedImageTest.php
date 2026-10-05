@@ -16,7 +16,7 @@ test('authenticated players receive only the requested private breed image', fun
         ->get(route('breeds.image', ['breed' => 'german_shepherd', 'variant' => $variant]))
         ->assertOk()
         ->assertHeader('Content-Type', 'image/png')
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Cache-Control', 'max-age=3600, private')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
     expect($response->streamedContent())->toBe('private-image');

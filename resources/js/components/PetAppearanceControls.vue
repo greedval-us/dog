@@ -168,7 +168,7 @@ function priceLabel(price: AssetPrice) {
                 :disabled="form.processing"
                 @click="apply(asset)"
             >
-                <GameAssetArtwork :asset-id="asset.id" />
+                <GameAssetArtwork :asset-id="asset.id" lazy />
             </button>
             <Button
                 type="button"

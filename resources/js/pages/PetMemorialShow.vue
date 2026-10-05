@@ -108,6 +108,7 @@ const archivedDate = computed(() =>
                 aria-hidden="true"
                 width="1672"
                 height="941"
+                decoding="async"
             />
             <div class="pet-stage">
                 <PetHero :pet="pet" :appearance="appearance" read-only />

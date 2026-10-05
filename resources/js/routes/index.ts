@@ -446,7 +446,7 @@ careItems.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     careItems.form = careItemsForm
 /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 export const petScene = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -461,7 +461,7 @@ petScene.definition = {
 
 /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 petScene.url = (options?: RouteQueryOptions) => {
@@ -470,7 +470,7 @@ petScene.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 petScene.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -479,7 +479,7 @@ petScene.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
 petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -489,7 +489,7 @@ petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
     /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
     const petSceneForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -499,7 +499,7 @@ petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
             /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
         petSceneForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -508,7 +508,7 @@ petScene.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
         })
             /**
 * @see \App\Http\Controllers\GameImageController::petScene
- * @see app/Http/Controllers/GameImageController.php:18
+ * @see app/Http/Controllers/GameImageController.php:19
  * @route '/media/pet-scene'
  */
         petSceneForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

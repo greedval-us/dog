@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
 export const image = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ image.definition = {
 
 /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
 image.url = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ image.url = (args: { asset: number | { id: number }, variant: string | number } 
 
 /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
 image.get = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ image.get = (args: { asset: number | { id: number }, variant: string | number } 
 })
 /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
 image.head = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -63,7 +63,7 @@ image.head = (args: { asset: number | { id: number }, variant: string | number }
 
     /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
     const imageForm = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -73,7 +73,7 @@ image.head = (args: { asset: number | { id: number }, variant: string | number }
 
             /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
         imageForm.get = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -82,7 +82,7 @@ image.head = (args: { asset: number | { id: number }, variant: string | number }
         })
             /**
 * @see \App\Http\Controllers\AssetImageController::__invoke
- * @see app/Http/Controllers/AssetImageController.php:11
+ * @see app/Http/Controllers/AssetImageController.php:12
  * @route '/media/assets/{asset}/{variant}'
  */
         imageForm.head = (args: { asset: number | { id: number }, variant: string | number } | [asset: number | { id: number }, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

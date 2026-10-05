@@ -52,7 +52,7 @@ class DashboardController extends Controller
             'pet' => fn () => $petId === null ? null : $getPrimaryPet->handle($user, app()->getLocale(), $petId)?->toArray(),
             'career' => Inertia::optional(fn () => $petId === null ? null : $getCareer->handle($user, $petId, app()->getLocale(), $cursor)),
             'care' => Inertia::defer(fn () => $petId === null ? null : $getCare->handle($user, $petId, app()->getLocale()), 'care', rescue: true),
-            'skills' => Inertia::defer(fn () => $petId === null ? null : $getSkills->handle($user, $petId, app()->getLocale()), 'skills', rescue: true),
+            'skills' => Inertia::defer(fn () => $petId === null ? null : $getSkills->handle($user, $petId, app()->getLocale()), 'care', rescue: true),
             'appearance' => Inertia::defer(fn () => $petId === null ? null : $getAppearance->handle($user, $petId, app()->getLocale())->toArray(), 'appearance', rescue: true),
         ]);
     }

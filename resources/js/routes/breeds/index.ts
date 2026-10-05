@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 export const image = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ image.definition = {
 
 /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 image.url = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions) => {
@@ -42,7 +42,7 @@ image.url = (args: { breed: string | number, variant: string | number } | [breed
 
 /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 image.get = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -51,7 +51,7 @@ image.get = (args: { breed: string | number, variant: string | number } | [breed
 })
 /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
 image.head = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -61,7 +61,7 @@ image.head = (args: { breed: string | number, variant: string | number } | [bree
 
     /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
     const imageForm = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -71,7 +71,7 @@ image.head = (args: { breed: string | number, variant: string | number } | [bree
 
             /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
         imageForm.get = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -80,7 +80,7 @@ image.head = (args: { breed: string | number, variant: string | number } | [bree
         })
             /**
 * @see \App\Http\Controllers\GameImageController::image
- * @see app/Http/Controllers/GameImageController.php:10
+ * @see app/Http/Controllers/GameImageController.php:11
  * @route '/media/breeds/{breed}/{variant}'
  */
         imageForm.head = (args: { breed: string | number, variant: string | number } | [breed: string | number, variant: string | number ], options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

@@ -12,13 +12,13 @@ beforeEach(function () {
     $this->withoutVite();
 });
 
-test('dashboard defers care and appearance and polling skips slots and inventory', function () {
+test('dashboard batches care and skills while appearance and polling stay independent', function () {
     $pet = Pet::factory()->create();
     $this->actingAs($pet->user);
     DB::enableQueryLog();
 
     $initial = $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('pet.id', $pet->id)->has('slots')->missing('care')->missing('appearance')
+        ->where('pet.id', $pet->id)->has('slots')->missing('care')->missing('skills')->missing('appearance')
     );
     $initialQueries = implode(' ', array_column(DB::getQueryLog(), 'query'));
     expect($initialQueries)->not->toContain('pet_care_actions', 'inventory_items', 'game_assets', 'status_effects');
@@ -36,6 +36,7 @@ test('dashboard defers care and appearance and polling skips slots and inventory
 
     $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
         ->loadDeferredProps('appearance', fn (Assert $deferred) => $deferred->has('appearance')->missing('care'))
+        ->loadDeferredProps('care', fn (Assert $deferred) => $deferred->has('care')->has('skills')->missing('appearance'))
     );
 });
 

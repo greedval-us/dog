@@ -240,20 +240,81 @@ test('a dog transferred to another owner falls back to a free portrait without s
     expect($appearance->assets[1]->unlocked)->toBeFalse();
 });
 
-test('private asset previews require login and use no store headers', function (string $variant, string $expected) {
+test('private asset previews require login and cache the original PNG when no WebP exists', function (string $variant, string $expected) {
     $asset = GameAsset::factory()->paid()->create();
     $url = route('assets.image', ['asset' => $asset, 'variant' => $variant]);
-    $this->get($url)->assertRedirect(route('login'));
+    $this->get($url, ['If-None-Match' => '*'])->assertRedirect(route('login'));
 
     $response = $this->actingAs(User::factory()->create())->get($url)->assertOk()
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Cache-Control', 'max-age=3600, private')
         ->assertHeader('Content-Type', 'image/png')
+        ->assertHeader('Last-Modified')
+        ->assertHeader('ETag')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
     expect($response->streamedContent())->toBe($expected);
 })->with([['image', 'private-portrait'], ['icon', 'private-icon']]);
 
+test('asset previews prefer WebP without changing their catalogue URLs', function (string $variant, string $path) {
+    $asset = GameAsset::factory()->create();
+    Storage::disk('local')->put($path, 'optimized-asset');
+
+    $response = $this->actingAs(User::factory()->create())
+        ->get(route('assets.image', ['asset' => $asset, 'variant' => $variant]))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/webp')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+
+    expect($response->streamedContent())->toBe('optimized-asset');
+})->with([
+    'portrait' => ['image', 'appearance/test/portrait.webp'],
+    'icon' => ['icon', 'appearance/test/icon.webp'],
+]);
+
+test('unchanged asset previews return 304 with private cache headers', function () {
+    $asset = GameAsset::factory()->create();
+    $this->actingAs(User::factory()->create());
+    $url = route('assets.image', ['asset' => $asset, 'variant' => 'image']);
+    $original = $this->get($url)->assertOk();
+
+    $response = $this->get($url, ['If-None-Match' => $original->headers->get('ETag')])
+        ->assertNotModified()
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+
+    expect($response->streamedContent())->toBeEmpty();
+});
+
+test('inactive assets cannot return cached or optimized previews', function () {
+    $asset = GameAsset::factory()->create();
+    Storage::disk('local')->put('appearance/test/portrait.webp', 'optimized-asset');
+    $this->actingAs(User::factory()->create());
+    $url = route('assets.image', ['asset' => $asset, 'variant' => 'image']);
+    $original = $this->get($url)->assertOk();
+    $asset->update(['is_active' => false]);
+
+    $this->get($url, ['If-None-Match' => $original->headers->get('ETag')])->assertNotFound();
+});
+
+test('asset previews reject invalid variants', function () {
+    $asset = GameAsset::factory()->create();
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('assets.image', ['asset' => $asset, 'variant' => 'private']))
+        ->assertNotFound();
+});
+
+test('a WebP sibling cannot bypass a missing original asset', function () {
+    $asset = GameAsset::factory()->create();
+    Storage::disk('local')->put('appearance/test/portrait.webp', 'optimized-asset');
+    Storage::disk('local')->delete('appearance/test/portrait.png');
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('assets.image', ['asset' => $asset, 'variant' => 'image']))
+        ->assertNotFound();
+});
+
 test('catalogue media cannot disclose unrelated private files', function (string $path) {
     Storage::disk('local')->put('avatars/private.png', 'secret');
+    Storage::disk('local')->put('avatars/private.webp', 'optimized-secret');
     $asset = GameAsset::factory()->create(['image_path' => $path]);
 
     $this->actingAs(User::factory()->create())->get(route('assets.image', ['asset' => $asset, 'variant' => 'image']))
