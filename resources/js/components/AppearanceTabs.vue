@@ -3,6 +3,7 @@ import { useI18n } from '@/composables/useI18n';
 import { Monitor, Moon, Sun } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { useAppearance } from '@/composables/useAppearance';
+defineProps<{ compact?: boolean }>();
 const { appearance, updateAppearance } = useAppearance();
 const options = [
     {
@@ -27,19 +28,28 @@ const options = [
 const { t } = useI18n();
 </script>
 <template>
-    <div class="appearance-options" role="group" :aria-label="t('Color theme')">
+    <div
+        class="appearance-options"
+        :class="{ 'appearance-options--compact': compact }"
+        role="group"
+        :aria-label="t('Color theme')"
+    >
         <Button
             v-for="option in options"
             :key="option.value"
             variant="plain"
             class="appearance-option"
             :class="{ selected: appearance === option.value }"
+            :aria-label="compact ? t(option.label) : undefined"
+            :title="compact ? t(option.label) : undefined"
             :aria-pressed="appearance === option.value"
             @click="updateAppearance(option.value)"
-            ><component :is="option.icon" :size="24" /><strong>{{
-                t(option.label)
-            }}</strong
-            ><span>{{ t(option.description) }}</span></Button
+            ><component
+                :is="option.icon"
+                :size="24"
+                aria-hidden="true"
+            /><strong v-if="!compact">{{ t(option.label) }}</strong
+            ><span v-if="!compact">{{ t(option.description) }}</span></Button
         >
     </div>
 </template>
