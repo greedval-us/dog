@@ -59,7 +59,11 @@ const { t, number } = useI18n();
                         <LanguageSwitcher />
                         <SystemNotifications />
                     </div>
-                    <div class="wallet" :aria-label="t('Player balance')">
+                    <div
+                        class="wallet"
+                        role="group"
+                        :aria-label="t('Player balance')"
+                    >
                         <span
                             :title="
                                 t('Coins: {amount}', {
@@ -70,9 +74,16 @@ const { t, number } = useI18n();
                                 class="coin-icon"
                                 :size="20"
                                 aria-hidden="true"
-                            /><b :key="user.coins" class="wallet-amount">{{
-                                formatNumber(user.coins)
-                            }}</b></span
+                            /><b
+                                :key="user.coins"
+                                class="wallet-amount"
+                                aria-hidden="true"
+                                >{{ formatNumber(user.coins) }}</b
+                            ><span class="sr-only">{{
+                                t('Coins: {amount}', {
+                                    amount: formatNumber(user.coins),
+                                })
+                            }}</span></span
                         >
                         <span
                             :title="
@@ -84,9 +95,16 @@ const { t, number } = useI18n();
                                 class="gem-icon"
                                 :size="20"
                                 aria-hidden="true"
-                            /><b :key="user.gems" class="wallet-amount">{{
-                                formatNumber(user.gems)
-                            }}</b></span
+                            /><b
+                                :key="user.gems"
+                                class="wallet-amount"
+                                aria-hidden="true"
+                                >{{ formatNumber(user.gems) }}</b
+                            ><span class="sr-only">{{
+                                t('Gems: {amount}', {
+                                    amount: formatNumber(user.gems),
+                                })
+                            }}</span></span
                         >
                     </div>
                     <DropdownMenu>

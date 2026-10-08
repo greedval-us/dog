@@ -372,6 +372,9 @@ it('links division filters while retaining the own result outside the selected g
     expect(html).toContain('6 players · 2 club dogs');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('Performance replay — Rey');
+    expect(html).toMatch(
+        /<h2(?=[^>]*data-slot="card-title")(?=[^>]*tabindex="-1")[^>]*>\s*Performance replay — Rey\s*<\/h2>/,
+    );
     expect(html).toContain('Place 2');
 });
 
@@ -430,6 +433,7 @@ it('shows the server-localized automatic withdrawal reason without claiming a pe
 
     expect(html).toContain('Заявка снята, взнос возвращён.');
     expect(html).toContain('Заявка снята — Rey');
+    expect(html).toContain('aria-label="Причина снятия: Rey"');
     expect(html.split(reason)).toHaveLength(3);
     expect(html).not.toContain('Выступление завершено.');
     expect(html).not.toContain('event-replay-stages');
@@ -523,6 +527,7 @@ it('shows saved tactics and every result stage while marking club dogs as NPCs',
 
     expect(html).toContain('Performance replay — Rey');
     expect(html).toContain('Missed a contact zone.');
+    expect(html).toContain('aria-label="View replay: Rey"');
     expect(html).toContain('Used the remaining reserve.');
     expect(html).toContain('Final acceleration');
     expect(html).toContain('33 s · 5 penalties');
@@ -574,6 +579,7 @@ it('evaluates a retired producer through the selected offspring without offering
     expect(html).toContain('Judging criteria');
     expect(html).toContain('Offspring 2');
     expect(html).toContain('Progeny evaluation — Rey');
+    expect(html).toContain('aria-label="View evaluation: Rey"');
     expect(html).toContain('Final score: 235');
     expect(html).not.toContain('type="radio"');
     expect(html).not.toContain('Competition equipment');

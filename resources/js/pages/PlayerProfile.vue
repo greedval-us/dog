@@ -14,6 +14,7 @@ import { image } from '@/routes/assets';
 import { index as kennel } from '@/routes/kennel';
 import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
+import { show as dogProfile } from '@/routes/pets';
 import { index as memorial } from '@/routes/players/memorial';
 import type { DailyWork, PlayerDog, PlayerProfile } from '@/types/player';
 
@@ -125,6 +126,16 @@ const { t, number } = useI18n();
                                 >{{ t('Open dog')
                                 }}<ArrowRight :size="16" /></Link
                         ></Button>
+                        <Button v-else as-child variant="secondary" size="sm">
+                            <Link
+                                :href="dogProfile(dog.id)"
+                                :aria-label="
+                                    t('Open {name}', { name: dog.name })
+                                "
+                                >{{ t('View dog card') }}
+                                <ArrowRight :size="16" aria-hidden="true" />
+                            </Link>
+                        </Button>
                     </div>
                 </article>
             </div>

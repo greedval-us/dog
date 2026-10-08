@@ -10,6 +10,7 @@ async function renderPurchase(
     coins: number,
     stock: number | null = null,
     overrides: Partial<ShopOffer> = {},
+    state: { loading?: boolean; processing?: boolean } = {},
 ) {
     const offer: ShopOffer = {
         id: 1,
@@ -38,6 +39,7 @@ async function renderPurchase(
                 processing: false,
                 purchased: false,
                 error: '',
+                ...state,
             }),
     });
     const app = createSSRApp({
@@ -68,6 +70,14 @@ async function renderPurchase(
 }
 
 describe('shop purchase feedback', () => {
+    it('disables checkout while the catalogue loads without claiming a purchase is in progress', async () => {
+        const html = await renderPurchase(200, 4, {}, { loading: true });
+
+        expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled/);
+        expect(html).toContain('Buy item');
+        expect(html).not.toContain('Purchasing…');
+    });
+
     it('explains the delivery purchase limit even when stock and coins remain', async () => {
         const html = await renderPurchase(200, 4, {
             purchaseLimit: 1,

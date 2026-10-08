@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { Check, Coins, Package, ShoppingBag } from '@lucide/vue';
 import { computed, nextTick, useId, useTemplateRef, watch } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
@@ -13,13 +13,17 @@ import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { show as player } from '@/routes/players';
 import type { ShopOffer } from '@/types/shop';
 
-const props = defineProps<{
-    offer: ShopOffer;
-    processing: boolean;
-    purchased: boolean;
-    error: string;
-}>();
-const emit = defineEmits<{ buy: [] }>();
+const props = withDefaults(
+    defineProps<{
+        offer: ShopOffer;
+        processing: boolean;
+        loading?: boolean;
+        purchased: boolean;
+        error: string;
+    }>(),
+    { loading: false },
+);
+const emit = defineEmits<{ buy: []; refresh: [] }>();
 const { t, number } = useI18n();
 const { date } = useGameEventPresentation();
 const page = usePage();
@@ -56,7 +60,11 @@ watch(
 </script>
 
 <template>
-    <form class="shop-purchase-panel" @submit.prevent="emit('buy')">
+    <form
+        class="shop-purchase-panel"
+        :aria-busy="processing || loading"
+        @submit.prevent="!loading && emit('buy')"
+    >
         <ItemArtwork :category="offer.categoryCode" />
         <div class="shop-product-heading">
             <span class="section-kicker">{{ offer.category }}</span>
@@ -115,7 +123,7 @@ watch(
             <Button
                 type="submit"
                 class="shop-buy-button"
-                :disabled="processing || Boolean(actionReason)"
+                :disabled="processing || loading || Boolean(actionReason)"
                 :aria-busy="processing"
                 :aria-describedby="
                     actionReason ? id + '-purchase-reason' : undefined
@@ -151,8 +159,8 @@ watch(
                 <Button
                     type="button"
                     variant="outline"
-                    :disabled="processing"
-                    @click="router.reload()"
+                    :disabled="processing || loading"
+                    @click="emit('refresh')"
                     >{{ t('Refresh shop') }}</Button
                 >
             </div>

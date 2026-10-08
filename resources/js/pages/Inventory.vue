@@ -200,6 +200,9 @@ const pageLink = (cursor: string) =>
                             <ItemCharacteristics
                                 v-if="
                                     Object.keys(item.characteristics).length ||
+                                    Object.keys(item.bonuses).length ||
+                                    item.grantedEffects.length ||
+                                    item.risks.length ||
                                     item.competition
                                 "
                                 :characteristics="item.characteristics"

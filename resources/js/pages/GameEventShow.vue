@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     CalendarDays,
+    ChevronDown,
     Clock,
     Coins,
     Trophy,
@@ -141,7 +142,10 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
         <template v-if="event.status !== 'scheduled'">
             <GameEventResults :event="event" :entry="ownEntry" />
             <details class="event-explanation event-saved-entry">
-                <summary>{{ t('Saved entry and rules') }}</summary>
+                <summary>
+                    {{ t('Saved entry and rules') }}
+                    <ChevronDown :size="16" aria-hidden="true" />
+                </summary>
                 <GameEventEntryForm
                     :event="event"
                     :server-now="serverNow"

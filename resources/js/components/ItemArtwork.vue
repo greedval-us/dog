@@ -10,10 +10,8 @@ import {
     Sparkles,
 } from '@lucide/vue';
 import { computed } from 'vue';
-import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps<{ category: string }>();
-const { t } = useI18n();
 const icons = {
     food: Bone,
     sports: Dumbbell,
@@ -34,8 +32,7 @@ const icon = computed(
     <span
         class="shop-artwork"
         :class="'shop-artwork--' + category"
-        role="img"
-        :aria-label="t('Item image placeholder')"
+        aria-hidden="true"
     >
         <span class="shop-artwork-circle"
             ><component

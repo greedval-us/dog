@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n';
-import { Monitor, Moon, Sun } from '@lucide/vue';
+import { Check, Monitor, Moon, Sun } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { useAppearance } from '@/composables/useAppearance';
 defineProps<{ compact?: boolean }>();
@@ -47,9 +47,15 @@ const { t } = useI18n();
             ><component
                 :is="option.icon"
                 :size="24"
+                aria-hidden="true" /><strong v-if="!compact">{{
+                t(option.label)
+            }}</strong
+            ><span v-if="!compact">{{ t(option.description) }}</span
+            ><Check
+                v-if="!compact && appearance === option.value"
+                class="appearance-selection-mark"
+                :size="16"
                 aria-hidden="true"
-            /><strong v-if="!compact">{{ t(option.label) }}</strong
-            ><span v-if="!compact">{{ t(option.description) }}</span></Button
-        >
+        /></Button>
     </div>
 </template>

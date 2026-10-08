@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { ChevronDown, PawPrint, Trophy } from '@lucide/vue';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,41 @@ const replay = computed(
         (ownEntry.value?.id === replayId.value ? ownEntry.value : null),
 );
 const replayWithdrawn = computed(() => entryWasWithdrawn(replay.value));
+const replayHeading = ref<HTMLElement | null>(null);
+const replayTitle = computed(() =>
+    replay.value
+        ? t(
+              replayWithdrawn.value
+                  ? 'Entry withdrawn — {name}'
+                  : props.event.discipline === 'progeny'
+                    ? 'Progeny evaluation — {name}'
+                    : 'Performance replay — {name}',
+              { name: replay.value.name },
+          )
+        : '',
+);
+
+function replayActionLabel(participant: GameEventEntry): string {
+    return t(
+        entryWasWithdrawn(participant)
+            ? 'View withdrawal reason'
+            : props.event.discipline === 'progeny'
+              ? 'View evaluation'
+              : 'View replay',
+    );
+}
+
+async function selectReplay(participant: GameEventEntry): Promise<void> {
+    replayId.value = participant.id;
+    await nextTick();
+    replayHeading.value?.focus({ preventScroll: true });
+    replayHeading.value?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+        block: 'center',
+    });
+}
 
 watch(
     () => ownEntry.value?.result,
@@ -232,18 +267,14 @@ watch(
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            @click="replayId = participant.id"
+                                            :aria-label="
+                                                replayActionLabel(participant) +
+                                                ': ' +
+                                                participant.name
+                                            "
+                                            @click="selectReplay(participant)"
                                             >{{
-                                                t(
-                                                    entryWasWithdrawn(
-                                                        participant,
-                                                    )
-                                                        ? 'View withdrawal reason'
-                                                        : event.discipline ===
-                                                            'progeny'
-                                                          ? 'View evaluation'
-                                                          : 'View replay',
-                                                )
+                                                replayActionLabel(participant)
                                             }}</Button
                                         ></template
                                     ><span v-else>{{
@@ -267,20 +298,12 @@ watch(
                 </div>
             </section>
         </SurfaceCard>
-        <SurfaceCard
-            v-if="replay?.result"
-            :title="
-                t(
-                    replayWithdrawn
-                        ? 'Entry withdrawn — {name}'
-                        : event.discipline === 'progeny'
-                          ? 'Progeny evaluation — {name}'
-                          : 'Performance replay — {name}',
-                    { name: replay.name },
-                )
-            "
-            class="event-replay"
-        >
+        <SurfaceCard v-if="replay?.result" class="event-replay">
+            <template #header>
+                <h2 ref="replayHeading" data-slot="card-title" tabindex="-1">
+                    {{ replayTitle }}
+                </h2>
+            </template>
             <p
                 v-if="replayWithdrawn && replay.result.reason"
                 class="event-note"

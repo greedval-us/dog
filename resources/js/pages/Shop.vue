@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ArrowRight, Check, Coins, LoaderCircle, Package } from '@lucide/vue';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
@@ -81,11 +81,24 @@ function restoreFocus(event: Event) {
     selectedButton.value?.focus();
 }
 
+function refresh() {
+    if (purchasing.value || loading.value) return;
+    router.reload({
+        onStart: () => {
+            loading.value = true;
+        },
+        onFinish: () => {
+            loading.value = false;
+        },
+    });
+}
+
 function buy() {
     const offer = selectedOffer.value;
     if (
         !offer ||
         purchasing.value ||
+        loading.value ||
         (offer.stock !== null && offer.stock < 1) ||
         offer.soldOut ||
         (offer.purchaseLimit != null &&
@@ -295,12 +308,14 @@ function buy() {
                     <ShopPurchasePanel
                         :offer="selectedOffer"
                         :processing="purchasing"
+                        :loading="loading"
                         :purchased="
                             purchaseForm.recentlySuccessful &&
                             purchasedId === selectedOffer.id
                         "
                         :error="purchaseError"
                         @buy="buy"
+                        @refresh="refresh"
                     />
                 </SurfaceCard>
             </aside>
@@ -327,12 +342,14 @@ function buy() {
                 <ShopPurchasePanel
                     :offer="selectedOffer"
                     :processing="purchasing"
+                    :loading="loading"
                     :purchased="
                         purchaseForm.recentlySuccessful &&
                         purchasedId === selectedOffer.id
                     "
                     :error="purchaseError"
                     @buy="buy"
+                    @refresh="refresh"
                 />
             </DialogContent>
         </Dialog>

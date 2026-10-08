@@ -1154,10 +1154,16 @@
     align-items: start;
     gap: 24px;
 }
+.shop-layout:has(> .shop-catalogue:only-child) {
+    grid-template-columns: minmax(0, 1fr);
+}
 .shop-section-heading {
+    flex-wrap: wrap;
     margin-bottom: 16px;
 }
 .shop-section-heading h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 21px;
     font-weight: 700;
 }
@@ -1507,6 +1513,8 @@
 }
 .inventory-totals {
     display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 28px;
     margin-left: auto;
 }
@@ -1611,6 +1619,13 @@
 }
 .inventory-characteristics summary::-webkit-details-marker {
     display: none;
+}
+.inventory-characteristics summary > svg {
+    flex-shrink: 0;
+    transition: transform 0.18s;
+}
+.inventory-characteristics[open] > summary > svg {
+    transform: rotate(180deg);
 }
 .inventory-characteristics .shop-properties {
     margin-top: 15px;
@@ -1726,7 +1741,8 @@
 .kennel-form {
     gap: 20px;
 }
-.kennel-form + .surface-card {
+.kennel-form + .surface-card,
+.kennel-page > .surface-card + .surface-card {
     margin-top: 20px;
 }
 .breed-picker {
@@ -1868,7 +1884,7 @@
 }
 .kennel-adoption-grid {
     display: grid;
-    grid-template-columns: 1.15fr 1fr;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: 30px;
 }
 .kennel-name-panel {
@@ -2183,7 +2199,7 @@
     align-items: center;
     gap: 6px;
     border-radius: 10px;
-    background: var(--pet-panel);
+    background: var(--pet-panel, var(--surface-soft));
     padding: 8px 10px;
     font-size: 11px;
     line-height: 1.25;
@@ -4536,6 +4552,19 @@
     border-color: var(--border);
     background: var(--card);
 }
+[data-slot='dialog-close'] {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    top: 8px;
+    right: 8px;
+    border-radius: 12px;
+}
+[data-slot='dialog-content']:has(> [data-slot='dialog-close'])
+    [data-slot='dialog-header'] {
+    padding-right: 32px;
+}
 [data-slot='dropdown-menu-content'] {
     border-radius: 15px;
     padding: 7px;
@@ -5033,7 +5062,7 @@
     border-radius: 15px;
     background: var(--card);
 }
-.wallet span {
+.wallet > span {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -5043,7 +5072,7 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
-.wallet span + span {
+.wallet > span + span {
     padding-left: 14px;
     border-left: 1px solid var(--border);
 }
@@ -6167,6 +6196,7 @@
     gap: 12px;
 }
 .appearance-option {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -6195,6 +6225,13 @@
     box-shadow: 0 0 0 1px var(--primary);
     background: var(--secondary);
     color: var(--primary);
+}
+.appearance-option svg.appearance-selection-mark {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 18px;
+    height: 18px;
 }
 .my-dog-page {
     max-width: 1120px;
@@ -6449,11 +6486,11 @@
         min-width: 0;
         overflow-wrap: anywhere;
     }
-    .wallet span {
+    .wallet > span {
         font-size: 12px;
         gap: 4px;
     }
-    .wallet span + span {
+    .wallet > span + span {
         padding-left: 10px;
     }
     .wallet svg {
@@ -6888,7 +6925,7 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
 }
-.appearance-option {
+.appearance-grid > .appearance-option {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -6904,10 +6941,10 @@
         border-color 160ms,
         background 160ms;
 }
-.appearance-option:hover {
+.appearance-grid > .appearance-option:hover {
     border-color: var(--primary);
 }
-.appearance-option.is-selected {
+.appearance-grid > .appearance-option.is-selected {
     border-color: var(--primary);
     background: var(--sage-surface);
 }
@@ -6920,7 +6957,7 @@
     border-radius: 11px;
     background: linear-gradient(150deg, var(--card), var(--surface-soft));
 }
-.appearance-option.is-background img {
+.appearance-grid > .appearance-option.is-background img {
     object-fit: cover;
 }
 .appearance-check {
@@ -7581,6 +7618,10 @@ a.pet-slot-action {
     display: flex;
     align-items: start;
     gap: 16px;
+}
+.pet-memorial-notice > [data-slot='card-content'] > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .pet-memorial-notice svg {
     flex-shrink: 0;
@@ -9195,7 +9236,7 @@ a.pedigree-dog:focus-visible {
         top: 9px;
         left: 9px;
         padding: 3px 5px;
-        font-size: 9px;
+        font-size: 11px;
     }
     .shop-item-check {
         width: 20px;
@@ -9260,6 +9301,23 @@ a.pedigree-dog:focus-visible {
     .pet-slot-action .pet-slot-avatar .game-asset-artwork {
         width: 26px;
         height: 26px;
+    }
+}
+@media (max-width: 380px) {
+    .pet-dossier-compact .pet-hero {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pet-dossier-compact .pet-hero-identity {
+        grid-area: 2 / 1;
+    }
+    .pet-dossier-compact .pet-hero-portrait {
+        grid-area: 3 / 1;
+        width: min(180px, 100%);
+    }
+    .pet-dossier-compact .pet-condition .pet-metrics,
+    .pet-dossier-compact .pet-care-actions,
+    .shop-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 @media (prefers-reduced-motion: reduce) {
