@@ -4,6 +4,8 @@ namespace App\Modules\Pets\Calculators;
 
 final class SpecialExhibitionChampionships
 {
+    private const array BREED_TITLE_RULES = ['CH_BREED' => ['KCHP', 4], 'JCH_BREED' => ['JKCHP', 3], 'VCH_BREED' => ['VKCHP', 3]];
+
     /** @param array<string,mixed> $balance */
     public function __construct(private EventChampionshipRules $legacy, private array $balance) {}
 
@@ -14,17 +16,9 @@ final class SpecialExhibitionChampionships
      */
     public function calculate(array $profile, array $credentials, int $at): array
     {
-        $history = array_values(array_filter($credentials, fn (array $receipt): bool => ($receipt['discipline'] ?? '') === 'conformation'
-            && ($receipt['awarded_at'] ?? PHP_INT_MAX) <= $at && ($receipt['title_id'] ?? 0) > 0));
-        usort($history, fn (array $first, array $second): int => [$first['awarded_at'], $first['title_id']] <=> [$second['awarded_at'], $second['title_id']]);
+        $history = $this->history($credentials, $at);
         $awards = [];
-        $standardHistory = $history;
-        $standardProfile = $profile;
-        if (! ($profile['has_nkp'] ?? true)) {
-            $clubCodes = ['KCHK', 'JKCHK', 'VKCHK', 'CH_CLUB', 'JCH_CLUB', 'VCH_CLUB'];
-            $standardHistory = array_values(array_filter($history, fn (array $receipt): bool => ! in_array($receipt['code'], $clubCodes, true)));
-            $standardProfile['championships'] = array_values(array_diff($profile['championships'] ?? [], $clubCodes));
-        }
+        ['history' => $standardHistory, 'profile' => $standardProfile] = $this->standardContext($history, $profile);
         foreach ($this->legacy->calculate('conformation', $standardProfile, $this->legacyReceipts($standardHistory), $at) as $award) {
             if (in_array($award['code'], ['GRAND_CH_RUS', 'JGRAND_CH_RUS', 'VGRAND_CH_RUS'], true)) {
                 continue;
@@ -107,6 +101,227 @@ final class SpecialExhibitionChampionships
         return $awards;
     }
 
+    /**
+     * @param  array<string,mixed>  $profile
+     * @param  list<array<string,mixed>>  $credentials
+     * @return list<array<string,mixed>>
+     */
+    public function progress(array $profile, array $credentials, int $at): array
+    {
+        $history = $this->history($credentials, $at);
+        ['history' => $standardHistory, 'profile' => $standardProfile] = $this->standardContext($history, $profile);
+        $awards = $this->calculate($profile, $credentials, $at);
+        $goals = [];
+        foreach ($this->legacy->progress('conformation', $standardProfile, $this->legacyReceipts($standardHistory), $at) as $goal) {
+            if (in_array($goal['code'], ['GRAND_CH_RUS', 'JGRAND_CH_RUS', 'VGRAND_CH_RUS'], true)
+                || (! ($profile['has_nkp'] ?? true) && in_array($goal['code'], ['CH_CLUB', 'JCH_CLUB', 'VCH_CLUB'], true))) {
+                continue;
+            }
+            $goals[$goal['code']] = $this->legacy->progressGoal($goal['code'], $goal['paths'], $profile, $awards);
+        }
+        $validity = ($this->balance['regulations']['certificate_validity_months'] ?? 60) * PetAgeRules::SECONDS_PER_MONTH;
+        $validAfter = $at - $validity;
+        $national = array_values(array_filter($history, fn (array $receipt): bool => ($receipt['country'] ?? '') === 'RU' && $receipt['awarded_at'] >= $validAfter));
+        $gates = $this->legacy->progressProfileRequirements([...$profile, 'pedigree_complete' => ($profile['pedigree_complete'] ?? false) || ($profile['pedigree_exempt'] ?? false)], 'rkf');
+        foreach (['CH_RUS' => 'CAC', 'JCH_RUS' => 'JCAC', 'VCH_RUS' => 'VCAC'] as $code => $certificate) {
+            $receipts = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $certificate && $this->doubled($receipt, $certificate)));
+            $target = [...$this->legacy->progressTarget($receipts, [$certificate], $this->doubledCertificateCount()), 'specialShow' => $this->doubledShows($certificate)];
+            $paths = $goals[$code]['paths'] ?? [];
+            $paths[] = $this->legacy->progressPath('two_doubled_certificates', $receipts,
+                [...$gates, ...$this->legacy->progressReceiptRequirements($receipts, [$certificate], $this->doubledCertificateCount(), $this->doubledCertificateCount())], [$target],
+                $this->legacy->progressExcluded($history, $receipts, [$certificate], $validAfter));
+            $goals[$code] = $this->legacy->progressGoal($code, $paths, $profile, $awards);
+        }
+        $winners = array_values(array_filter($national, fn (array $receipt): bool => ($receipt['code'] === 'EAW' && $this->special($receipt, 'eurasia'))
+            || ($receipt['code'] === 'RW' && $this->special($receipt, 'russia'))));
+        $winner = $winners[0] ?? null;
+        foreach ($winners as $candidate) {
+            if (array_filter($national, fn (array $receipt): bool => $receipt['code'] === 'CAC' && $receipt['entry_id'] !== $candidate['entry_id'] && $this->differentJudge($candidate, $receipt)) !== []) {
+                $winner = $candidate;
+                break;
+            }
+        }
+        $cac = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === 'CAC'
+            && ($winner === null || ($receipt['entry_id'] !== $winner['entry_id'] && $this->differentJudge($winner, $receipt)))));
+        $paths = $goals['CH_RUS']['paths'];
+        $targets = [];
+        if ($winner === null) {
+            $targets[] = ['codes' => ['EAW', 'RW'], 'specialShow' => ['eurasia', 'russia']];
+        }
+        if ($cac === []) {
+            $targets[] = ['codes' => ['CAC'], 'excludeJudges' => $winner === null ? [] : [$winner['judgeId']]];
+        }
+        $paths[] = $this->legacy->progressPath('named_winner_and_other_cac', [...($winner === null ? [] : [$winner]), ...$cac],
+            [...$gates, $this->legacy->progressRequirement('certificates', 'count', (int) ($winner !== null), 1, ['EAW', 'RW']),
+                $this->legacy->progressRequirement('certificates', 'count', (int) ($cac !== []), 1, ['CAC'])], $targets);
+        $goals['CH_RUS'] = $this->legacy->progressGoal('CH_RUS', $paths, $profile, $awards);
+
+        $hasClub = (bool) ($profile['has_nkp'] ?? true);
+        $series = $hasClub ? 'national_club' : 'national_breed';
+        $clubCertificate = $hasClub ? 'KCHK' : 'KCHP';
+        $clubTitle = $hasClub ? 'CH_CLUB' : 'CH_BREED';
+        $clubWinner = $hasClub ? 'CLUB_WINNER' : 'BREED_WINNER';
+        foreach ($hasClub ? [$clubTitle => [$clubCertificate, 0]] : self::BREED_TITLE_RULES as $code => [$certificate, $count]) {
+            $paths = $goals[$code]['paths'] ?? [];
+            if (! $hasClub) {
+                $receipts = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $certificate));
+                $paths[] = $this->legacy->progressPath('breed_certificates', $receipts,
+                    [...$gates, ...$this->legacy->progressReceiptRequirements($receipts, [$certificate], $count, $count),
+                        $this->workingRequirement($profile, $code === $clubTitle)],
+                    [$this->legacy->progressTarget($receipts, [$certificate], $count)],
+                    $this->legacy->progressExcluded($history, $receipts, [$certificate], $validAfter));
+            }
+            if ($code === $clubTitle) {
+                $winners = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $clubWinner && $this->special($receipt, $series)));
+                $winner = $winners[0] ?? null;
+                foreach ($winners as $candidate) {
+                    if (array_filter($national, fn (array $receipt): bool => $receipt['code'] === $clubCertificate && $receipt['entry_id'] !== $candidate['entry_id'] && $this->differentJudge($candidate, $receipt)) !== []) {
+                        $winner = $candidate;
+                        break;
+                    }
+                }
+                $other = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $clubCertificate
+                    && ($winner === null || ($winner['entry_id'] !== $receipt['entry_id'] && $this->differentJudge($winner, $receipt)))));
+                $targets = [];
+                if ($winner === null) {
+                    $targets[] = ['codes' => [$clubWinner], 'specialShow' => [$series]];
+                }
+                if ($other === []) {
+                    $targets[] = ['codes' => [$clubCertificate], 'excludeJudges' => $winner === null ? [] : [$winner['judgeId']]];
+                }
+                $paths[] = $this->legacy->progressPath('annual_winner_and_other_club_certificate', [...($winner === null ? [] : [$winner]), ...$other],
+                    [...$gates, $this->workingRequirement($profile, true),
+                        $this->legacy->progressRequirement('titles', 'document', (int) ($winner !== null), 1, [$clubWinner]),
+                        $this->legacy->progressRequirement('certificates', 'count', (int) ($other !== []), 1, [$clubCertificate])],
+                    $targets);
+            }
+            $goals[$code] = $this->legacy->progressGoal($code, $paths, $profile, $awards);
+        }
+        $component = $hasClub ? 'CLUB' : 'BREED';
+        foreach (['GRAND_CH_RUS' => ['CH_RUS', 'CH_'.$component], 'JGRAND_CH_RUS' => ['JCH_RUS', 'JCH_'.$component], 'VGRAND_CH_RUS' => ['VCH_RUS', 'VCH_'.$component]] as $code => $required) {
+            $receipts = array_values(array_filter($history, fn (array $receipt): bool => ($receipt['kind'] ?? '') === 'championship' && in_array($receipt['code'], $required, true)));
+            $requirements = [...$gates];
+            foreach ($required as $certificate) {
+                $requirements[] = $this->legacy->progressRequirement('titles', 'document', (int) in_array($certificate, array_column($receipts, 'code'), true), 1, [$certificate]);
+            }
+            $missing = array_values(array_diff($required, array_column($receipts, 'code')));
+            $goals[$code] = $this->legacy->progressGoal($code, [$this->legacy->progressPath('national_and_breed_championships', $receipts, $requirements, $missing === [] ? [] : [['codes' => $missing]])], $profile, $awards);
+        }
+
+        $specialGates = $this->legacy->progressProfileRequirements($profile, 'rkf', false);
+        $policies = $this->balance['special_exhibitions'] ?? [];
+        foreach ($policies['absolute_winners'] ?? [] as $code => $policy) {
+            $available = array_values(array_filter($this->available($national, $history, $code), fn (array $receipt): bool => in_array($receipt['code'], $policy['codes'], true) && $this->special($receipt, $policy['series'])));
+            $latest = $available === [] ? null : $available[array_key_last($available)];
+            $edition = $profile['showEdition'] ?? $latest['details']['showEdition'] ?? null;
+            $year = $profile['showYear'] ?? $latest['details']['showYear'] ?? null;
+            $receipts = array_values(array_filter($available, fn (array $receipt): bool => ($edition === null || ($receipt['details']['showEdition'] ?? null) === $edition)
+                && ($year === null || ($receipt['details']['showYear'] ?? null) === $year)));
+            $requirements = [...$specialGates];
+            $targets = [];
+            foreach ($policy['legs'] as $index => $leg) {
+                $legReceipts = array_values(array_filter($receipts, fn (array $receipt): bool => $receipt['code'] === $policy['codes'][$index] && ($receipt['details']['showLeg'] ?? '') === $leg));
+                $requirements[] = [...$this->legacy->progressRequirement('certificates', 'count', (int) ($legReceipts !== []), 1, [$policy['codes'][$index]]), 'showLeg' => $leg];
+                if ($legReceipts === []) {
+                    $target = ['codes' => [$policy['codes'][$index]], 'specialShow' => [$policy['series']], 'showLeg' => [$leg]];
+                    if ($edition !== null && $receipts !== []) {
+                        $target['showEdition'] = $edition;
+                    }
+                    if ($year !== null && $receipts !== []) {
+                        $target['showYear'] = $year;
+                    }
+                    $targets[] = $target;
+                }
+            }
+            $scope = $edition === null ? '' : 'edition:'.$edition;
+            $achieved = $scope !== '' && array_filter($history, fn (array $receipt): bool => ($receipt['kind'] ?? '') === 'championship' && $receipt['code'] === $code && ($receipt['scope_key'] ?? '') === $scope) !== [];
+            $goals[$code] = $this->legacy->progressGoal($code, [$this->legacy->progressPath('paired_show_winners', $receipts, $requirements, $targets,
+                $this->progressExcluded($history, $receipts, $policy['codes'], $validAfter, $code))], $profile, $awards, $scope, true, $achieved);
+        }
+        foreach ($policies['grand_championships'] ?? [] as $code => $policy) {
+            $available = $this->available($national, $history, $code);
+            $receipts = array_values(array_filter($available, fn (array $receipt): bool => $receipt['code'] === $policy['certificate']
+                && ($this->special($receipt, 'eurasia') || $this->special($receipt, 'russia'))));
+            $goals[$code] = $this->legacy->progressGoal($code, [$this->legacy->progressPath('named_show_rkf_certificates', $receipts,
+                [...$specialGates, ...$this->legacy->progressReceiptRequirements($receipts, [$policy['certificate']], $policy['count'], $policy['count'])],
+                [[...$this->legacy->progressTarget($receipts, [$policy['certificate']], $policy['count']), 'specialShow' => ['eurasia', 'russia']]],
+                $this->progressExcluded($history, $receipts, [$policy['certificate']], $validAfter, $code))], $profile, $awards, repeatable: true);
+        }
+        foreach ($policies['absolute_championships'] ?? [] as $code => $required) {
+            $receipts = array_values(array_filter($this->available($national, $history, $code), fn (array $receipt): bool => ($receipt['kind'] ?? '') === 'championship' && in_array($receipt['code'], $required, true)));
+            $requirements = [...$specialGates];
+            foreach ($required as $certificate) {
+                $requirements[] = $this->legacy->progressRequirement('titles', 'document', (int) in_array($certificate, array_column($receipts, 'code'), true), 1, [$certificate]);
+            }
+            $missing = array_values(array_diff($required, array_column($receipts, 'code')));
+            $goals[$code] = $this->legacy->progressGoal($code, [$this->legacy->progressPath('absolute_show_winners', $receipts, $requirements, $missing === [] ? [] : [['codes' => $missing]],
+                $this->progressExcluded($history, $receipts, $required, $validAfter, $code))], $profile, $awards, repeatable: true);
+        }
+
+        return array_values($goals);
+    }
+
+    /** @param list<array<string,mixed>> $credentials
+     * @return list<array<string,mixed>>
+     */
+    private function history(array $credentials, int $at): array
+    {
+        $history = array_values(array_filter($credentials, fn (array $receipt): bool => ($receipt['discipline'] ?? '') === 'conformation'
+            && ($receipt['awarded_at'] ?? PHP_INT_MAX) <= $at && ($receipt['title_id'] ?? 0) > 0));
+        usort($history, fn (array $first, array $second): int => [$first['awarded_at'], $first['title_id']] <=> [$second['awarded_at'], $second['title_id']]);
+
+        return $history;
+    }
+
+    /** @param list<array<string,mixed>> $history
+     * @param  array<string,mixed>  $profile
+     * @return array{history:list<array<string,mixed>>,profile:array<string,mixed>}
+     */
+    private function standardContext(array $history, array $profile): array
+    {
+        if (! ($profile['has_nkp'] ?? true)) {
+            $clubCodes = ['KCHK', 'JKCHK', 'VKCHK', 'CH_CLUB', 'JCH_CLUB', 'VCH_CLUB'];
+            $history = array_values(array_filter($history, fn (array $receipt): bool => ! in_array($receipt['code'], $clubCodes, true)));
+            $profile['championships'] = array_values(array_diff($profile['championships'] ?? [], $clubCodes));
+        }
+
+        return ['history' => $history, 'profile' => $profile];
+    }
+
+    /** @return list<string> */
+    private function doubledShows(string $certificate): array
+    {
+        $shows = [];
+        foreach ($this->balance['special_exhibitions']['shows'] ?? [] as $series => $policy) {
+            if (in_array($certificate, $policy['double_certificates'], true)) {
+                $shows[] = $series;
+            }
+        }
+
+        return $shows;
+    }
+
+    /** @param array<string,mixed> $profile
+     * @return array<string,mixed>
+     */
+    private function workingRequirement(array $profile, bool $adult): array
+    {
+        return $this->legacy->progressRequirement('working_certificate', 'document', (int) (! $adult || ! ($profile['working_breed'] ?? false) || ($profile['working_certificate'] ?? false)), 1);
+    }
+
+    /** @param list<array<string,mixed>> $history
+     * @param  list<array<string,mixed>>  $accepted
+     * @param  list<string>  $codes
+     * @return list<array<string,mixed>>
+     */
+    private function progressExcluded(array $history, array $accepted, array $codes, int $validAfter, string $purpose): array
+    {
+        $unused = array_column($this->available($history, $history, $purpose), 'title_id');
+        $used = array_values(array_diff(array_column($history, 'title_id'), $unused));
+
+        return $this->legacy->progressExcluded($history, $accepted, $codes, $validAfter, $used);
+    }
+
     /** @param list<array<string,mixed>> $awards
      * @param  list<array<string,mixed>>  $national
      * @param  list<array<string,mixed>>  $history
@@ -116,7 +331,7 @@ final class SpecialExhibitionChampionships
     {
         foreach (['CH_RUS' => 'CAC', 'JCH_RUS' => 'JCAC', 'VCH_RUS' => 'VCAC'] as $code => $certificate) {
             $receipts = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $certificate && $this->doubled($receipt, $certificate)));
-            $proof = $this->distinctProof($receipts, 2);
+            $proof = $this->distinctProof($receipts, $this->doubledCertificateCount());
             if ($proof !== []) {
                 $this->grant($awards, $history, $profile, $code, $proof, 'two_doubled_certificates', '');
             }
@@ -160,7 +375,7 @@ final class SpecialExhibitionChampionships
             }
         }
         if (! $hasClub) {
-            foreach (['CH_BREED' => ['KCHP', 4], 'JCH_BREED' => ['JKCHP', 3], 'VCH_BREED' => ['VKCHP', 3]] as $code => [$candidate, $count]) {
+            foreach (self::BREED_TITLE_RULES as $code => [$candidate, $count]) {
                 $receipts = array_values(array_filter($national, fn (array $receipt): bool => $receipt['code'] === $candidate));
                 $proof = $this->distinctProof($receipts, $count);
                 if ($proof !== [] && ($code !== 'CH_BREED' || ! ($profile['working_breed'] ?? false) || ($profile['working_certificate'] ?? false))) {
@@ -193,6 +408,11 @@ final class SpecialExhibitionChampionships
         }
 
         return false;
+    }
+
+    private function doubledCertificateCount(): int
+    {
+        return $this->balance['special_exhibitions']['national_exchanges']['double_count'] ?? 2;
     }
 
     /** @param list<array<string,mixed>> $receipts
@@ -236,6 +456,9 @@ final class SpecialExhibitionChampionships
     {
         $used = [];
         foreach ($history as $receipt) {
+            if (in_array('show:'.$purpose, $receipt['details']['used_for'] ?? [], true)) {
+                $used[$receipt['title_id']] = true;
+            }
             if (($receipt['kind'] ?? '') === 'championship' && in_array($receipt['details']['proof_purpose'] ?? $receipt['code'], [$purpose, 'show:'.$purpose], true)) {
                 foreach ($receipt['details']['credential_title_ids'] ?? [] as $id) {
                     $used[$id] = true;

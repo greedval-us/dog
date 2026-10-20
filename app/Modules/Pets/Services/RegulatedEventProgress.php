@@ -6,11 +6,11 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\PetSportRecord;
-use App\Models\PetTitle;
 use App\Modules\Pets\Calculators\EventChampionshipRules;
 use App\Modules\Pets\Calculators\RegionalSportChampionships;
 use App\Modules\Pets\Calculators\SpecialExhibitionChampionships;
 use App\Modules\Pets\DTO\EventRegulationData;
+use App\Modules\Pets\DTO\EventTitleCredentialData;
 use App\Modules\Pets\Queries\GetPetEventProfile;
 
 final class RegulatedEventProgress
@@ -64,15 +64,7 @@ final class RegulatedEventProgress
         return array_values($pet->titles()->whereIn('regulation_version', array_map(strval(...), range(1, $policy)))
             ->where('awarded_at', '<=', $event->ends_at)->whereIn('kind', ['certificate', 'qualification', 'comparison', 'championship'])
             ->with('consumptions')->orderBy('awarded_at')->orderBy('id')->get()
-            ->map(static fn (PetTitle $title): array => [
-                'title_id' => $title->id, 'entry_id' => $title->game_event_entry_id,
-                'code' => $title->code, 'kind' => $title->kind, 'scope_key' => $title->scope_key,
-                'regulation_version' => $title->regulation_version, 'discipline' => $title->discipline,
-                'awarded_at' => $title->awarded_at->getTimestamp(),
-                'judgeId' => $title->details['judgeId'] ?? '', 'country' => $title->details['country'] ?? '',
-                'region' => $title->details['region'] ?? '', 'rank' => $title->details['rank'] ?? '',
-                'details' => [...$title->details, 'used_for' => $title->consumptions->pluck('purpose')->all()],
-            ])->all());
+            ->map(EventTitleCredentialData::fromTitle(...))->all());
     }
 
     /**

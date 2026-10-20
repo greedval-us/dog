@@ -15,9 +15,12 @@ use Illuminate\Support\Collection;
 
 final class GetPetCareer
 {
+    public function __construct(private GetPetTitleProgress $titleProgress) {}
+
     /**
      * @return array{
      *     petId: int,
+     *     titleProgress: array{generatedAt:string,goals:list<array<string,mixed>>},
      *     titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string, count: int, eventId: int|null}>,
      *     summary: array{competitionStarts: int, competitionWins: int, exhibitionStarts: int, exhibitionWins: int, podiums: int, cups: int},
      *     results: array{entries: list<array{id: int, eventId: int, kind: string, discipline: string, frequency: string, division: string, divisionLabel: string, rank: int, prize: int, completedAt: string, petName: string, eliminated: bool}>, nextCursor: string|null, previousCursor: string|null}
@@ -26,6 +29,7 @@ final class GetPetCareer
     public function handle(User $user, int $petId, string $locale, ?Cursor $cursor = null): array
     {
         $pet = $user->pets()->with('dog')->findOrFail($petId);
+        $titleProgress = $this->titleProgress->handle($user, $pet, $locale);
         $entries = GameEventEntry::query()->where('game_event_entries.pet_id', $pet->id)
             ->where('game_event_entries.is_npc', false)->where('game_event_entries.status', 'completed')
             ->whereNotNull('game_event_entries.completed_at')->whereNotNull('game_event_entries.result')
@@ -38,6 +42,7 @@ final class GetPetCareer
 
         return [
             'petId' => $pet->id,
+            'titleProgress' => $titleProgress,
             'titles' => $this->titles($pet, $entries, $locale),
             'summary' => $this->summary($entries),
             'results' => [

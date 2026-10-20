@@ -4,6 +4,7 @@ namespace App\Modules\Pets\Services;
 
 use App\Models\Dog;
 use App\Models\GameEvent;
+use App\Modules\Pets\Calculators\GameEventCalendar;
 use App\Modules\Pets\Calculators\RegulatedEventRules;
 use App\Modules\Pets\Calculators\RegulatedEventSimulator;
 use App\Modules\Pets\Enums\GameEventDiscipline;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 final class GameEventSchedule
 {
-    public function __construct(private RegulatedEventRules $rules) {}
+    public function __construct(private RegulatedEventRules $rules, private GameEventCalendar $calendar) {}
 
     public function ensureUpcoming(?CarbonImmutable $at = null): void
     {
@@ -146,22 +147,19 @@ final class GameEventSchedule
         $calendar = config('game-events.special_calendar');
         $settings = config('game-events.disciplines.conformation');
         $breeds = Dog::query()->where('event_profile->recognized_rkf', true)->orderBy('id')->get();
-        $epoch = CarbonImmutable::parse($calendar['epoch'], $at->getTimezone())->startOfDay();
         foreach (range(0, $calendar['days_ahead']) as $offset) {
             $date = $at->startOfDay()->addDays($offset);
-            $monthIndex = max(0, (int) $epoch->diffInDays($date));
-            $year = $calendar['first_year'] + intdiv($monthIndex, $calendar['months_per_year']);
-            $edition = sprintf('%04d-%02d', $year, $monthIndex % $calendar['months_per_year'] + 1);
+            $edition = $this->calendar->editionAt($date);
             foreach ($calendar['events'] as $showIndex => $show) {
                 $startsAt = $date->setTimeFromTimeString($show['time']);
                 $judges = config('game-events.regulation_calendar.judges');
-                $judge = $judges[($monthIndex + $showIndex) % count($judges)];
+                $judge = $judges[($edition['monthIndex'] + $showIndex) % count($judges)];
                 $source = config('special_exhibitions.sources.'.(in_array($show['specialShow'], ['eurasia', 'russia'], true) ? $show['specialShow'] : 'titles'));
                 $this->create('conformation', 'monthly', $startsAt, $at, $settings, overrides: [
                     'system' => 'rkf', 'country' => 'RU', 'region' => 'moscow', 'rank' => 'cac_rkf_special', 'format' => 'conformation',
                     'specialShow' => $show['specialShow'], 'showLeg' => $show['showLeg'],
                     'judgeId' => $judge['id'], 'judgeName' => $judge['name'],
-                    'showYear' => $year, 'showEdition' => $edition,
+                    'showYear' => $edition['showYear'], 'showEdition' => $edition['showEdition'],
                     'sourceUrl' => $source,
                     'sources' => [['key' => $show['specialShow'], 'url' => $source], ['key' => 'rkf_championships', 'url' => config('special_exhibitions.sources.titles')]],
                 ]);
@@ -178,7 +176,7 @@ final class GameEventSchedule
                 $breedStartsAt = $breedStartsAt->addMinutes($calendar['breed_interval_minutes']);
                 $this->create('conformation', 'monthly', $startsAt, $at, $settings, overrides: [
                     'system' => 'rkf', 'country' => 'RU', 'rank' => 'specialty', 'format' => 'conformation', 'breedId' => $breed->id,
-                    'specialShow' => $series, 'showLeg' => '', 'showYear' => $year, 'showEdition' => $edition,
+                    'specialShow' => $series, 'showLeg' => '', 'showYear' => $edition['showYear'], 'showEdition' => $edition['showEdition'],
                     'sourceUrl' => config('special_exhibitions.sources.shows'),
                     'sources' => [['key' => 'rkf_shows_2026', 'url' => config('special_exhibitions.sources.shows')], ['key' => 'rkf_championships', 'url' => config('special_exhibitions.sources.titles')]],
                 ]);

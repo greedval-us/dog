@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Modules\Pets\Calculators\EventChampionshipRules;
+use App\Modules\Pets\Calculators\GameEventCalendar;
+use App\Modules\Pets\Calculators\GameEventTitleOpportunities;
 use App\Modules\Pets\Calculators\PetBoardingRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
@@ -40,6 +42,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(Randomizer::class, fn (): Randomizer => new Randomizer(new Secure));
         $this->app->bind(RegulatedEventRules::class, fn (): RegulatedEventRules => new RegulatedEventRules(Config::array('event_regulations')));
+        $this->app->bind(GameEventCalendar::class, fn (): GameEventCalendar => new GameEventCalendar(Config::array('game-events.special_calendar'), Config::string('game-events.timezone')));
+        $this->app->bind(GameEventTitleOpportunities::class, fn (): GameEventTitleOpportunities => new GameEventTitleOpportunities(
+            $this->app->make(RegulatedExhibitionAwards::class), $this->app->make(SpecialExhibitionAwards::class),
+            $this->app->make(RegulatedSportAwards::class), $this->app->make(RegionalSportAwards::class),
+            $this->app->make(RegulatedEventRules::class), Config::array('sport_titles.minimum_participants'),
+        ));
         $this->app->bind(RegulatedEventSimulator::class, fn (): RegulatedEventSimulator => new RegulatedEventSimulator(Config::array('event_regulations')));
         $this->app->bind(RegulatedExhibitionAwards::class, fn (): RegulatedExhibitionAwards => new RegulatedExhibitionAwards(Config::array('event_regulations')));
         $this->app->bind(RegulatedSportAwards::class, fn (): RegulatedSportAwards => new RegulatedSportAwards(Config::array('event_regulations')));

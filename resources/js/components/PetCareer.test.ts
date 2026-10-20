@@ -198,3 +198,37 @@ it.each(['en', 'ru'])(
         );
     },
 );
+
+it.each(['en', 'ru'])(
+    'shows title goals before a dog has earned any award or completed an event in %s',
+    async (locale) => {
+        const career = careerFixture();
+        career.titles = [];
+        career.results.entries = [];
+        career.titleProgress = {
+            generatedAt: '2026-10-20T12:00:00Z',
+            goals: [
+                {
+                    key: 'conformation:junior',
+                    code: 'JCH_RUS',
+                    name: 'Junior champion target',
+                    discipline: 'conformation',
+                    scopeLabel: null,
+                    status: 'in_progress',
+                    repeatable: false,
+                    earnedCount: 0,
+                    summary: 'Earn three junior certificates.',
+                    paths: [],
+                },
+            ],
+        };
+
+        const html = await renderCareer(locale, career);
+
+        expect(html).toContain(
+            locale === 'ru' ? 'Прогресс титулов' : 'Title progress',
+        );
+        expect(html).toContain('Junior champion target');
+        expect(html).toContain('Earn three junior certificates.');
+    },
+);

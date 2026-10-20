@@ -2,6 +2,7 @@
 
 namespace App\Modules\Pets\Calculators;
 
+/** @phpstan-type ExchangeRule array{counts:array<string,int>,judges:int,regions:int,distinct_events?:bool} */
 final class RegionalSportChampionships
 {
     /** @param array<string,mixed> $balance */
@@ -15,23 +16,12 @@ final class RegionalSportChampionships
     public function calculate(string $discipline, array $profile, array $credentials, int $at): array
     {
         $certificate = $this->balance['certificate_codes'][$discipline] ?? null;
-        if (! is_string($certificate) || ! ($profile['registered'] ?? false) || ! ($profile['recognized_rkf'] ?? false)) {
+        if (! is_string($certificate) || ! $this->eligibleProfile($profile)) {
             return [];
         }
-        $history = array_values(array_filter($credentials, fn (array $credential): bool => ($credential['discipline'] ?? '') === $discipline
-            && (int) ($credential['awarded_at'] ?? PHP_INT_MAX) <= $at));
-        usort($history, fn (array $first, array $second): int => [$first['awarded_at'], $first['entry_id'], $first['title_id'] ?? 0] <=> [$second['awarded_at'], $second['entry_id'], $second['title_id'] ?? 0]);
+        $history = $this->history($discipline, $credentials, $at);
         $held = array_column(array_filter($history, fn (array $credential): bool => ($credential['kind'] ?? '') === 'championship'), 'code');
-        $consumed = $this->consumedIds($history);
-        $available = [];
-        foreach ($history as $credential) {
-            $id = (int) ($credential['title_id'] ?? 0);
-            if ($id <= 0 || (int) ($credential['entry_id'] ?? 0) <= 0 || isset($consumed[$id])) {
-                continue;
-            }
-            $credential['region'] = $this->region($credential);
-            $available[] = $credential;
-        }
+        $available = $this->available($history);
         $awards = [];
         $regions = [];
         foreach ($this->withCodes($available, ['REG_'.$certificate], 'certificate') as $credential) {
@@ -40,7 +30,7 @@ final class RegionalSportChampionships
             }
         }
         foreach ($regions as $region => $regional) {
-            while (($proof = $this->select($regional, ['REG_'.$certificate => 3], 2)) !== []) {
+            while (($proof = $this->selectForRule($regional, $this->regionalRule($certificate))) !== []) {
                 $ids = array_column($proof, 'title_id');
                 $sortedIds = $ids;
                 sort($sortedIds, SORT_NUMERIC);
@@ -51,9 +41,7 @@ final class RegionalSportChampionships
         }
         if (! in_array('SPORT_NATIONAL_CH', $held, true)) {
             foreach ($this->nationalPaths($certificate) as $path => $rule) {
-                $pool = array_values(array_filter($available, fn (array $credential): bool => isset($rule['counts'][$this->requiredCode($credential['code'], $rule['counts'])])
-                    && ($credential['kind'] ?? '') === (str_starts_with($credential['code'], 'SPORT_') ? 'championship' : 'certificate')));
-                $proof = $this->select($pool, $rule['counts'], $rule['judges'], $rule['regions'], distinctEvents: $path <= 6);
+                $proof = $this->selectForRule($available, $rule);
                 if ($proof !== []) {
                     $awards[] = $this->award('SPORT_NATIONAL_CH', $proof, 'national_'.$path);
                     break;
@@ -61,13 +49,244 @@ final class RegionalSportChampionships
             }
         }
         if (! in_array('SPORT_BREED_CH', $held, true)) {
-            $proof = $this->select($this->withCodes($available, [$certificate.'_BREED'], 'certificate'), [$certificate.'_BREED' => 3], 2);
+            $proof = $this->selectForRule($available, $this->breedRule($certificate));
             if ($proof !== []) {
                 $awards[] = $this->award('SPORT_BREED_CH', $proof, 'breed_3_certificates');
             }
         }
 
         return $awards;
+    }
+
+    /**
+     * @param  array<string,mixed>  $profile
+     * @param  list<array<string,mixed>>  $credentials
+     * @return list<array<string,mixed>>
+     */
+    public function progress(string $discipline, array $profile, array $credentials, int $at): array
+    {
+        $certificate = $this->balance['certificate_codes'][$discipline] ?? null;
+        if (! is_string($certificate)) {
+            return [];
+        }
+        $sources = array_values(array_filter($credentials, fn (array $credential): bool => ($credential['discipline'] ?? '') === $discipline));
+        $history = $this->history($discipline, $credentials, $at);
+        $available = $this->available($history);
+        $held = array_values(array_filter($history, fn (array $credential): bool => ($credential['kind'] ?? '') === 'championship'));
+        $regions = [];
+        $regionalAchievements = [];
+        foreach ($history as $credential) {
+            if (! in_array($credential['code'], ['REG_'.$certificate, 'SPORT_REGIONAL_CH'], true)) {
+                continue;
+            }
+            $region = $this->region($credential);
+            if ($region !== '') {
+                $regions[$region] = true;
+                if ($credential['code'] === 'SPORT_REGIONAL_CH' && ($credential['kind'] ?? '') === 'championship') {
+                    $regionalAchievements[$region] = true;
+                }
+            }
+        }
+        $regions = array_keys($regions);
+        sort($regions, SORT_STRING);
+        $goals = [['code' => 'SPORT_REGIONAL_CH', 'scope_key' => 'region:any', 'repeatable' => true, 'achieved' => false,
+            'paths' => [$this->progressPath($profile, $sources, $history, $available, $this->regionalRule($certificate), 'regional_3_certificates', $at, excludeRegions: $regions)]]];
+        foreach ($regions as $region) {
+            $goals[] = ['code' => 'SPORT_REGIONAL_CH', 'scope_key' => 'region:'.$region, 'repeatable' => true,
+                'achieved' => isset($regionalAchievements[$region]),
+                'paths' => [$this->progressPath($profile, $sources, $history, $available, $this->regionalRule($certificate), 'regional_3_certificates', $at, $region)]];
+        }
+        $nationalAchieved = in_array('SPORT_NATIONAL_CH', array_column($held, 'code'), true);
+        $paths = [];
+        if (! $nationalAchieved) {
+            foreach ($this->nationalPaths($certificate) as $path => $rule) {
+                $paths[] = $this->progressPath($profile, $sources, $history, $available, $rule, 'national_'.$path, $at);
+            }
+        }
+        $goals[] = ['code' => 'SPORT_NATIONAL_CH', 'scope_key' => '', 'repeatable' => false, 'achieved' => $nationalAchieved, 'paths' => $paths];
+        $breedAchieved = in_array('SPORT_BREED_CH', array_column($held, 'code'), true);
+        $goals[] = ['code' => 'SPORT_BREED_CH', 'scope_key' => '', 'repeatable' => false, 'achieved' => $breedAchieved,
+            'paths' => $breedAchieved ? [] : [$this->progressPath($profile, $sources, $history, $available, $this->breedRule($certificate), 'breed_3_certificates', $at)]];
+
+        return $goals;
+    }
+
+    /**
+     * @param  array<string,mixed>  $profile
+     * @param  list<array<string,mixed>>  $sources
+     * @param  list<array<string,mixed>>  $history
+     * @param  list<array<string,mixed>>  $available
+     * @param  ExchangeRule  $rule
+     * @param  list<string>  $excludeRegions
+     * @return array<string,mixed>
+     */
+    private function progressPath(array $profile, array $sources, array $history, array $available, array $rule, string $key, int $at, ?string $region = null, array $excludeRegions = []): array
+    {
+        $codes = $this->acceptedCodes(array_keys($rule['counts']));
+        $matchesRegion = fn (array $credential): bool => ($region === null || $this->region($credential) === $region)
+            && ! in_array($this->region($credential), $excludeRegions, true);
+        $pool = array_values(array_filter($this->poolForRule($available, $rule), $matchesRegion));
+        $proof = $this->selectForRule($pool, $rule);
+        $requirements = $this->registryRequirements($profile);
+        $deficient = [];
+        foreach ($rule['counts'] as $code => $required) {
+            $receipts = array_values(array_filter($pool, fn (array $credential): bool => $this->requiredCode($credential['code'], $rule['counts']) === $code));
+            $current = count(array_unique(array_column($receipts, ($rule['distinct_events'] ?? true) ? 'entry_id' : 'title_id')));
+            $requirements[] = $this->requirement('count:'.$code, 'count', $current, $required, $this->acceptedCodes([$code]));
+            if ($current < $required) {
+                $deficient = [...$deficient, ...$this->acceptedCodes([$code])];
+            }
+        }
+        foreach (['judges' => 'judgeId', 'regions' => 'region'] as $requirement => $field) {
+            if ($rule[$requirement] > 0) {
+                $requirements[] = $this->requirement($requirement, 'distinct', $this->distinct($pool, $field), $rule[$requirement]);
+            }
+        }
+        if ($proof === [] && count(array_filter($requirements, fn (array $requirement): bool => ! $requirement['met'])) === 0) {
+            $requirements[] = $this->requirement('compatible_evidence', 'compatible', 0, 1);
+        }
+        $availableIds = array_map(fn (array $credential): int => (int) $credential['title_id'], $pool);
+        $consumed = $this->consumedIds($history);
+        $excluded = [];
+        foreach ($sources as $source) {
+            $id = (int) ($source['title_id'] ?? 0);
+            if ($id <= 0 || ! in_array($source['code'] ?? '', $codes, true) || ! $matchesRegion($source) || in_array($id, $availableIds, true)) {
+                continue;
+            }
+            $excluded[] = ['title_id' => $id, 'reason' => isset($consumed[$id]) && (int) ($source['awarded_at'] ?? PHP_INT_MAX) <= $at ? 'used' : 'ineligible'];
+        }
+        $ready = $proof !== [] && $this->eligibleProfile($profile);
+        $targets = [];
+        if (! $ready && $this->eligibleProfile($profile)) {
+            $target = ['codes' => array_values(array_unique($deficient === [] ? $codes : $deficient))];
+            if ($region !== null) {
+                $target['region'] = $region;
+            }
+            $knownRegions = array_values(array_unique(array_filter(array_column($pool, 'region'), fn (mixed $value): bool => is_string($value) && $value !== '')));
+            $regionExclusions = $excludeRegions;
+            if ($rule['regions'] > $this->distinct($pool, 'region')) {
+                $regionExclusions = [...$regionExclusions, ...$knownRegions];
+            }
+            if ($regionExclusions !== []) {
+                $target['excludeRegions'] = array_values(array_unique($regionExclusions));
+            }
+            if ($rule['judges'] > $this->distinct($pool, 'judgeId')) {
+                $judges = array_values(array_unique(array_filter(array_column($pool, 'judgeId'), fn (mixed $value): bool => is_string($value) && $value !== '')));
+                if ($judges !== []) {
+                    $target['excludeJudges'] = $judges;
+                }
+            }
+            $targets[] = $target;
+        }
+
+        return ['key' => $key, 'ready' => $ready, 'requirements' => $requirements,
+            'proof_title_ids' => array_map(fn (array $credential): int => (int) $credential['title_id'], $proof),
+            'available_title_ids' => $availableIds, 'excluded' => $excluded, 'targets' => $targets];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $credentials
+     * @return list<array<string,mixed>>
+     */
+    private function history(string $discipline, array $credentials, int $at): array
+    {
+        $history = array_values(array_filter($credentials, fn (array $credential): bool => ($credential['discipline'] ?? '') === $discipline
+            && (int) ($credential['awarded_at'] ?? PHP_INT_MAX) <= $at));
+        usort($history, fn (array $first, array $second): int => [$first['awarded_at'], $first['entry_id'], $first['title_id'] ?? 0] <=> [$second['awarded_at'], $second['entry_id'], $second['title_id'] ?? 0]);
+
+        return $history;
+    }
+
+    /** @param list<array<string,mixed>> $history
+     * @return list<array<string,mixed>>
+     */
+    private function available(array $history): array
+    {
+        $consumed = $this->consumedIds($history);
+        $available = [];
+        foreach ($history as $credential) {
+            $id = (int) ($credential['title_id'] ?? 0);
+            if ($id <= 0 || (int) ($credential['entry_id'] ?? 0) <= 0 || isset($consumed[$id])) {
+                continue;
+            }
+            $credential['region'] = $this->region($credential);
+            $available[] = $credential;
+        }
+
+        return $available;
+    }
+
+    /** @param array<string,mixed> $profile */
+    private function eligibleProfile(array $profile): bool
+    {
+        return count(array_filter($this->registryRequirements($profile), fn (array $requirement): bool => ! $requirement['met'])) === 0;
+    }
+
+    /** @param array<string,mixed> $profile
+     * @return list<array<string,mixed>>
+     */
+    private function registryRequirements(array $profile): array
+    {
+        return array_map(fn (string $key): array => $this->requirement($key, 'document', (int) ($profile[$key] ?? false), 1), ['registered', 'recognized_rkf']);
+    }
+
+    /** @param list<string> $codes
+     * @return array<string,mixed>
+     */
+    private function requirement(string $key, string $kind, int $current, int $required, array $codes = []): array
+    {
+        $requirement = ['key' => $key, 'kind' => $kind, 'current' => min($current, $required), 'required' => $required, 'met' => $current >= $required];
+        if ($codes !== []) {
+            $requirement['codes'] = $codes;
+        }
+
+        return $requirement;
+    }
+
+    /** @return ExchangeRule */
+    private function regionalRule(string $certificate): array
+    {
+        return ['counts' => ['REG_'.$certificate => 3], 'judges' => 2, 'regions' => 0];
+    }
+
+    /** @return ExchangeRule */
+    private function breedRule(string $certificate): array
+    {
+        return ['counts' => [$certificate.'_BREED' => 3], 'judges' => 2, 'regions' => 0];
+    }
+
+    /** @param list<array<string,mixed>> $pool
+     * @param  ExchangeRule  $rule
+     * @return list<array<string,mixed>>
+     */
+    private function selectForRule(array $pool, array $rule): array
+    {
+        return $this->select($this->poolForRule($pool, $rule), $rule['counts'], $rule['judges'], $rule['regions'], distinctEvents: $rule['distinct_events'] ?? true);
+    }
+
+    /** @param list<array<string,mixed>> $pool
+     * @param  ExchangeRule  $rule
+     * @return list<array<string,mixed>>
+     */
+    private function poolForRule(array $pool, array $rule): array
+    {
+        return array_values(array_filter($pool, fn (array $credential): bool => isset($rule['counts'][$this->requiredCode($credential['code'], $rule['counts'])])
+            && ($credential['kind'] ?? '') === (str_starts_with($credential['code'], 'SPORT_') ? 'championship' : 'certificate')
+            && ($rule['judges'] === 0 || trim((string) ($credential['judgeId'] ?? '')) !== '')
+            && (! str_starts_with($credential['code'], 'REG_') || ((int) ($credential['regulation_version'] ?? 1) === 2 && $credential['region'] !== ''))));
+    }
+
+    /** @param list<string> $codes
+     * @return list<string>
+     */
+    private function acceptedCodes(array $codes): array
+    {
+        $accepted = [];
+        foreach ($codes as $code) {
+            $accepted = [...$accepted, ...($code === 'SPORT_NATIONAL_DIRECT_PROOF' ? ['SPORT_CH_RUS', 'SPORT_CH_RKF', 'SPORT_CUP_RUS'] : [$code])];
+        }
+
+        return array_values(array_unique($accepted));
     }
 
     /**
@@ -92,7 +311,7 @@ final class RegionalSportChampionships
         return $consumed;
     }
 
-    /** @return array<int,array{counts:array<string,int>,judges:int,regions:int}> */
+    /** @return array<int,ExchangeRule> */
     private function nationalPaths(string $certificate): array
     {
         return [
@@ -102,8 +321,8 @@ final class RegionalSportChampionships
             4 => ['counts' => ['SPORT_CH_RKF' => 2], 'judges' => 2, 'regions' => 0],
             5 => ['counts' => ['SPORT_CH_RKF' => 1, $certificate => 2], 'judges' => 3, 'regions' => 0],
             6 => ['counts' => [$certificate => 5], 'judges' => 4, 'regions' => 3],
-            7 => ['counts' => ['SPORT_REGIONAL_CH' => 2], 'judges' => 0, 'regions' => 2],
-            8 => ['counts' => ['SPORT_REGIONAL_CH' => 1, 'SPORT_NATIONAL_DIRECT_PROOF' => 1], 'judges' => 0, 'regions' => 0],
+            7 => ['counts' => ['SPORT_REGIONAL_CH' => 2], 'judges' => 0, 'regions' => 2, 'distinct_events' => false],
+            8 => ['counts' => ['SPORT_REGIONAL_CH' => 1, 'SPORT_NATIONAL_DIRECT_PROOF' => 1], 'judges' => 0, 'regions' => 0, 'distinct_events' => false],
         ];
     }
 

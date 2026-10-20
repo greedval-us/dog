@@ -11,6 +11,7 @@ import {
 import { computed } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PetCareerAwards from '@/components/PetCareerAwards.vue';
+import PetTitleProgress from '@/components/PetTitleProgress.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -100,6 +101,10 @@ const summaries = computed(() =>
                     }}</Button
                 >
             </div>
+            <PetTitleProgress
+                v-if="data.titleProgress"
+                :progress="data.titleProgress"
+            />
             <PetCareerAwards
                 v-for="group in awardGroups"
                 :key="group.kind"
