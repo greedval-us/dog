@@ -25,7 +25,11 @@ const { now } = useDeadlineRefresh(
         props.data.skills.flatMap((skill) =>
             skill.cooldownUntil ? [skill.cooldownUntil] : [],
         ),
-    (options) => router.reload({ ...options, only: ['pet', 'skills', 'care'] }),
+    (options) =>
+        router.reload({
+            ...options,
+            only: ['pet', 'skills', 'care', 'ownership'],
+        }),
     () => form.processing,
 );
 const error = computed(() => Object.values(form.errors).join(' '));
@@ -58,7 +62,7 @@ function train(skill: PetSkill) {
     form.clearErrors();
     form.submit(store(props.pet.id), {
         preserveScroll: true,
-        only: ['pet', 'skills', 'auth', 'care'],
+        only: ['pet', 'skills', 'auth', 'care', 'ownership'],
         onSuccess: () => {
             delete selectedLevels[skill.id];
             lastAttempt = '';

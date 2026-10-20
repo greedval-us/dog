@@ -17,7 +17,7 @@ export type PetCareerResult = {
     frequency: EventFrequency;
     division: string;
     divisionLabel: string;
-    rank: number;
+    rank: number | null;
     prize: number;
     completedAt: string;
     petName: string;

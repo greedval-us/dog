@@ -25,13 +25,15 @@ test('a missing supply blocks feeding while fresh water remains available on mob
     $this->actingAs($owner->refresh());
 
     $page = visit(route('dashboard', ['pet' => $pet->id], absolute: false))
-        ->on()->mobile();
+        ->on()->mobile()->assertPresent('#pet-care');
     $page->click('button[aria-label="Wellbeing"]')
         ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
         ->keys('button[aria-label="Wellbeing"]', 'Escape')
         ->assertMissing('.help-hint-content[aria-label="Wellbeing"]');
     $page->keys('button[aria-label="Wellbeing"]', 'Tab')
+        ->assertPresent('button:focus')
         ->keys('button:focus', 'Shift+Tab')
+        ->assertPresent('button[aria-label="Wellbeing"]:focus')
         ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
         ->keys('button[aria-label="Wellbeing"]', 'Tab')
         ->assertMissing('.help-hint-content[aria-label="Wellbeing"]')

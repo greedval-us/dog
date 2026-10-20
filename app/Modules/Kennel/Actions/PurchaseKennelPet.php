@@ -7,6 +7,7 @@ use App\Models\Dog;
 use App\Models\KennelPurchase;
 use App\Models\User;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Generators\StarterPetGenerator;
@@ -28,7 +29,7 @@ final class PurchaseKennelPet
         $token = strtolower($data->token);
         $name = trim($data->name);
 
-        if (! Str::isUuid($token) || $data->dogId < 1 || $data->expectedPrice < 1 || $name === '' || mb_strlen($name) > 64) {
+        if (! Str::isUuid($token) || $data->dogId < 1 || $data->expectedPrice < 1 || $name === '' || mb_strlen($name) > 64 || KennelPetAge::tryFrom((string) $data->ageMonths) === null) {
             throw new AdoptionUnavailable('Invalid dog purchase.');
         }
         $this->lifecycle->synchronizeOwner($user);
@@ -44,7 +45,7 @@ final class PurchaseKennelPet
             $existing = KennelPurchase::query()->where('user_id', $owner->id)->where('token', $token)->first();
 
             if ($existing !== null) {
-                if ($existing->dog_id !== $data->dogId || $existing->pet_name !== $name || $existing->price_paid !== $data->expectedPrice) {
+                if ($existing->dog_id !== $data->dogId || $existing->pet_name !== $name || $existing->price_paid !== $data->expectedPrice || ($existing->age_months !== 0 && $existing->age_months !== $data->ageMonths)) {
                     throw new AdoptionUnavailable('The token was already used for a different dog purchase.');
                 }
 
@@ -90,6 +91,7 @@ final class PurchaseKennelPet
                 excludedCoatColors: config('doglive.breeding_rare_colors', []),
             ));
             $pet->user()->associate($owner);
+            $pet->born_at = now()->subDays($data->ageMonths);
             $pet->save();
 
             User::query()->whereKey($owner->id)->whereNull('starter_pet_claimed_at')
@@ -102,6 +104,7 @@ final class PurchaseKennelPet
                 'pet_name' => $name,
                 'token' => $token,
                 'price_paid' => $price,
+                'age_months' => $data->ageMonths,
                 'currency_transaction_id' => $entry->id,
             ]);
             $this->progress->refreshAchievements($owner);

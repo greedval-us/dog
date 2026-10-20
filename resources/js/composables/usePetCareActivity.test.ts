@@ -84,7 +84,7 @@ it('marks automatic completion as background while preserving an unmarked manual
         { token: 'completed-action' },
         expect.objectContaining({
             headers: { 'X-DogLive-Background': '1' },
-            only: ['pet', 'care'],
+            only: ['pet', 'care', 'ownership'],
         }),
     );
     expect(activity.completionFailed.value).toBe(true);
@@ -93,5 +93,6 @@ it('marks automatic completion as background while preserving an unmarked manual
 
     expect(post).toHaveBeenCalledTimes(2);
     expect(post.mock.calls[1][2]?.headers).toBeUndefined();
+    expect(post.mock.calls[1][2]?.only).toEqual(['pet', 'care', 'ownership']);
     expect(post.mock.calls[1][1]).toEqual({ token: 'completed-action' });
 });

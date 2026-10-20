@@ -3,6 +3,12 @@ import { useI18n } from '@/composables/useI18n';
 import type { CompetitionGear } from '@/types/competition-gear';
 import type { EventDiscipline } from '@/types/game-event';
 
+const decisionLabels: Record<string, string> = {
+    careful: 'Careful',
+    balanced: 'Balanced',
+    bold: 'Bold',
+};
+
 export function useGameEventPresentation() {
     const { locale, t, number } = useI18n();
     const dateFormatter = computed(
@@ -38,7 +44,13 @@ export function useGameEventPresentation() {
             discipline: EventDiscipline,
             key: string,
             choice: string,
-        ) => t(`events.option.${discipline}.${key}.${choice}`),
+        ) => {
+            const translation = `events.option.${discipline}.${key}.${choice}`;
+            const label = t(translation);
+            return label !== translation
+                ? label
+                : t(decisionLabels[choice] ?? choice);
+        },
         phaseLabel: (phase: string) =>
             t(
                 phase === 'preparation'

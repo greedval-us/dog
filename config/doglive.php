@@ -8,7 +8,6 @@ return [
     'dog_work_daily_offers' => 6,
     'kennel_price' => 500,
     'breeding_minimum_level' => 5,
-    'breeding_minimum_age_days' => 7,
     'breeding_cooldown_seconds' => GameplayTiming::BREEDING_COOLDOWN_SECONDS,
     'breeding_birth_seconds' => GameplayTiming::BREEDING_BIRTH_SECONDS,
     'puppy_decision_days' => 7,

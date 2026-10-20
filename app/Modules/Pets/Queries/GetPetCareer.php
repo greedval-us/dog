@@ -29,7 +29,6 @@ final class GetPetCareer
         $entries = GameEventEntry::query()->where('game_event_entries.pet_id', $pet->id)
             ->where('game_event_entries.is_npc', false)->where('game_event_entries.status', 'completed')
             ->whereNotNull('game_event_entries.completed_at')->whereNotNull('game_event_entries.result')
-            ->where('game_event_entries.rank', '>', 0)
             ->whereHas('event', fn (Builder $events) => $events->where('status', 'settled'));
         $page = (clone $entries)->with('event:id,discipline,frequency')
             ->select(['id', 'game_event_id', 'division', 'rank', 'prize', 'completed_at'])
@@ -47,7 +46,7 @@ final class GetPetCareer
                     'kind' => GameEventDiscipline::from($entry->event->discipline)->isExhibition() ? 'exhibition' : 'competition',
                     'discipline' => $entry->event->discipline, 'frequency' => $entry->event->frequency,
                     'divisionLabel' => GameEventDivisionData::label($entry->division, $locale, $pet->dog),
-                    'division' => $entry->division, 'rank' => (int) $entry->rank, 'prize' => $entry->prize,
+                    'division' => $entry->division, 'rank' => $entry->rank, 'prize' => $entry->prize,
                     'completedAt' => $entry->completed_at->toIso8601String(),
                     'petName' => (string) ($entry->getAttribute('historical_name') ?? $pet->name),
                     'eliminated' => $entry->getAttribute('was_eliminated') !== 'false',
@@ -64,11 +63,33 @@ final class GetPetCareer
      */
     private function titles(Pet $pet, Builder $entries, string $locale): array
     {
-        $wins = (clone $entries)->where('game_event_entries.rank', 1)->where('game_event_entries.result->eliminated', false);
-        $titles = $pet->titles()->whereIn('game_event_entry_id', $wins->select('game_event_entries.id'))
-            ->select('pet_titles.*')->selectRaw('count(*) over (partition by discipline, frequency) AS awards_count')
-            ->distinct(['discipline', 'frequency'])->reorder()->orderBy('discipline')->orderBy('frequency')
-            ->orderByDesc('awarded_at')->orderByDesc('id')->with('entry:id,game_event_id')->get()
+        $validResults = (clone $entries)->where('game_event_entries.result->eliminated', false);
+        $identity = ['discipline', 'code', 'class_key', 'sex', 'kind'];
+        $context = [
+            'award_frequency' => "CASE WHEN kind = 'legacy' THEN frequency ELSE NULL END",
+            'award_scope' => "CASE WHEN kind = 'championship' AND code = 'SPORT_REGIONAL_CH' THEN COALESCE(details->>'region', '') ELSE scope_key END",
+            'award_show_year' => "details->>'showYear'",
+            'award_show_edition' => "details->>'showEdition'",
+            'award_program' => "details->>'program'",
+            'award_odor' => "details->>'odor'",
+            'award_format' => "details->>'format'",
+            'award_height' => "details->>'heightCategory'",
+            'award_race_category' => "details->>'race_category'",
+        ];
+        $partition = implode(', ', [...$identity, ...array_values($context)]);
+        $query = $pet->titles()->whereIn('game_event_entry_id', (clone $entries)->select('game_event_entries.id'))
+            ->where(fn (Builder $awards) => $awards->whereIn('kind', ['championship', 'qualification'])
+                ->orWhereIn('game_event_entry_id', $validResults->select('game_event_entries.id')))
+            ->select('pet_titles.*')->selectRaw('count(*) over (partition by '.$partition.') AS awards_count');
+        foreach ($context as $alias => $expression) {
+            $query->selectRaw($expression.' AS '.$alias);
+        }
+        $distinct = [...$identity, ...array_keys($context)];
+        $query->distinct($distinct)->reorder();
+        foreach ($distinct as $column) {
+            $query->orderBy($column);
+        }
+        $titles = $query->orderByDesc('awarded_at')->orderByDesc('id')->with('entry:id,game_event_id')->get()
             ->sortByDesc('awarded_at')->values();
         $pet->setRelation('titles', $titles);
 
@@ -88,7 +109,7 @@ final class GetPetCareer
             ->select('game_events.discipline')->selectRaw('count(*) AS starts')
             ->selectRaw("count(case when game_event_entries.rank = 1 and game_event_entries.result->>'eliminated' = 'false' then 1 end) AS wins")
             ->selectRaw("count(case when game_event_entries.rank between 1 and 3 and game_event_entries.result->>'eliminated' = 'false' then 1 end) AS podiums")
-            ->selectRaw("count(case when game_events.frequency = 'weekly' and game_event_entries.rank = 1 and game_event_entries.result->>'eliminated' = 'false' then 1 end) AS cups")
+            ->selectRaw("count(case when (game_events.rules->>'version' = '3' and game_events.rules->'regulation'->>'rank' = 'cup' or game_events.rules->>'version' <> '3' and game_events.frequency = 'weekly') and game_event_entries.rank = 1 and game_event_entries.result->>'eliminated' = 'false' then 1 end) AS cups")
             ->groupBy('game_events.discipline')->toBase()->get();
         $summary = ['competitionStarts' => 0, 'competitionWins' => 0, 'exhibitionStarts' => 0, 'exhibitionWins' => 0, 'podiums' => 0, 'cups' => 0];
         foreach ($statistics as $statistic) {

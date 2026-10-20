@@ -46,7 +46,7 @@ test('other players can view the card by username without receiving private acco
                 'name' => 'Анна', 'username' => 'anna_dogs', 'bio' => 'Люблю собак.',
                 'avatarVersion' => null,
                 'joinedAt' => '2026-09-01',
-                'level' => 6, 'experience' => '4200', 'dogsCount' => 1,
+                'level' => 6, 'experience' => '4200', 'dogsCount' => 2,
                 'exhibitionWins' => 3, 'competitionWins' => 4, 'walksCount' => 31, 'trainingsCount' => 12,
                 'progress' => ['levelExperience' => '1100', 'requiredExperience' => '3200',
                     'remainingExperience' => '2100', 'percent' => 34.37, 'nextLevel' => 7],
@@ -124,12 +124,14 @@ test('player dogs show only current active ownership and localized public fields
         'breed' => 'german_shepherd', 'name' => ['ru' => 'Немецкая овчарка', 'en' => 'German Shepherd'],
     ]);
     $pet = Pet::factory()->for($player)->for($dog)->create(['name' => 'Рэй']);
-    Pet::factory()->for($player)->retired()->create();
+    $retired = Pet::factory()->for($player)->for($dog)->retired()->create(['name' => 'Старший друг']);
     Pet::factory()->for($viewer)->create();
 
     $this->actingAs($viewer)->get(route('players.show', $player->username))
         ->assertInertia(fn (Assert $page) => $page->where('dogs', [[
             'id' => $pet->id, 'name' => 'Рэй', 'breed' => $breedName, 'portraitId' => null, 'backgroundId' => null,
+        ], [
+            'id' => $retired->id, 'name' => 'Старший друг', 'breed' => $breedName, 'portraitId' => null, 'backgroundId' => null,
         ]]));
 })->with([['ru', 'Немецкая овчарка'], ['en', 'German Shepherd']]);
 

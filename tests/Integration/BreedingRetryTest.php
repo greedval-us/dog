@@ -34,8 +34,8 @@ test('retrying a mating preserves offspring and ownership while charging and res
         $stats[$stat->value] = 90;
         $stats[$stat->potentialColumn()] = 100;
     }
-    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(8), ...$stats]);
-    $sire = Pet::factory()->for($seller)->for($dog)->create(['born_at' => now()->subDays(8), ...$stats]);
+    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(18), ...$stats]);
+    $sire = Pet::factory()->for($seller)->for($dog)->create(['born_at' => now()->subDays(18), ...$stats]);
     $listing = BreedingListing::factory()->for($sire, 'pet')->for($seller)->create(['price' => 100]);
     $token = (string) Str::uuid();
     $engine = new class implements Engine

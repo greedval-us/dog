@@ -7,32 +7,79 @@ import { register, update, cancel } from '@/routes/game-events';
 import type {
     EventDecision,
     EventEquipment,
+    EventEntryOption,
+    GameEventPlan,
     GameEventEntry,
     GameEventEntryProps,
 } from '@/types/game-event';
 
 const balancedStages: EventDecision[] = ['balanced', 'balanced', 'balanced'];
+const classificationKeys = [
+    'exhibition_class',
+    'sport_class',
+    'program',
+    'test_type',
+    'handler_category',
+] as const;
 
 export function useGameEventEntry(props: GameEventEntryProps) {
     const page = usePage();
-    const entryPlan = (entry: GameEventEntry | null) => ({
+    function eventClassificationKeys(): readonly (typeof classificationKeys)[number][] {
+        switch (props.event.discipline) {
+            case 'conformation':
+                return ['exhibition_class'];
+            case 'agility':
+                return ['sport_class'];
+            case 'nosework':
+                return props.event.regulation?.format === 'odor_test'
+                    ? ['sport_class', 'program', 'test_type']
+                    : ['sport_class', 'program'];
+            case 'canicross':
+                return ['sport_class', 'handler_category'];
+            case 'progeny':
+                return [];
+        }
+    }
+    const firstDogId =
+        props.dogs.find(
+            (dog) => dog.isActive && !dog.preparation?.blockingReasons.length,
+        )?.id ??
+        props.dogs.find((dog) => dog.isActive)?.id ??
+        null;
+    const entryPlan = (entry: GameEventEntry | null): GameEventPlan => ({
         stages: [
             ...(props.event.discipline === 'progeny'
                 ? balancedStages
-                : (entry?.plan.stages ?? balancedStages)),
+                : (entry?.plan.stages ??
+                  (props.event.regulation
+                      ? props.event.stages.map(() => 'balanced' as const)
+                      : balancedStages))),
         ],
-        offspring_ids: [...(entry?.plan.offspring_ids ?? [])],
+        ...(props.event.discipline === 'progeny'
+            ? { offspring_ids: [...(entry?.plan.offspring_ids ?? [])] }
+            : {}),
+        ...(props.event.regulation
+            ? Object.fromEntries(
+                  eventClassificationKeys().flatMap((key) =>
+                      entry?.plan[key] ? [[key, entry.plan[key]]] : [],
+                  ),
+              )
+            : props.event.discipline === 'conformation'
+              ? {
+                    exhibition_class:
+                        entry?.plan.exhibition_class ??
+                        props.dogs.find(
+                            (dog) => dog.id === (entry?.petId ?? firstDogId),
+                        )?.defaultClass ??
+                        undefined,
+                }
+              : {}),
     });
     const entryGearIds = (entry: GameEventEntry | null) =>
         props.event.discipline === 'progeny' ? [] : [...(entry?.gearIds ?? [])];
     const ownEntry = computed(() => props.entry);
     const form = useForm({
-        pet_id:
-            ownEntry.value?.petId ??
-            props.dogs.find(
-                (dog) => props.event.discipline === 'progeny' || dog.isActive,
-            )?.id ??
-            null,
+        pet_id: ownEntry.value?.petId ?? firstDogId ?? null,
         fee: props.event.fee,
         plan: entryPlan(ownEntry.value),
         gear_ids: entryGearIds(ownEntry.value),
@@ -50,6 +97,111 @@ export function useGameEventEntry(props: GameEventEntryProps) {
     const selectedDog = computed(() =>
         props.dogs.find((dog) => dog.id === form.pet_id),
     );
+    const regulated = computed(() => Boolean(props.event.regulation));
+    const entryOptions = computed(() => selectedDog.value?.entryOptions ?? []);
+    const optionMatchesPlan = (option: EventEntryOption) =>
+        eventClassificationKeys().every(
+            (key) => option.plan[key] === form.plan[key],
+        );
+    const selectedEntryOption = computed(() =>
+        entryOptions.value.find(optionMatchesPlan),
+    );
+    function selectEntryOption(key: string): void {
+        const option = entryOptions.value.find((item) => item.key === key);
+        if (!option || option.eligible === false) return;
+        for (const key of classificationKeys) delete form.plan[key];
+        for (const key of eventClassificationKeys()) {
+            if (option.plan[key]) form.plan[key] = option.plan[key];
+        }
+    }
+    const selectedEntryOptionKey = computed({
+        get: () => selectedEntryOption.value?.key ?? '',
+        set: selectEntryOption,
+    });
+    const missingEntryOption = computed(
+        () =>
+            regulated.value &&
+            (!selectedEntryOption.value ||
+                selectedEntryOption.value.eligible === false),
+    );
+    const selectedExhibitionClass = computed(() =>
+        selectedDog.value?.availableClasses?.find(
+            (item) => item.key === form.plan.exhibition_class,
+        ),
+    );
+    const blockedDog = computed(() =>
+        Boolean(
+            selectedDog.value &&
+            (!selectedDog.value.isActive ||
+                selectedDog.value.preparation?.blockingReasons.length),
+        ),
+    );
+    const missingExhibitionClass = computed(
+        () =>
+            !regulated.value &&
+            props.event.discipline === 'conformation' &&
+            !selectedDog.value?.availableClasses.some(
+                (item) => item.key === form.plan.exhibition_class,
+            ),
+    );
+    watch(
+        () => [form.pet_id, selectedDog.value?.availableClasses] as const,
+        () => {
+            if (
+                regulated.value ||
+                props.event.discipline !== 'conformation' ||
+                !selectedDog.value
+            )
+                return;
+            const classes = selectedDog.value?.availableClasses ?? [];
+            if (
+                !classes.some((item) => item.key === form.plan.exhibition_class)
+            ) {
+                form.plan.exhibition_class =
+                    classes.find(
+                        (item) => item.key === selectedDog.value?.defaultClass,
+                    )?.key ?? classes[0]?.key;
+            }
+        },
+        { immediate: true },
+    );
+    watch(
+        [() => form.pet_id, entryOptions, regulated],
+        () => {
+            if (!regulated.value || !selectedDog.value) return;
+            if (
+                selectedEntryOption.value?.eligible !== false &&
+                selectedEntryOption.value
+            )
+                return;
+            if (
+                ownEntry.value &&
+                classificationKeys.some((key) => form.plan[key])
+            )
+                return;
+            const preferred =
+                entryOptions.value.find(
+                    (option) =>
+                        option.key === selectedDog.value?.defaultEntryOption &&
+                        option.eligible !== false,
+                ) ??
+                entryOptions.value.find((option) => option.eligible !== false);
+            if (preferred) selectEntryOption(preferred.key);
+            else for (const key of classificationKeys) delete form.plan[key];
+        },
+        { immediate: true },
+    );
+    watch([() => props.event.stages, regulated], () => {
+        if (
+            !regulated.value ||
+            ownEntry.value ||
+            props.event.discipline === 'progeny'
+        )
+            return;
+        form.plan.stages = props.event.stages.map(
+            (_, index) => form.plan.stages[index] ?? 'balanced',
+        );
+    });
     const registrationOpen = computed(
         () =>
             props.event.status === 'scheduled' &&
@@ -102,8 +254,22 @@ export function useGameEventEntry(props: GameEventEntryProps) {
     const missingOffspring = computed(
         () =>
             props.event.discipline === 'progeny' &&
-            form.plan.offspring_ids.length < 3,
+            (form.plan.offspring_ids?.length ?? 0) < 3,
     );
+    function applyStagePreset(stages: EventDecision[]): void {
+        if (!editable.value || pending.value || !stages.length) return;
+        form.plan.stages = regulated.value
+            ? props.event.stages.map(
+                  (_, index) =>
+                      stages[
+                          Math.round(
+                              (index * (stages.length - 1)) /
+                                  Math.max(1, props.event.stages.length - 1),
+                          )
+                      ],
+              )
+            : [...stages];
+    }
     watch(
         () => ownEntry.value?.id,
         () => {
@@ -119,7 +285,8 @@ export function useGameEventEntry(props: GameEventEntryProps) {
         () => {
             if (!ownEntry.value) {
                 form.gear_ids = [];
-                form.plan.offspring_ids = [];
+                if (props.event.discipline === 'progeny')
+                    form.plan.offspring_ids = [];
             }
         },
     );
@@ -157,7 +324,10 @@ export function useGameEventEntry(props: GameEventEntryProps) {
             !form.pet_id ||
             insufficientFunds.value ||
             missingKit.value ||
-            missingOffspring.value
+            missingOffspring.value ||
+            missingExhibitionClass.value ||
+            missingEntryOption.value ||
+            blockedDog.value
         )
             return;
         if (!form.token) form.token = operationToken();
@@ -195,6 +365,12 @@ export function useGameEventEntry(props: GameEventEntryProps) {
         now,
         pending,
         selectedDog,
+        selectedExhibitionClass,
+        regulated,
+        entryOptions,
+        selectedEntryOption,
+        selectedEntryOptionKey,
+        missingEntryOption,
         withdrawn,
         editable,
         errors,
@@ -203,6 +379,9 @@ export function useGameEventEntry(props: GameEventEntryProps) {
         validEquipment,
         missingKit,
         missingOffspring,
+        missingExhibitionClass,
+        blockedDog,
+        applyStagePreset,
         toggleGear,
         submit,
         withdraw,

@@ -11,6 +11,8 @@ final class SkillRules
 
     public const COOLDOWN_SECONDS = GameplayTiming::SKILL_COOLDOWN_SECONDS;
 
+    private const int MAX_LESSON_PRICE = 1_000_000_000;
+
     /** @param array<mixed>|null $levels */
     public function valid(?array $levels): bool
     {
@@ -20,7 +22,7 @@ final class SkillRules
 
         $previous = [];
         foreach ($levels as $level) {
-            if (! is_array($level) || ! is_int($level['price'] ?? null) || $level['price'] < 1 || $level['price'] > 1000000000
+            if (! is_array($level) || ! is_int($level['price'] ?? null) || $level['price'] < 1 || $level['price'] > self::MAX_LESSON_PRICE
                 || ! is_array($level['requirements'] ?? null) || $level['requirements'] === []) {
                 return false;
             }

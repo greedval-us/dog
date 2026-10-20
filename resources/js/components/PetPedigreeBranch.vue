@@ -64,7 +64,9 @@ const relations = { root: 'Selected dog', father: 'Father', mother: 'Mother' };
                     t(
                         node.pet.status === 'retired'
                             ? 'Retired'
-                            : 'In loving memory',
+                            : node.pet.status === 'surrendered'
+                              ? 'Passed on to a shelter'
+                              : 'In loving memory',
                     )
                 }}
             </span>

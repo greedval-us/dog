@@ -147,7 +147,7 @@ function start(): void {
         ),
     })).post(store.url(props.pet.id), {
         preserveScroll: true,
-        only: ['pet', 'care'],
+        only: ['pet', 'care', 'ownership'],
         onSuccess: () => {
             open.value = false;
         },

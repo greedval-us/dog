@@ -7,8 +7,10 @@ use App\Models\Pet;
 use App\Modules\Pets\Enums\PetStat;
 
 /**
- * @phpstan-type Summary array{id: int, name: string, breed: string, sex: string, coatColor: string, generation: int, status: string, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
- * @phpstan-type Profile array{id: int, name: string, breed: string, sex: string, size: string, coatColor: string, generation: int, description: string|null, bornAt: string, isPurebred: bool, traits: list<string>, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null}, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
+ * @phpstan-import-type Age from PetAgeData
+ *
+ * @phpstan-type Summary array{id: int, name: string, breed: string, sex: string, coatColor: string, generation: int, age: Age, status: string, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
+ * @phpstan-type Profile array{id: int, name: string, breed: string, sex: string, size: string, coatColor: string, generation: int, description: string|null, bornAt: string, age: Age, isPurebred: bool, traits: list<string>, stats: array<string, array{value: int, potential: int}>, lifecycle: array{status: string, archivedAt: string|null}, hasPedigree: bool, exterior: array{type: int, structure: int, movement: int}, titles: list<array{name: string, discipline: string, frequency: string, awardedAt: string}>}
  */
 final readonly class PublicPetProfileData
 {
@@ -34,6 +36,7 @@ final readonly class PublicPetProfileData
             'generation' => $pet->generation,
             'description' => $pet->description,
             'bornAt' => $pet->born_at->toIso8601String(),
+            'age' => PetAgeData::fromPet($pet),
             'isPurebred' => $pet->is_purebred,
             'traits' => array_values($pet->characterTraits->map(fn (CharacterTrait $trait): string => $trait->code)->all()),
             'stats' => $stats,
@@ -56,6 +59,7 @@ final readonly class PublicPetProfileData
             'breed' => $pet->dog->localizedName($locale),
             'sex' => $pet->sex->value,
             'coatColor' => self::coatColor($pet, $locale),
+            'age' => PetAgeData::fromPet($pet),
             'generation' => $pet->generation,
             'status' => self::status($pet),
             'hasPedigree' => self::hasPedigree($pet),
@@ -66,7 +70,7 @@ final readonly class PublicPetProfileData
 
     private static function status(Pet $pet): string
     {
-        return $pet->died_at !== null ? 'deceased' : ($pet->retired_at !== null ? 'retired' : 'active');
+        return $pet->died_at !== null ? 'deceased' : ($pet->surrendered_at !== null ? 'surrendered' : ($pet->retired_at !== null ? 'retired' : 'active'));
     }
 
     private static function coatColor(Pet $pet, string $locale): string

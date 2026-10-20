@@ -7,6 +7,7 @@ namespace App\Modules\Pets\Calculators;
  * @phpstan-import-type BoardingPeriod from PetBoardingRules
  *
  * @phpstan-type StatBalance array{decay_per_hour: array<string, int|float>, minimum: int}
+ * @phpstan-type Aging array{born_at: int, lifespan_months: int}
  */
 final class PetDecayCalculator
 {
@@ -18,11 +19,12 @@ final class PetDecayCalculator
      * @param  array<string, int>  $maximums
      * @param  list<Effect>  $effects
      * @param  list<BoardingPeriod>  $boarding
+     * @param  Aging|null  $age
      * @return array<string, float>
      */
-    public function states(array $values, array $maximums, int $from, int $to, array $effects, array $boarding = []): array
+    public function states(array $values, array $maximums, int $from, int $to, array $effects, array $boarding = [], ?array $age = null): array
     {
-        foreach ($this->intervals($from, $to, $effects, $boarding) as [$start, $end, $modifiers, $period]) {
+        foreach ($this->intervals($from, $to, $effects, $boarding, $age) as [$start, $end, $modifiers, $period]) {
             if ($period !== null) {
                 $values['satiety'] = (float) $maximums['satiety'];
                 $values['hydration'] = (float) $maximums['hydration'];
@@ -42,15 +44,16 @@ final class PetDecayCalculator
      * @param  array<string, int>  $maximums
      * @param  list<Effect>  $effects
      * @param  list<BoardingPeriod>  $boarding
+     * @param  Aging|null  $age
      * @return array{values: array<string, float>, diedAt: int|null}
      */
-    public function statesUntilDeath(array $values, array $maximums, int $from, int $to, array $effects, array $boarding = []): array
+    public function statesUntilDeath(array $values, array $maximums, int $from, int $to, array $effects, array $boarding = [], ?array $age = null): array
     {
         if ($values['health'] <= 0) {
             return ['values' => $values, 'diedAt' => $from];
         }
 
-        $advanced = $this->states($values, $maximums, $from, $to, $effects, $boarding);
+        $advanced = $this->states($values, $maximums, $from, $to, $effects, $boarding, $age);
         if ($advanced['health'] > 0) {
             return ['values' => $advanced, 'diedAt' => null];
         }
@@ -59,14 +62,14 @@ final class PetDecayCalculator
         $latest = $to;
         while ($earliest < $latest) {
             $middle = $earliest + intdiv($latest - $earliest, 2);
-            if ($this->states($values, $maximums, $from, $middle, $effects, $boarding)['health'] <= 0) {
+            if ($this->states($values, $maximums, $from, $middle, $effects, $boarding, $age)['health'] <= 0) {
                 $latest = $middle;
             } else {
                 $earliest = $middle + 1;
             }
         }
 
-        return ['values' => $this->states($values, $maximums, $from, $earliest, $effects, $boarding), 'diedAt' => $earliest];
+        return ['values' => $this->states($values, $maximums, $from, $earliest, $effects, $boarding, $age), 'diedAt' => $earliest];
     }
 
     /**
@@ -74,13 +77,14 @@ final class PetDecayCalculator
      * @param  array<string, float>  $remainders
      * @param  list<Effect>  $effects
      * @param  list<BoardingPeriod>  $boarding
+     * @param  Aging|null  $age
      * @return array{values: array<string, int>, remainders: array<string, float>}
      */
-    public function stats(array $values, array $remainders, int $from, int $to, array $effects, array $boarding = []): array
+    public function stats(array $values, array $remainders, int $from, int $to, array $effects, array $boarding = [], ?array $age = null): array
     {
-        foreach ($this->intervals($from, $to, $effects, $boarding) as [$start, $end, $modifiers, $period]) {
+        foreach ($this->intervals($from, $to, $effects, $boarding, $age) as [$start, $end, $modifiers, $period]) {
             foreach ($values as $stat => $value) {
-                $modifier = max(-50, min(50, ($modifiers['stats_decay_percent'] ?? 0) + ($modifiers[$stat.'_decay_percent'] ?? 0)));
+                $modifier = max(PetStatusRules::MIN_MODIFIER_PERCENT, min(PetStatusRules::MAX_MODIFIER_PERCENT, ($modifiers['stats_decay_percent'] ?? 0) + ($modifiers[$stat.'_decay_percent'] ?? 0)));
                 $rate = $period['stat_rates'][$stat] ?? $this->balance['decay_per_hour'][$stat] ?? 0;
                 $loss = ($remainders[$stat] ?? 0) + max(0, $rate) * ($end - $start) / PetBoardingRules::SECONDS_PER_HOUR * (100 + $modifier) / 100;
                 $whole = (int) floor(round($loss, 10));
@@ -98,9 +102,10 @@ final class PetDecayCalculator
      *
      * @param  list<Effect>  $effects
      * @param  list<BoardingPeriod>  $boarding
+     * @param  Aging|null  $age
      * @return list<array{int, int, array<string, int>, BoardingPeriod|null}>
      */
-    private function intervals(int $from, int $to, array $effects, array $boarding): array
+    private function intervals(int $from, int $to, array $effects, array $boarding, ?array $age): array
     {
         if ($to <= $from) {
             return [];
@@ -108,6 +113,13 @@ final class PetDecayCalculator
 
         $timed = [];
         $boundaries = [$from, $to];
+        if ($age !== null) {
+            $firstMonth = max(PetAgeRules::SENIOR_AGE_MONTHS, intdiv($from - $age['born_at'], PetAgeRules::SECONDS_PER_MONTH) + 1);
+            $lastMonth = min($age['lifespan_months'], intdiv($to - $age['born_at'], PetAgeRules::SECONDS_PER_MONTH));
+            for ($month = $firstMonth; $month <= $lastMonth; $month++) {
+                $boundaries[] = $age['born_at'] + $month * PetAgeRules::SECONDS_PER_MONTH;
+            }
+        }
         foreach ($boarding as $period) {
             if ($period['ends_at'] > $from && $period['starts_at'] < $to) {
                 $boundaries[] = max($from, $period['starts_at']);
@@ -130,7 +142,14 @@ final class PetDecayCalculator
         for ($i = 0; $i < count($boundaries) - 1; $i++) {
             $start = $boundaries[$i];
             $active = array_values(array_filter($timed, fn (array $effect): bool => $effect['starts_at'] <= $start && $effect['expires_at'] > $start));
-            $intervals[] = [$start, $boundaries[$i + 1], $this->statuses->modifiers($active), $this->boardingAt($boarding, $start)];
+            $modifiers = $this->statuses->modifiers($active);
+            if ($age !== null) {
+                $months = max(0, intdiv($start - $age['born_at'], PetAgeRules::SECONDS_PER_MONTH));
+                foreach ((new PetAgeRules)->agingModifiers($months, $age['lifespan_months']) as $key => $value) {
+                    $modifiers[$key] = ($modifiers[$key] ?? 0) + $value;
+                }
+            }
+            $intervals[] = [$start, $boundaries[$i + 1], $modifiers, $this->boardingAt($boarding, $start)];
         }
 
         return $intervals;

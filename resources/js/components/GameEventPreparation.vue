@@ -19,6 +19,8 @@ import type { EventDiscipline, EventDog } from '@/types/game-event';
 const props = defineProps<{
     dog: EventDog;
     discipline: EventDiscipline;
+    exhibitionClassLabel?: string;
+    classificationLabel?: string;
     closesAt: string;
     updatedAt: string;
     refreshing: boolean;
@@ -28,6 +30,13 @@ defineEmits<{ refresh: [] }>();
 const { t, number } = useI18n();
 const { date, decimal } = useGameEventPresentation();
 const preparation = computed(() => props.dog.preparation);
+const divisionLabel = computed(
+    () =>
+        props.classificationLabel ??
+        (props.discipline === 'conformation'
+            ? props.exhibitionClassLabel
+            : preparation.value?.divisionLabel),
+);
 const stateLabels: Record<string, string> = {
     energy: 'Energy',
     health: 'Health',
@@ -113,7 +122,12 @@ const careToRestore = computed(() =>
                     "
                 />
             </div>
-            <span class="event-badge">{{ preparation.divisionLabel }}</span>
+            <span
+                v-if="divisionLabel"
+                class="event-badge"
+                data-testid="preparation-division"
+                >{{ divisionLabel }}</span
+            >
         </div>
         <ul
             v-if="preparation.blockingReasons.length"

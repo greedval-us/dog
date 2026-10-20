@@ -179,10 +179,10 @@ test('an unlocked achievement keeps its first date after refreshes and a later l
     $this->assertDatabaseCount('currency_transactions', 0);
 });
 
-test('the pack achievement counts only the players active dogs', function () {
+test('the pack achievement counts all living owned dogs including retirees', function () {
     $this->seed(AchievementSeeder::class);
     $player = User::factory()->create();
-    Pet::factory()->for($player)->count(2)->create();
+    Pet::factory()->for($player)->create();
     Pet::factory()->for($player)->retired()->create();
     Pet::factory()->for($player)->deceased()->create();
     Pet::factory()->count(3)->create();

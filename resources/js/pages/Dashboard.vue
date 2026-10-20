@@ -9,6 +9,7 @@ import Heading from '@/components/Heading.vue';
 import PetCondition from '@/components/PetCondition.vue';
 import PetDetails from '@/components/PetDetails.vue';
 import PetHero from '@/components/PetHero.vue';
+import PetOwnershipActions from '@/components/PetOwnershipActions.vue';
 import PetQuickActions from '@/components/PetQuickActions.vue';
 import PetSlots from '@/components/PetSlots.vue';
 import type { PetSlot } from '@/types/pet-slot';
@@ -21,6 +22,7 @@ import type { PlayerPet } from '@/types/pet';
 import type { PetCare } from '@/types/pet-care';
 import type { PetSkills } from '@/types/pet-skill';
 import type { PetCareer } from '@/types/pet-career';
+import type { PetOwnership } from '@/types/pet-market';
 
 defineProps<{
     pet: PlayerPet | null;
@@ -30,11 +32,12 @@ defineProps<{
     care?: PetCare | null;
     skills?: PetSkills | null;
     career?: PetCareer | null;
+    ownership?: PetOwnership | null;
 }>();
 const { t } = useI18n();
 
 usePoll(60_000, {
-    only: ['pet', 'care', 'skills'],
+    only: ['pet', 'care', 'skills', 'ownership'],
     headers: backgroundRequestHeaders,
 });
 </script>
@@ -151,7 +154,8 @@ usePoll(60_000, {
                             <PetAppearanceControls
                                 v-if="
                                     appearance &&
-                                    pet.lifecycle.status === 'active'
+                                    (pet.lifecycle.status === 'active' ||
+                                        pet.lifecycle.status === 'retired')
                                 "
                                 :pet-id="pet.id"
                                 :appearance="appearance"
@@ -189,7 +193,11 @@ usePoll(60_000, {
                                 </p>
                                 <Button
                                     :disabled="reloading"
-                                    @click="router.reload({ only: ['care'] })"
+                                    @click="
+                                        router.reload({
+                                            only: ['care', 'ownership'],
+                                        })
+                                    "
                                     >{{ t('Retry') }}</Button
                                 >
                             </div>
@@ -204,6 +212,12 @@ usePoll(60_000, {
                     </Deferred>
                 </aside>
             </div>
+            <PetOwnershipActions
+                v-if="ownership"
+                :key="pet.id"
+                :pet="pet"
+                :ownership="ownership"
+            />
             <PetDetails
                 :key="pet.id"
                 :pet="pet"

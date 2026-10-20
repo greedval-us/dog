@@ -10,6 +10,8 @@ import PlayerAchievementController from './PlayerAchievementController'
 import PetProfileController from './PetProfileController'
 import PetPedigreeController from './PetPedigreeController'
 import RetirePetController from './RetirePetController'
+import PetSaleController from './PetSaleController'
+import PetSurrenderController from './PetSurrenderController'
 import PetHistoryController from './PetHistoryController'
 import PetThoughtController from './PetThoughtController'
 import CareItemController from './CareItemController'
@@ -43,6 +45,8 @@ PlayerAchievementController: Object.assign(PlayerAchievementController, PlayerAc
 PetProfileController: Object.assign(PetProfileController, PetProfileController),
 PetPedigreeController: Object.assign(PetPedigreeController, PetPedigreeController),
 RetirePetController: Object.assign(RetirePetController, RetirePetController),
+PetSaleController: Object.assign(PetSaleController, PetSaleController),
+PetSurrenderController: Object.assign(PetSurrenderController, PetSurrenderController),
 PetHistoryController: Object.assign(PetHistoryController, PetHistoryController),
 PetThoughtController: Object.assign(PetThoughtController, PetThoughtController),
 CareItemController: Object.assign(CareItemController, CareItemController),

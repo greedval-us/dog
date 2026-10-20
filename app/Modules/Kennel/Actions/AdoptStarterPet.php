@@ -6,6 +6,7 @@ use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
@@ -22,6 +23,9 @@ final class AdoptStarterPet
 
     public function handle(User $user, AdoptStarterPetData $data): Pet
     {
+        if (KennelPetAge::tryFrom((string) $data->ageMonths) === null) {
+            throw new AdoptionUnavailable('ownership.errors.age');
+        }
         $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $data): Pet {
@@ -57,6 +61,7 @@ final class AdoptStarterPet
                 excludedCoatColors: config('doglive.breeding_rare_colors', []),
             ));
             $pet->user()->associate($user);
+            $pet->born_at = now()->subDays($data->ageMonths);
             $pet->save();
             $this->progress->refreshAchievements($owner);
 

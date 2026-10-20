@@ -33,7 +33,7 @@ final class PetLifecycleSynchronization
         return DB::transaction(function () use ($user, $at, &$thresholds): array {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $this->assertCanAdvance($owner, $at);
-            $pets = $owner->pets()->whereNull('retired_at')->whereNull('died_at')->orderBy('id')->lockForUpdate()->get();
+            $pets = $owner->pets()->whereNull('surrendered_at')->whereNull('died_at')->orderBy('id')->lockForUpdate()->get();
             $completedCareIds = $this->boarding->cover($owner, $pets, $at, $thresholds);
             foreach ($pets as $pet) {
                 if (($pet->boarding_periods ?? []) !== []) {
@@ -48,7 +48,7 @@ final class PetLifecycleSynchronization
                 }
                 $elapsed = clone $pet;
                 $elapsed->advanceTo($at, $this->decay);
-                if ($elapsed->archivedAt() === null) {
+                if ($elapsed->archivedAt() === null && ! $elapsed->isDirty('retired_at')) {
                     continue;
                 }
                 $completedCareId = $this->completeDueCare($owner, $pet, $at, $thresholds);
@@ -56,7 +56,7 @@ final class PetLifecycleSynchronization
                     $completedCareIds[] = $completedCareId;
                 }
                 $pet->advanceTo($at, $this->decay);
-                if ($pet->archivedAt() !== null && ($pet->isDirty() || $pet->isBusy())) {
+                if ($pet->isDirty() || $pet->isBusy()) {
                     $this->persist($pet);
                 }
             }
@@ -91,6 +91,7 @@ final class PetLifecycleSynchronization
     /** The caller must hold the owner and pet row locks in that order. */
     public function persist(Pet $pet): void
     {
+        $retired = $pet->isDirty('retired_at') && $pet->retired_at !== null;
         $archivedAt = $pet->archivedAt();
         if ($archivedAt !== null) {
             $pet->clearActivity();
@@ -102,10 +103,15 @@ final class PetLifecycleSynchronization
         $pet->save();
 
         if ($archivedAt !== null) {
-            $code = $pet->died_at === null ? 'life.retirement' : 'life.death';
+            $code = $pet->died_at === null ? 'life.surrender' : 'life.death';
             $this->history->record($pet, $code, $code.':'.$pet->id, $archivedAt, [
-                'stage' => 'completed', 'automatic' => $pet->retired_at?->equalTo($pet->automaticRetirementAt()) ?? false,
+                'stage' => 'completed', 'automatic' => false,
                 'changes' => [],
+            ]);
+        }
+        if ($retired) {
+            $this->history->record($pet, 'life.retirement', 'life.retirement:'.$pet->id.':'.$pet->retired_at->getTimestamp(), $pet->retired_at, [
+                'stage' => 'completed', 'automatic' => false, 'changes' => [],
             ]);
         }
     }

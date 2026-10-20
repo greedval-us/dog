@@ -1,11 +1,14 @@
 <?php
 
+use App\Models\Dog;
 use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\InventoryItem;
 use App\Models\Pet;
+use App\Models\PetSportRecord;
 use App\Models\User;
 use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\Enums\DogSize;
 use Illuminate\Support\Facades\Vite;
 
 beforeEach(function () {
@@ -13,6 +16,180 @@ beforeEach(function () {
     Vite::useHotFile(storage_path('framework/testing-vite.hot'));
     config(['inertia.ssr.enabled' => false]);
     $this->freezeSecond();
+});
+
+/**
+ * @param  list<string>  $stages
+ * @param  array<string,mixed>  $regulation
+ */
+function regulatedBrowserEvent(string $discipline, array $stages, array $regulation = []): GameEvent
+{
+    return GameEvent::factory()->create([
+        'discipline' => $discipline,
+        'rules' => [
+            'version' => 3, 'fee' => 25, 'prizes' => [100, 60, 40], 'stages' => $stages, 'energy_cost' => 10, 'field_size' => 8,
+            'regulation' => array_replace([
+                'version' => 1, 'system' => 'rkf', 'rank' => $discipline === 'conformation' ? 'cac_rkf' : 'qualifying',
+                'format' => $discipline, 'country' => 'RU', 'region' => 'Moscow', 'judgeId' => 'browser-judge', 'judgeName' => 'Judge One',
+                'sourceUrl' => config('event_regulations.sources.'.($discipline === 'conformation' ? 'rkf_shows_2026' : 'rkf_nosework_2026_09')),
+            ], $regulation),
+        ],
+    ]);
+}
+
+test('a v2 Eurasia show keeps its edition and sources while a young dog saves an eligible class on Russian mobile', function () {
+    $owner = User::factory()->create(['locale' => 'ru', 'coins' => 500]);
+    $breed = Dog::factory()->create([
+        'breed' => 'german_shepherd', 'size' => DogSize::Large,
+        'name' => ['en' => 'German Shepherd', 'ru' => 'Немецкая овчарка'],
+    ]);
+    $pet = Pet::factory()->for($owner)->for($breed, 'dog')->create(['name' => 'Руна', 'born_at' => now()->subDays(16)]);
+    $showSource = config('special_exhibitions.sources.eurasia');
+    $titleSource = config('event_regulations.sources.rkf_championships');
+    $event = regulatedBrowserEvent('conformation', ['type', 'structure', 'movement'], [
+        'version' => 2, 'system' => 'rkf', 'rank' => 'cac_rkf_special', 'specialShow' => 'eurasia', 'showLeg' => 'president',
+        'showYear' => 2050, 'showEdition' => '2050-05', 'region' => 'moscow',
+        'sourceUrl' => $showSource,
+        'sources' => [['key' => 'eurasia', 'url' => $showSource], ['key' => 'rkf_championships', 'url' => $titleSource]],
+    ]);
+    $this->actingAs($owner->refresh());
+    $page = visit(route('game-events.show', $event, absolute: false), [
+        'viewport' => ['width' => 390, 'height' => 900], 'colorScheme' => 'dark',
+    ]);
+
+    $page->assertSee('Немецкая овчарка')
+        ->assertSeeIn('.event-overview .event-regulation p.event-note', 'Евразия')
+        ->assertSeeIn('.event-overview .event-regulation', 'чемпион РКФ с особым статусом')
+        ->assertSeeIn('.event-overview .event-regulation', 'Игровой год: 2050')
+        ->assertSeeIn('.event-overview .event-regulation', 'Игровой выпуск: 2050-05')
+        ->assertCount('.event-overview .event-regulation a.text-link', 2)
+        ->assertAttribute('.event-overview .event-regulation a[href="'.$showSource.'"]', 'target', '_blank')
+        ->assertAttribute('.event-overview .event-regulation a[href="'.$titleSource.'"]', 'rel', 'noopener noreferrer')
+        ->assertEnabled('#event-entry-option option[value="junior"]')
+        ->assertEnabled('#event-entry-option option[value="intermediate"]')
+        ->assertEnabled('#event-entry-option option[value="open"]')
+        ->assertDisabled('#event-entry-option option[value="working"]')
+        ->assertDisabled('#event-entry-option option[value="champion"]')
+        ->assertSee('Для рабочего класса нужен рабочий сертификат.')
+        ->select('#event-entry-option', 'intermediate')
+        ->click('input[name="event-stage-0"][value="bold"]')
+        ->click('.event-form-actions button[type="submit"]')
+        ->assertSee('Сохранить план')
+        ->refresh()
+        ->assertSelected('#event-entry-option', 'intermediate')
+        ->assertChecked('input[name="event-stage-0"][value="bold"]')
+        ->assertSee('Промежуточный класс')
+        ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->assertNoJavaScriptErrors();
+
+    $page->script('document.querySelector(".event-overview .event-regulation").scrollIntoView({ block: "center", behavior: "instant" })');
+    $page->screenshot(fullPage: false, filename: 'regulated-eurasia-summary-mobile');
+    $page->script('document.querySelector(".event-classification").scrollIntoView({ block: "center", behavior: "instant" })');
+    $page->screenshot(fullPage: false, filename: 'regulated-show-classes-mobile');
+
+    $entry = GameEventEntry::query()->where('game_event_id', $event->id)->where('user_id', $owner->id)->sole();
+    expect($entry->pet_id)->toBe($pet->id);
+    expect($entry->division)->toBe('intermediate:breed-'.$breed->id.':male');
+    expect($entry->plan)->toMatchArray(['stages' => ['bold', 'balanced', 'balanced'], 'exhibition_class' => 'intermediate']);
+});
+
+test('a combined agility plan saves and edits all six stages after a reload', function (string $locale, int $width, string $colorScheme) {
+    $owner = User::factory()->create(['locale' => $locale, 'coins' => 500]);
+    $pet = Pet::factory()->for($owner)->create(['name' => 'Milo', 'born_at' => now()->subDays(30)]);
+    PetSportRecord::factory()->for($pet)->create([
+        'discipline' => 'agility', 'regulatory_progress' => ['agility_level' => 2, 'agility_available_levels' => [2, 3]],
+    ]);
+    $event = regulatedBrowserEvent('agility', [
+        'agility_opening', 'agility_technical', 'agility_finish', 'jumping_opening', 'jumping_technical', 'jumping_finish',
+    ], [
+        'version' => 2, 'rank' => 'certificate', 'format' => 'agility_combined', 'region' => 'moscow',
+        'sourceUrl' => config('event_regulations.sources.rkf_agility_2026'),
+    ]);
+    $this->actingAs($owner->refresh());
+    $page = visit(route('game-events.show', $event, absolute: false), [
+        'viewport' => ['width' => $width, 'height' => 900], 'colorScheme' => $colorScheme,
+    ]);
+
+    $page->assertSeeIn('.event-overview .event-regulation', $locale === 'ru' ? 'Двоеборье: аджилити и джампинг' : 'Agility and jumping combined')
+        ->assertCount('fieldset.event-stage', 6)
+        ->assertSeeIn('fieldset.event-stage:nth-of-type(1) legend', $locale === 'ru' ? 'Аджилити — начало трассы' : 'Agility — course opening')
+        ->assertSeeIn('fieldset.event-stage:nth-of-type(6) legend', $locale === 'ru' ? 'Джампинг — финиш' : 'Jumping — finish')
+        ->assertSelected('#event-entry-option', 'agility_2')
+        ->select('#event-entry-option', 'agility_3')
+        ->press($locale === 'ru' ? 'Беречь силы к финишу' : 'Save for the finish')
+        ->assertChecked('input[name="event-stage-0"][value="careful"]')
+        ->assertChecked('input[name="event-stage-1"][value="careful"]')
+        ->assertChecked('input[name="event-stage-2"][value="balanced"]')
+        ->assertChecked('input[name="event-stage-3"][value="balanced"]')
+        ->assertChecked('input[name="event-stage-4"][value="bold"]')
+        ->assertChecked('input[name="event-stage-5"][value="bold"]')
+        ->click('.event-form-actions button[type="submit"]')
+        ->assertSee($locale === 'ru' ? 'Сохранить план' : 'Save performance plan')
+        ->refresh()
+        ->assertSelected('#event-entry-option', 'agility_3')
+        ->assertCount('fieldset.event-stage', 6)
+        ->assertChecked('input[name="event-stage-0"][value="careful"]')
+        ->assertChecked('input[name="event-stage-5"][value="bold"]')
+        ->click('input[name="event-stage-5"][value="careful"]')
+        ->click('.event-form-actions button[type="submit"]')
+        ->assertSee($locale === 'ru' ? 'План выступления сохранён.' : 'Your performance plan has been saved.')
+        ->refresh()
+        ->assertChecked('input[name="event-stage-0"][value="careful"]')
+        ->assertChecked('input[name="event-stage-5"][value="careful"]')
+        ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->assertNoJavaScriptErrors();
+    $page->script('document.querySelector("fieldset.event-stage:last-of-type").scrollIntoView({ block: "center", behavior: "instant" })');
+    $page->screenshot(fullPage: false, filename: 'regulated-agility-combined-'.$locale.'-'.$width);
+
+    $entry = GameEventEntry::query()->where('game_event_id', $event->id)->where('user_id', $owner->id)->sole();
+    expect($entry->pet_id)->toBe($pet->id);
+    expect($entry->plan)->toMatchArray(['sport_class' => 'agility_3', 'stages' => ['careful', 'careful', 'balanced', 'balanced', 'bold', 'careful']]);
+    expect($owner->fresh()->coins)->toBe(475);
+    $this->assertDatabaseCount('currency_transactions', 1);
+})->with([
+    'English desktop' => ['en', 1440, 'light'],
+    'Russian mobile' => ['ru', 390, 'dark'],
+]);
+
+test('nosework registration retains a selected program and a four stage preset after reload', function () {
+    $owner = User::factory()->create(['locale' => 'en', 'coins' => 500]);
+    $pet = Pet::factory()->for($owner)->create(['name' => 'Milo']);
+    PetSportRecord::factory()->for($pet)->create([
+        'discipline' => 'nosework',
+        'regulatory_progress' => [
+            'nosework_levels' => ['pr1' => 0, 'pr2' => 0],
+            'nosework_tests' => ['pr1' => ['birch', 'lavender', 'anise'], 'pr2' => ['cinnamon', 'orange', 'clove']],
+        ],
+    ]);
+    $event = regulatedBrowserEvent('nosework', ['interior', 'exterior', 'objects', 'transport']);
+    $this->actingAs($owner->refresh());
+    $page = visit(route('game-events.show', $event, absolute: false), [
+        'viewport' => ['width' => 1440, 'height' => 900], 'colorScheme' => 'light',
+    ]);
+
+    $page->assertSelected('#event-entry-option', 'nw_0:pr1')
+        ->assertCount('fieldset.event-stage', 4)
+        ->assertEnabled('#event-entry-option option[value="nw_0:pr2"]')
+        ->assertDisabled('#event-entry-option option[value="nw_1:pr2"]')
+        ->select('#event-entry-option', 'nw_0:pr2')
+        ->press('Save for the finish')
+        ->assertChecked('input[name="event-stage-3"][value="bold"]')
+        ->click('.event-form-actions button[type="submit"]')
+        ->assertSee('Save performance plan')
+        ->refresh()
+        ->assertSelected('#event-entry-option', 'nw_0:pr2')
+        ->assertCount('fieldset.event-stage', 4)
+        ->assertChecked('input[name="event-stage-3"][value="bold"]')
+        ->assertSeeIn('.event-classification > .event-note', 'Program 2')
+        ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->assertNoJavaScriptErrors();
+
+    $page->script('document.querySelector(".event-classification").scrollIntoView({ block: "center", behavior: "instant" })');
+    $page->screenshot(fullPage: false, filename: 'regulated-nosework-program-desktop');
+
+    $entry = GameEventEntry::query()->where('game_event_id', $event->id)->where('user_id', $owner->id)->sole();
+    expect($entry->division)->toBe('nw_0:pr2');
+    expect($entry->plan)->toMatchArray(['stages' => ['careful', 'balanced', 'balanced', 'bold'], 'sport_class' => 'nw_0', 'program' => 'pr2']);
 });
 
 test('dog preparation and equipment update while heat navigation preserves an unsaved plan', function (string $locale, int $width, string $colorScheme) {

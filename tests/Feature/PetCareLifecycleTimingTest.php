@@ -118,11 +118,11 @@ test('care that finishes before a later death applies and awards once before fre
     expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.death')->count())->toBe(1);
 });
 
-test('care that finishes before automatic retirement is preserved and awarded once at the six month cutoff', function () {
-    $retirementAt = now();
-    $this->travelTo($retirementAt->subMinute());
+test('care that finishes before natural death applies once and freezes at the actual end of the dogs lifespan', function () {
+    $deathAt = now();
+    $this->travelTo($deathAt->subMinute());
     $pet = Pet::factory()->create([
-        'born_at' => '2026-04-03 12:00:00', 'health' => 100, 'health_max' => 100,
+        'born_at' => $deathAt->subDays(144), 'lifespan_months' => 144, 'health' => 100, 'health_max' => 100,
         'satiety' => 80, 'satiety_max' => 100, 'hydration' => 25, 'hydration_max' => 100, 'speed' => 50,
     ]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'water', [], (string) Str::uuid());
@@ -132,22 +132,22 @@ test('care that finishes before automatic retirement is preserved and awarded on
     app(PetLifecycle::class)->synchronizeOwner($pet->user);
 
     $archived = $pet->fresh();
-    expect($archived->retired_at)->toEqual($retirementAt);
-    expect($archived->died_at)->toBeNull();
-    expect($archived->state_updated_at)->toEqual($retirementAt);
-    expect($archived->stats_updated_at)->toEqual($retirementAt);
+    expect($archived->retired_at)->toBeNull();
+    expect($archived->died_at)->toEqual($deathAt);
+    expect($archived->state_updated_at)->toEqual($deathAt);
+    expect($archived->stats_updated_at)->toEqual($deathAt);
     expect($archived->hydration)->toBe(59.9167);
     expect($care->fresh()->completed_at)->not->toBeNull();
     expect($care->fresh()->cancelled_at)->toBeNull();
     expect($care->fresh()->experience_awarded)->toBe(10);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10']);
-    $snapshot = $archived->getAttributes();
 
     $this->travel(60)->days();
     app(PetLifecycle::class)->synchronizeOwner($pet->user);
     expect(app(CompletePetCare::class)->handle($pet->user, $pet->id, $care->token))->toBeFalse();
-    expect($pet->fresh()->getAttributes())->toBe($snapshot);
+    expect($pet->fresh()->died_at)->toEqual($deathAt);
+    expect($pet->fresh()->retired_at)->toBeNull();
     expect($pet->user->fresh()->pet_statistics)->toBe(['care.water' => 1]);
     expect(PetHistoryEntry::query()->where('source_key', 'care:'.$care->id.':completed')->count())->toBe(1);
-    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
+    expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.death')->count())->toBe(1);
 });

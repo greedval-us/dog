@@ -73,7 +73,7 @@ test('other players can read localized dog information without owner secrets or 
     )->assertDontSee('private.owner@example.com')->assertDontSee('d945e3bc-86da-4fbb-a1a8-736c30cd152a');
     expect(array_keys($response->inertiaProps('profile')))->toBe([
         'id', 'name', 'breed', 'sex', 'size', 'coatColor', 'generation', 'description',
-        'bornAt', 'isPurebred', 'traits', 'stats', 'lifecycle', 'hasPedigree',
+        'bornAt', 'age', 'isPurebred', 'traits', 'stats', 'lifecycle', 'hasPedigree',
         'exterior', 'titles',
     ]);
 })->with([['ru', 'Овчарка', 'Чёрный'], ['en', 'Shepherd', 'Black']]);
@@ -168,7 +168,7 @@ test('archived dogs retain their frozen characteristics in public cards', functi
     $viewer = User::factory()->create();
     $pet = Pet::factory()->create([
         'user_id' => null, 'born_at' => '2026-02-01 12:00:00',
-        'retired_at' => $status === 'retired' ? '2026-09-01 12:00:00' : null,
+        'surrendered_at' => $status === 'surrendered' ? '2026-09-01 12:00:00' : null,
         'died_at' => $status === 'deceased' ? '2026-09-01 12:00:00' : null,
         'strength' => 73, 'strength_potential' => 119,
         'stats_updated_at' => '2026-09-01 12:00:00', 'state_updated_at' => '2026-09-01 12:00:00',
@@ -181,7 +181,7 @@ test('archived dogs retain their frozen characteristics in public cards', functi
             ->where('profile.lifecycle', ['status' => $status, 'archivedAt' => '2026-09-01T12:00:00+00:00'])
         );
     expect($pet->fresh()->getAttributes())->toBe($snapshot);
-})->with(['retired', 'deceased']);
+})->with(['surrendered', 'deceased']);
 
 test('historical kennel parents keep their fixed characteristics without aging in cards or trees', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-04 12:00:00'));
@@ -205,11 +205,11 @@ test('historical kennel parents keep their fixed characteristics without aging i
     expect($partner->fresh()->getAttributes())->toBe($snapshot);
 });
 
-test('foreign cards and trees project overdue lifecycle transitions without writing the dog', function () {
+test('foreign cards and trees project senior aging while keeping its career open without writing the dog', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-04 12:00:00'));
     $viewer = User::factory()->create();
     $father = Pet::factory()->create([
-        'born_at' => '2026-04-04 12:00:00', 'stats_updated_at' => '2026-10-03 12:00:00',
+        'born_at' => now()->subDays(120), 'stats_updated_at' => '2026-10-03 12:00:00',
         'state_updated_at' => '2026-10-04 12:00:00', 'strength' => 100, 'strength_potential' => 120,
     ]);
     $child = Pet::factory()->for($father->dog)->create(['user_id' => null, 'father_id' => $father->id]);
@@ -217,12 +217,12 @@ test('foreign cards and trees project overdue lifecycle transitions without writ
 
     $this->actingAs($viewer)->get(route('pets.show', $father))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('profile.lifecycle.status', 'retired')
-            ->where('profile.lifecycle.archivedAt', '2026-10-04T12:00:00+00:00')
+            ->where('profile.lifecycle.status', 'active')
+            ->where('profile.lifecycle.archivedAt', null)
             ->where('profile.stats.strength.value', fn (int $value): bool => $value < 100)
         );
     $this->get(route('pets.pedigree', $child))
-        ->assertInertia(fn (Assert $page) => $page->where('pedigree.root.father.pet.status', 'retired'));
+        ->assertInertia(fn (Assert $page) => $page->where('pedigree.root.father.pet.status', 'active'));
     expect($father->fresh()->getAttributes())->toBe($snapshot);
 });
 

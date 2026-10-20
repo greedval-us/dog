@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 /**
  * @phpstan-type Decision 'careful'|'balanced'|'bold'
- * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>}
+ * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>, exhibition_class?:string, sport_class?:string, program?:string, test_type?:string, handler_category?:string}
  * @phpstan-type Pedigree array{generation:int, knownParents:int<0, 2>}
  * @phpstan-type BaseSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree}
  * @phpstan-type PetSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree:Pedigree}
@@ -15,7 +15,7 @@ use InvalidArgumentException;
  * @phpstan-type Gear array{id:int, name:array<string, string>, slot:'body'|'line'|'handler'|'preparation', phase:'preparation'|'performance', modifiers:GearModifiers}
  * @phpstan-type OffspringTitle array{code:string, discipline?:string, frequency?:string}
  * @phpstan-type Offspring array{id?:int, name?:string, exterior:array<string, int|float>, titles:list<OffspringTitle>}
- * @phpstan-type Snapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree, gear:list<Gear>, modifiers:GearModifiers, offspring:list<Offspring>}
+ * @phpstan-type Snapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree, gear:list<Gear>, modifiers:GearModifiers, offspring:list<Offspring>, age_months?:int,sex?:string,exhibition_class?:string|null,profile?:array<string,mixed>,regulation?:array<string,mixed>}
  * @phpstan-type Rules array{version:int, fee:int, prizes:list<int>, stages:list<string>, energy_cost:int, field_size:int, time_limit:int}
  * @phpstan-type Modifiers array{precision:float, stamina:float, pace:float, focus:float}
  * @phpstan-type Preparation array{careMultiplier:float, initialFatigue:float, initialFocus:float, states:array<string, float>, normalizedStats:array<string, float>, modifiers:Modifiers}

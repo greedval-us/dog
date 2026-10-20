@@ -34,8 +34,8 @@ function breedingPair(): array
         $caps[$stat->value] = 90;
         $caps[$stat->potentialColumn()] = 100;
     }
-    $dam = Pet::factory()->female()->for($damOwner)->for($dog)->create(['born_at' => now()->subDays(8), ...$caps]);
-    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(8), ...$caps]);
+    $dam = Pet::factory()->female()->for($damOwner)->for($dog)->create(['born_at' => now()->subDays(18), ...$caps]);
+    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(18), ...$caps]);
     $listing = BreedingListing::factory()->for($sire, 'pet')->for($sireOwner)->create(['price' => 100, 'is_active' => true]);
 
     return [$damOwner, $sireOwner, $dam, $sire, $listing];
@@ -93,7 +93,7 @@ test('a mating rejects unavailable parents without payment or litter', function 
 })->with([
     'too young' => [fn () => ['born_at' => now()->subDays(6)], 'breeding.errors.young'],
     'cooldown' => [fn () => ['breeding_available_at' => now()->addHour()], 'breeding.errors.cooldown'],
-    'retired' => [fn () => ['retired_at' => now()], 'breeding.errors.archived'],
+    'retired' => [fn () => ['retired_at' => now()], 'breeding.errors.retired'],
 ]);
 
 test('level comes from earned experience and ownership is rechecked', function () {
@@ -242,7 +242,7 @@ test('the mating market paginates offers and forecasts a selected offer beyond t
     [$owner, $seller, $dam] = breedingPair();
     $last = null;
     for ($index = 0; $index < 12; $index++) {
-        $pet = Pet::factory()->for($seller)->for($dam->dog)->create(['born_at' => now()->subDays(8)]);
+        $pet = Pet::factory()->for($seller)->for($dam->dog)->create(['born_at' => now()->subDays(18)]);
         $last = BreedingListing::factory()->for($pet, 'pet')->for($seller)->create(['price' => 100]);
     }
 

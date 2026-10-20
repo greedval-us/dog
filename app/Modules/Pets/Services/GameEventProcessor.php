@@ -85,7 +85,7 @@ final class GameEventProcessor
                 ->filter(fn (User $owner): bool => $owner->boarding_plan !== PetBoardingPlan::Off);
             $pets = Pet::query()->where(fn (Builder $query) => $query->whereIn('id', $entries->pluck('pet_id')->filter())
                 ->orWhere(fn (Builder $boardingPets) => $boardingPets->whereIn('user_id', $boardingOwners->keys())
-                    ->whereNull('retired_at')->whereNull('died_at')))
+                    ->active()))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($event->status === 'registration') {
                 $this->coverBoardingOwners($boardingOwners, $pets, $event->closes_at, $thresholds);

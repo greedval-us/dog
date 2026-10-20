@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
+import sale from './sale'
 import history from './history'
 import thoughts from './thoughts'
 import care from './care'
@@ -32,7 +33,7 @@ show.url = (args: { pet: number | { id: number } } | [pet: number | { id: number
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { pet: args.id }
         }
-    
+
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -104,7 +105,7 @@ show.head = (args: { pet: number | { id: number } } | [pet: number | { id: numbe
                     }),
             method: 'get',
         })
-    
+
     show.form = showForm
 /**
 * @see \App\Http\Controllers\PetPedigreeController::__invoke
@@ -134,7 +135,7 @@ pedigree.url = (args: { pet: number | { id: number } } | [pet: number | { id: nu
             if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
             args = { pet: args.id }
         }
-    
+
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -206,7 +207,7 @@ pedigree.head = (args: { pet: number | { id: number } } | [pet: number | { id: n
                     }),
             method: 'get',
         })
-    
+
     pedigree.form = pedigreeForm
 /**
 * @see \App\Http\Controllers\RetirePetController::__invoke
@@ -233,7 +234,7 @@ retire.url = (args: { pet: string | number } | [pet: string | number ] | string 
         args = { pet: args }
     }
 
-    
+
     if (Array.isArray(args)) {
         args = {
                     pet: args[0],
@@ -280,12 +281,93 @@ retire.post = (args: { pet: string | number } | [pet: string | number ] | string
             action: retire.url(args, options),
             method: 'post',
         })
-    
+
     retire.form = retireForm
+/**
+* @see \App\Http\Controllers\PetSurrenderController::__invoke
+ * @see app/Http/Controllers/PetSurrenderController.php:16
+ * @route '/pets/{pet}/surrender'
+ */
+export const surrender = (args: { pet: number | { id: number } } | [pet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: surrender.url(args, options),
+    method: 'post',
+})
+
+surrender.definition = {
+    methods: ["post"],
+    url: '/pets/{pet}/surrender',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\PetSurrenderController::__invoke
+ * @see app/Http/Controllers/PetSurrenderController.php:16
+ * @route '/pets/{pet}/surrender'
+ */
+surrender.url = (args: { pet: number | { id: number } } | [pet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { pet: args }
+    }
+
+            if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+            args = { pet: args.id }
+        }
+
+    if (Array.isArray(args)) {
+        args = {
+                    pet: args[0],
+                }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+                        pet: typeof args.pet === 'object'
+                ? args.pet.id
+                : args.pet,
+                }
+
+    return surrender.definition.url
+            .replace('{pet}', parsedArgs.pet.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PetSurrenderController::__invoke
+ * @see app/Http/Controllers/PetSurrenderController.php:16
+ * @route '/pets/{pet}/surrender'
+ */
+surrender.post = (args: { pet: number | { id: number } } | [pet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: surrender.url(args, options),
+    method: 'post',
+})
+
+    /**
+* @see \App\Http\Controllers\PetSurrenderController::__invoke
+ * @see app/Http/Controllers/PetSurrenderController.php:16
+ * @route '/pets/{pet}/surrender'
+ */
+    const surrenderForm = (args: { pet: number | { id: number } } | [pet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+        action: surrender.url(args, options),
+        method: 'post',
+    })
+
+            /**
+* @see \App\Http\Controllers\PetSurrenderController::__invoke
+ * @see app/Http/Controllers/PetSurrenderController.php:16
+ * @route '/pets/{pet}/surrender'
+ */
+        surrenderForm.post = (args: { pet: number | { id: number } } | [pet: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+            action: surrender.url(args, options),
+            method: 'post',
+        })
+
+    surrender.form = surrenderForm
 const pets = {
     show: Object.assign(show, show),
 pedigree: Object.assign(pedigree, pedigree),
 retire: Object.assign(retire, retire),
+sale: Object.assign(sale, sale),
+surrender: Object.assign(surrender, surrender),
 history: Object.assign(history, history),
 thoughts: Object.assign(thoughts, thoughts),
 care: Object.assign(care, care),

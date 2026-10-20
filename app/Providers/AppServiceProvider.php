@@ -2,11 +2,20 @@
 
 namespace App\Providers;
 
+use App\Modules\Pets\Calculators\EventChampionshipRules;
 use App\Modules\Pets\Calculators\PetBoardingRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStateCalculator;
 use App\Modules\Pets\Calculators\PetStatusRules;
+use App\Modules\Pets\Calculators\RegionalSportAwards;
+use App\Modules\Pets\Calculators\RegionalSportChampionships;
+use App\Modules\Pets\Calculators\RegulatedEventRules;
+use App\Modules\Pets\Calculators\RegulatedEventSimulator;
+use App\Modules\Pets\Calculators\RegulatedExhibitionAwards;
+use App\Modules\Pets\Calculators\RegulatedSportAwards;
+use App\Modules\Pets\Calculators\SpecialExhibitionAwards;
+use App\Modules\Pets\Calculators\SpecialExhibitionChampionships;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
@@ -30,6 +39,19 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(Randomizer::class, fn (): Randomizer => new Randomizer(new Secure));
+        $this->app->bind(RegulatedEventRules::class, fn (): RegulatedEventRules => new RegulatedEventRules(Config::array('event_regulations')));
+        $this->app->bind(RegulatedEventSimulator::class, fn (): RegulatedEventSimulator => new RegulatedEventSimulator(Config::array('event_regulations')));
+        $this->app->bind(RegulatedExhibitionAwards::class, fn (): RegulatedExhibitionAwards => new RegulatedExhibitionAwards(Config::array('event_regulations')));
+        $this->app->bind(RegulatedSportAwards::class, fn (): RegulatedSportAwards => new RegulatedSportAwards(Config::array('event_regulations')));
+        $this->app->bind(EventChampionshipRules::class, fn (): EventChampionshipRules => new EventChampionshipRules(Config::array('event_regulations')));
+        $this->app->bind(RegionalSportAwards::class, fn (): RegionalSportAwards => new RegionalSportAwards($this->app->make(RegulatedSportAwards::class), Config::array('sport_titles')));
+        $this->app->bind(RegionalSportChampionships::class, fn (): RegionalSportChampionships => new RegionalSportChampionships(Config::array('sport_titles')));
+        $this->app->bind(SpecialExhibitionAwards::class, fn (): SpecialExhibitionAwards => new SpecialExhibitionAwards($this->app->make(RegulatedExhibitionAwards::class), [
+            ...Config::array('event_regulations'), 'special_exhibitions' => Config::array('special_exhibitions'),
+        ]));
+        $this->app->bind(SpecialExhibitionChampionships::class, fn (): SpecialExhibitionChampionships => new SpecialExhibitionChampionships($this->app->make(EventChampionshipRules::class), [
+            ...Config::array('event_regulations'), 'special_exhibitions' => Config::array('special_exhibitions'),
+        ]));
         $this->app->bind(PetBoardingRules::class, function (): PetBoardingRules {
             /** @var BoardingBalance $balance */
             $balance = Config::array('pet_boarding');

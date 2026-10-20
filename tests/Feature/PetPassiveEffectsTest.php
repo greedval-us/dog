@@ -56,12 +56,13 @@ test('stats stop at the configured floor without reviving zero stats or accumula
     expect($pet->stat_decay_remainders['speed'])->toEqual(0);
 });
 
-test('retired dogs and future stat snapshots never decay', function (bool $retired) {
+test('living retirees continue stat decay while future stat snapshots remain unchanged', function (bool $retired) {
+    config(['pet_stats.decay_per_hour' => ['speed' => 1]]);
     $pet = Pet::factory()->create(['speed' => 10, 'retired_at' => $retired ? now() : null,
-        'stats_updated_at' => $retired ? now()->subYear() : now()->addDay()]);
+        'stats_updated_at' => $retired ? now()->subHours(2) : now()->addDay()]);
     $pet->advanceTo(now(), app(PetDecayCalculator::class));
-    expect($pet->speed)->toBe(10);
-    expect($pet->stat_decay_remainders)->toBeNull();
+    expect($pet->speed)->toBe($retired ? 8 : 10);
+    expect($pet->stat_decay_remainders === null)->toBe(! $retired);
 })->with([true, false]);
 
 test('passive effects affect only their actual lifetime including expiry while offline', function () {

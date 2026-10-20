@@ -95,18 +95,19 @@ test('scarce money is allocated in time order across dogs rather than all to the
     expect(CurrencyTransaction::query()->where('reason', 'pet_boarding')->count())->toBe(2);
 });
 
-test('boarding never revives a dog which died before care could start and skips archives', function () {
+test('boarding never revives a dog which died before care could start and covers living retirees', function () {
     $user = User::factory()->create(['coins' => 10, 'boarding_plan' => 'cheap', 'boarding_enabled_at' => now(), 'last_seen_at' => now()]);
     $pet = Pet::factory()->create(['user_id' => $user->id, 'health' => 1, 'satiety' => 0, 'hydration' => 0]);
-    Pet::factory()->retired()->create(['user_id' => $user->id]);
+    $retired = Pet::factory()->retired()->create(['user_id' => $user->id]);
     Pet::factory()->deceased()->create(['user_id' => $user->id]);
 
     $this->travel(2)->hours();
     app(PetLifecycle::class)->synchronizeOwner($user);
 
-    expect($user->fresh()->coins)->toBe(10);
+    expect($user->fresh()->coins)->toBe(8);
     expect($pet->fresh()->died_at)->toEqual(now()->subHours(2)->addMinutes(12));
-    expect(CurrencyTransaction::query()->where('reason', 'pet_boarding')->exists())->toBeFalse();
+    expect($retired->fresh()->satiety)->toBe(100.0);
+    expect(CurrencyTransaction::query()->where('reason', 'pet_boarding')->count())->toBe(1);
 });
 
 test('changing a boarding plan settles the previous absence first and preserves the already paid hour', function () {

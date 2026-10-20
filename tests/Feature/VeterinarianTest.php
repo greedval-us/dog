@@ -254,7 +254,7 @@ test('foreign dogs and foreign disease episodes cannot be treated', function () 
     $this->assertDatabaseCount('currency_transactions', 0);
 });
 
-test('guests blocked players busy and retired dogs cannot purchase services', function () {
+test('guests blocked players and busy dogs cannot purchase services while retirees receive care', function () {
     $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
     $payload = veterinaryPayload($pet, 'checkup');
     $this->get(route('veterinarian.index'))->assertRedirect(route('login'));
@@ -265,9 +265,9 @@ test('guests blocked players busy and retired dogs cannot purchase services', fu
     $pet->update(['activity' => PetActivity::Sleep]);
     $this->post(route('veterinarian.store'), $payload)->assertSessionHasErrors('visit');
     $pet->update(['activity' => null, 'retired_at' => now()]);
-    $this->post(route('veterinarian.store'), $payload)->assertSessionHasErrors('visit');
-    expect($pet->user->fresh()->coins)->toBe(500);
-    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->post(route('veterinarian.store'), $payload)->assertSessionHasNoErrors();
+    expect($pet->user->fresh()->coins)->toBe(440);
+    $this->assertDatabaseCount('currency_transactions', 1);
 });
 
 test('request validation rejects invalid services prices tokens and diagnoses', function (array $changes, string $error) {

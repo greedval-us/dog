@@ -140,8 +140,8 @@ test('new litters are born and their parents can breed again at fifteen seconds 
     $dog = Dog::query()->where('breed', 'german_shepherd')->firstOrFail();
     $owner = User::factory()->create(['experience' => '1500', 'coins' => 1000]);
     $sireOwner = User::factory()->create(['experience' => '1500']);
-    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(8)]);
-    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(8)]);
+    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(18)]);
+    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(18)]);
     $listing = BreedingListing::factory()->for($sire, 'pet')->for($sireOwner)->create(['price' => 100]);
     $start = app(StartBreeding::class);
     $litter = $start->handle($owner, $dam->id, 'listing', $listing->id, 100, (string) Str::uuid());

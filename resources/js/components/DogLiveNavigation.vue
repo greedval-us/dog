@@ -17,6 +17,7 @@ import { computed } from 'vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
+import { index as dogMarket } from '@/routes/pet-market';
 import { index as shop } from '@/routes/shop';
 import { index as inventory } from '@/routes/inventory';
 import { index as dogWork } from '@/routes/dog-work';
@@ -31,6 +32,7 @@ const page = usePage();
 const items = computed(() => [
     { label: 'My dog', icon: PawPrint, href: dashboard(), settings: false },
     { label: 'Kennel', icon: House, href: kennel(), settings: false },
+    { label: 'Dog market', icon: PawPrint, href: dogMarket(), settings: false },
     { label: 'Shop', icon: ShoppingBag, href: shop(), settings: false },
     { label: 'Inventory', icon: Backpack, href: inventory(), settings: false },
     { label: 'Breeding', icon: Heart, href: breeding(), settings: false },

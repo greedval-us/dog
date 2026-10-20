@@ -4,8 +4,10 @@ namespace App\Http\Requests;
 
 use App\Models\User;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class PurchaseKennelPetRequest extends FormRequest
 {
@@ -29,6 +31,7 @@ class PurchaseKennelPetRequest extends FormRequest
             'name' => ['required', 'string', 'max:64'],
             'expected_price' => ['required', 'integer', 'min:1'],
             'adoption_token' => ['required', 'uuid'],
+            'age_months' => ['required', 'integer', Rule::enum(KennelPetAge::class)],
         ];
     }
 
@@ -39,6 +42,7 @@ class PurchaseKennelPetRequest extends FormRequest
             name: $this->validated('name'),
             expectedPrice: (int) $this->validated('expected_price'),
             token: $this->validated('adoption_token'),
+            ageMonths: (int) $this->validated('age_months'),
         );
     }
 

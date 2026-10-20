@@ -5,12 +5,12 @@ use App\Modules\Pets\Enums\GameEventDiscipline;
 
 test('physical admission returns every blocking reason in priority order', function (array $changes, array $expected) {
     $pet = array_replace([
-        'active' => true, 'retiresAt' => new DateTimeImmutable('2026-10-05 12:00:00 UTC'),
+        'active' => true, 'retired' => false, 'ageMonths' => 18, 'retiresAt' => new DateTimeImmutable('2026-10-05 12:00:00 UTC'),
         'health' => 100.0, 'hasDisease' => false, 'energyPercentage' => 100.0, 'energy' => 100.0,
         'busy' => false, 'activityEndsAt' => null,
     ], $changes);
     $event = [
-        'endsAt' => new DateTimeImmutable('2026-10-04 13:10:00 UTC'),
+        'startsAt' => new DateTimeImmutable('2026-10-04 13:00:00 UTC'),
         'closesAt' => new DateTimeImmutable('2026-10-04 12:45:00 UTC'), 'energyCost' => 20.0,
     ];
 
@@ -20,9 +20,12 @@ test('physical admission returns every blocking reason in priority order', funct
 })->with([
     'ready' => [[], []],
     'archived' => [['active' => false], ['events.errors.archived']],
-    'retires at event end' => [['retiresAt' => new DateTimeImmutable('2026-10-04 13:10:00 UTC')], ['events.errors.archived']],
-    'retires before event end' => [['retiresAt' => new DateTimeImmutable('2026-10-04 13:09:59 UTC')], ['events.errors.archived']],
-    'retires after event end' => [['retiresAt' => new DateTimeImmutable('2026-10-04 13:10:01 UTC')], []],
+    'legacy automatic retirement at event start does not end an active career' => [['retiresAt' => new DateTimeImmutable('2026-10-04 13:00:00 UTC')], []],
+    'legacy automatic retirement before event start does not end an active career' => [['retiresAt' => new DateTimeImmutable('2026-10-04 12:59:59 UTC')], []],
+    'retires during event' => [['retiresAt' => new DateTimeImmutable('2026-10-04 13:00:01 UTC')], []],
+    'too young for sport' => [['ageMonths' => 17], ['events.errors.young']],
+    'senior dog keeps an active career' => [['ageMonths' => 96], []],
+    'voluntary career retirement' => [['retired' => true], ['events.errors.archived']],
     'health below minimum' => [['health' => 59.99], ['events.errors.health']],
     'health at minimum' => [['health' => 60.0], []],
     'active disease despite full health' => [['hasDisease' => true], ['events.errors.health']],
@@ -40,12 +43,12 @@ test('physical admission returns every blocking reason in priority order', funct
 
 test('documentary admission ignores the physical condition and activity of the parent', function () {
     $pet = [
-        'active' => false, 'retiresAt' => new DateTimeImmutable('2026-10-03 12:00:00 UTC'),
+        'active' => true, 'retired' => false, 'ageMonths' => 30, 'retiresAt' => new DateTimeImmutable('2026-10-05 12:00:00 UTC'),
         'health' => 0.0, 'hasDisease' => true, 'energyPercentage' => 0.0, 'energy' => 0.0,
         'busy' => true, 'activityEndsAt' => null,
     ];
     $event = [
-        'endsAt' => new DateTimeImmutable('2026-10-04 13:10:00 UTC'),
+        'startsAt' => new DateTimeImmutable('2026-10-04 13:00:00 UTC'),
         'closesAt' => new DateTimeImmutable('2026-10-04 12:45:00 UTC'), 'energyCost' => 20.0,
     ];
 

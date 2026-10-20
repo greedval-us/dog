@@ -42,7 +42,7 @@ class SynchronizePetLifecycle
             $user = $request->route('user');
         }
         if (! $user instanceof User || ! $request->routeIs(
-            'dashboard', 'game-events.*', 'breeding.*', 'puppies.*', 'dog-work.*', 'veterinarian.*',
+            'dashboard', 'game-events.*', 'breeding.*', 'puppies.*', 'dog-work.*', 'veterinarian.*', 'pet-market.*',
             'pets.care.*', 'pets.skills.*', 'pets.retire', 'pets.thoughts.*', 'pets.appearance.*',
             'pets.history.*', 'pet-slots.*', 'kennel.*', 'care-items',
             'players.show', 'players.achievements', 'players.memorial.*',

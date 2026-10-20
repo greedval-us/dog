@@ -15,7 +15,11 @@ final class PetStateSynchronizer
         private GetPetStatuses $statuses,
     ) {}
 
-    /** Advance the in-memory snapshot before recalculating its current effects. */
+    /**
+     * Advance the mutable pet snapshot before recalculating its current effects.
+     *
+     * @phpstan-impure
+     */
     public function advance(Pet $pet, CarbonImmutable $at): PetStatusData
     {
         $pet->advanceTo($at, $this->decay);

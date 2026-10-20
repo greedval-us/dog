@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Schema;
 /** @param array<string, mixed> $attributes */
 function legacyPet(array $attributes = []): Pet
 {
-    $pet = Pet::factory()->make($attributes);
+    $pet = Pet::withoutEvents(fn (): Pet => Pet::factory()->make($attributes));
     $pet->setRawAttributes(array_intersect_key($pet->getAttributes(), array_flip(Schema::getColumnListing('pets'))));
-    $pet->save();
+    $pet->saveQuietly();
 
     return $pet;
 }
@@ -89,7 +89,7 @@ test('appearance migration refuses to discard existing photos', function () {
 
 test('standardizing energy updates existing dogs without refilling spent energy or resetting state clocks', function (int $maximum, float $energy, float $expected) {
     $migration = $this->prepareLegacySchema('2026_09_26_080015_standardize_dog_energy_capacity');
-    $dog = Dog::factory()->create(['energy_max' => $maximum, 'health_max' => 120]);
+    $dog = Dog::factory()->createQuietly(['energy_max' => $maximum, 'health_max' => 120]);
     $pet = legacyPet([
         'dog_id' => $dog->id,
         'energy_max' => $maximum, 'energy' => $energy, 'satiety' => 42,

@@ -3,6 +3,7 @@ import { Link, router } from '@inertiajs/vue3';
 import { Check, ChevronDown, Trophy } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
+import EventEntryClassification from '@/components/EventEntryClassification.vue';
 import GameEventPreparation from '@/components/GameEventPreparation.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import FormField from '@/components/FormField.vue';
@@ -13,10 +14,11 @@ import { useGameEventEntry } from '@/composables/useGameEventEntry';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import { useI18n } from '@/composables/useI18n';
 import { index as shop } from '@/routes/shop';
-import type { EventDecision, GameEventEntryProps } from '@/types/game-event';
+import type { GameEventEntryProps } from '@/types/game-event';
+import { formatAgeMonths } from '@/lib/petAge';
 
 const props = defineProps<GameEventEntryProps>();
-const { t, number } = useI18n();
+const { t, number, locale } = useI18n();
 const { stageLabel, optionLabel, phaseLabel, gearDescription, modifierEffect } =
     useGameEventPresentation();
 const {
@@ -27,6 +29,12 @@ const {
     now,
     pending,
     selectedDog,
+    selectedExhibitionClass,
+    regulated,
+    entryOptions,
+    selectedEntryOption,
+    selectedEntryOptionKey,
+    missingEntryOption,
     withdrawn,
     editable,
     errors,
@@ -35,6 +43,9 @@ const {
     validEquipment,
     missingKit,
     missingOffspring,
+    missingExhibitionClass,
+    blockedDog,
+    applyStagePreset: preset,
     toggleGear,
     submit,
     withdraw,
@@ -88,9 +99,6 @@ function stageWeights(key: string): string {
               )
               .join(' · ')
         : '';
-}
-function preset(stages: EventDecision[]) {
-    if (editable.value && !pending.value) form.plan.stages = [...stages];
 }
 </script>
 
@@ -150,9 +158,7 @@ function preset(stages: EventDecision[]) {
                             :key="dog.id"
                             :value="dog.id"
                             :disabled="
-                                event.discipline !== 'progeny' &&
-                                !dog.isActive &&
-                                dog.id !== ownEntry?.petId
+                                !dog.isActive && dog.id !== ownEntry?.petId
                             "
                         >
                             {{ dog.name }} · {{ dog.breed
@@ -166,12 +172,74 @@ function preset(stages: EventDecision[]) {
                         </option>
                     </select>
                 </FormField>
+                <EventEntryClassification
+                    v-if="regulated && selectedDog"
+                    v-model="selectedEntryOptionKey"
+                    :dog="selectedDog"
+                    :options="entryOptions"
+                    :disabled="!editable || pending"
+                    :error="
+                        form.errors['plan.exhibition_class'] ??
+                        form.errors['plan.sport_class'] ??
+                        form.errors['plan.program'] ??
+                        form.errors['plan.test_type'] ??
+                        form.errors['plan.handler_category']
+                    "
+                />
+                <template
+                    v-if="
+                        !regulated &&
+                        selectedDog &&
+                        event.discipline === 'conformation'
+                    "
+                >
+                    <p class="event-note">
+                        {{
+                            t('Age at the start: {age}', {
+                                age: formatAgeMonths(
+                                    selectedDog.ageMonths,
+                                    locale,
+                                ),
+                            })
+                        }}
+                    </p>
+                    <FormField
+                        id="event-exhibition-class"
+                        :label="t('Exhibition class')"
+                        :error="form.errors['plan.exhibition_class']"
+                        v-slot="{ field }"
+                    >
+                        <select
+                            v-bind="field"
+                            v-model="form.plan.exhibition_class"
+                            class="events-select"
+                            :disabled="!editable || pending"
+                        >
+                            <option
+                                v-for="item in selectedDog.availableClasses"
+                                :key="item.key"
+                                :value="item.key"
+                            >
+                                {{ item.label }}
+                            </option>
+                        </select>
+                    </FormField>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'One class per exhibition. Overlapping age classes let you choose which award to pursue.',
+                            )
+                        }}
+                    </p>
+                </template>
                 <p v-if="!dogs.length" class="event-note">
                     {{ t('You need a dog to enter this event.') }}
                 </p>
                 <GameEventPreparation
                     v-if="selectedDog && editable"
                     :dog="selectedDog"
+                    :exhibition-class-label="selectedExhibitionClass?.label"
+                    :classification-label="selectedEntryOption?.label"
                     :discipline="event.discipline"
                     :closes-at="event.closesAt"
                     :updated-at="preparationUpdatedAt"
@@ -223,9 +291,9 @@ function preset(stages: EventDecision[]) {
                             type="checkbox"
                             :value="offspring.id"
                             :disabled="
-                                !form.plan.offspring_ids.includes(
+                                !form.plan.offspring_ids?.includes(
                                     offspring.id,
-                                ) && form.plan.offspring_ids.length >= 5
+                                ) && (form.plan.offspring_ids?.length ?? 0) >= 5
                             " /><span
                             >{{ offspring.name
                             }}<small>{{
@@ -299,7 +367,11 @@ function preset(stages: EventDecision[]) {
                     >
                         <legend>
                             <span>{{ number(stageIndex + 1) }}</span
-                            >{{ stageLabel(stage.key) }}
+                            >{{
+                                event.regulation
+                                    ? stage.label
+                                    : stageLabel(stage.key)
+                            }}
                         </legend>
                         <p
                             v-if="stageWeights(stage.key)"
@@ -364,7 +436,11 @@ function preset(stages: EventDecision[]) {
                     <ol class="event-title-list">
                         <li v-for="stage in event.stages" :key="stage.key">
                             <span
-                                ><strong>{{ stageLabel(stage.key) }}</strong
+                                ><strong>{{
+                                    event.regulation
+                                        ? stage.label
+                                        : stageLabel(stage.key)
+                                }}</strong
                                 ><small>{{
                                     t(`events.progenyCriterion.${stage.key}`)
                                 }}</small></span
@@ -540,7 +616,10 @@ function preset(stages: EventDecision[]) {
                             !form.pet_id ||
                             insufficientFunds ||
                             missingKit ||
-                            missingOffspring
+                            missingOffspring ||
+                            missingExhibitionClass ||
+                            missingEntryOption ||
+                            blockedDog
                         "
                         :aria-busy="form.processing"
                         >{{
@@ -638,6 +717,52 @@ function preset(stages: EventDecision[]) {
                 </SurfaceCard>
                 <SurfaceCard :title="t('How judging works')"
                     ><p>{{ t(`events.judging.${event.discipline}`) }}</p>
+                    <template v-if="regulated">
+                        <p>
+                            {{
+                                t(
+                                    'Age, qualification and the event regulation determine the available classes. Placements, assessments, certificates and championship titles are recorded separately.',
+                                )
+                            }}
+                        </p>
+                        <p v-if="event.discipline === 'conformation'">
+                            {{
+                                t(
+                                    'Dogs are assessed by breed, sex and class. Up to four qualified dogs are placed in each class; certificates and best-dog comparisons have additional requirements.',
+                                )
+                            }}
+                        </p>
+                        <p v-else>
+                            {{
+                                t(
+                                    'Each class and category has one shared standing. A podium finish alone does not guarantee a certificate or a championship title.',
+                                )
+                            }}
+                        </p>
+                    </template>
+                    <template v-else-if="event.discipline === 'conformation'">
+                        <p>
+                            {{
+                                t(
+                                    'Dogs are judged separately by breed, age class and sex. Each category awards first, second and third place.',
+                                )
+                            }}
+                        </p>
+                        <p>
+                            {{
+                                t(
+                                    'Intermediate, Open and Veteran winners also compete for Best male, Best female and Best of breed. These awards do not grant extra coins.',
+                                )
+                            }}
+                        </p>
+                        <p>
+                            {{
+                                t(
+                                    'Age is checked at the event start. Titles stay with the dog after it changes class.',
+                                )
+                            }}
+                        </p>
+                    </template>
                     <p>
                         {{
                             t(

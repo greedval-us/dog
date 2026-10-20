@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, ArrowRight, Flower2, Leaf, PawPrint } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Flower2, PawPrint } from '@lucide/vue';
 import { ref } from 'vue';
 import CursorPagination from '@/components/CursorPagination.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
@@ -48,7 +48,7 @@ const date = (value: string): string =>
                     :label="t('Pet memorial hall')"
                     :text="
                         t(
-                            'Faithful companions stay part of your story. Cards of retired dogs and dogs who have passed away are preserved here.',
+                            'Faithful companions stay part of your story. Dogs who have passed away are remembered here.',
                         )
                     "
                 />
@@ -98,18 +98,8 @@ const date = (value: string): string =>
                         class="pet-lifecycle-status"
                         :class="'is-' + pet.status"
                     >
-                        <component
-                            :is="pet.status === 'retired' ? Leaf : Flower2"
-                            :size="16"
-                            aria-hidden="true"
-                        />
-                        {{
-                            t(
-                                pet.status === 'retired'
-                                    ? 'Retired'
-                                    : 'In loving memory',
-                            )
-                        }}
+                        <Flower2 :size="16" aria-hidden="true" />
+                        {{ t('In loving memory') }}
                     </span>
                     <h2>{{ pet.name }}</h2>
                     <p>{{ pet.breed }}</p>
@@ -124,13 +114,7 @@ const date = (value: string): string =>
                         </div>
                         <div>
                             <dt>
-                                {{
-                                    t(
-                                        pet.status === 'retired'
-                                            ? 'Retirement date'
-                                            : 'Date of passing',
-                                    )
-                                }}
+                                {{ t('Date of passing') }}
                             </dt>
                             <dd>
                                 <time :datetime="pet.archivedAt">{{
@@ -158,7 +142,7 @@ const date = (value: string): string =>
                 {{
                     t(
                         isOwner
-                            ? 'Your memorial hall is empty. Retired dogs and dogs who have passed away will appear here.'
+                            ? 'Your memorial hall is empty. Dogs who have passed away will appear here.'
                             : 'This player has no pets in the memorial hall yet.',
                     )
                 }}

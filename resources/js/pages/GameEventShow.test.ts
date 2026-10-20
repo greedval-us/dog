@@ -51,9 +51,26 @@ function dogFixture(): EventDog {
         size: 'large',
         isActive: true,
         isBusy: false,
+        ageMonths: 18,
+        availableClasses: [],
+        defaultClass: null,
         exterior: { type: 70, structure: 75, movement: 80 },
         titles: [],
         offspring: [],
+    };
+}
+
+function regulationFixture() {
+    return {
+        version: 1,
+        system: 'rkf' as const,
+        rank: 'cac',
+        rankLabel: 'National CAC show',
+        country: 'RU',
+        region: 'Moscow',
+        judgeId: 'judge-1',
+        judgeName: 'Judge One',
+        format: 'conformation',
     };
 }
 function entryFixture(): GameEventEntry {
@@ -113,6 +130,120 @@ async function renderEvent(
         }),
     );
 }
+
+it.each(['en', 'ru'])(
+    'shows the regulation, derived height and eligible performance choices in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.regulation = {
+            ...regulationFixture(),
+            format: 'jumping',
+            formatLabel: locale === 'ru' ? 'Джампинг' : 'Jumping',
+            rankLabel: 'National agility trial',
+        };
+        const dog = dogFixture();
+        dog.profile = { heightCm: 46, heightCategory: 'I' };
+        dog.entryOptions = [
+            {
+                key: 'agility:1',
+                label: 'Agility 1 · I',
+                categoryLabel: 'Intermediate · 43–48 cm',
+                plan: { sport_class: 'a1', test_type: 'agility' },
+            },
+            {
+                key: 'agility:3',
+                label: 'Agility 3 · I',
+                plan: { sport_class: 'a3', test_type: 'agility' },
+                eligible: false,
+                reason: 'Earn the previous qualification first.',
+            },
+        ];
+        dog.defaultEntryOption = 'agility:1';
+
+        const html = await renderEvent(event, null, locale, dog);
+
+        expect(html).toContain('National agility trial');
+        expect(html).toContain(locale === 'ru' ? 'Джампинг' : 'Jumping');
+        expect(html).toContain('Judge One');
+        expect(html).toContain('Agility 1 · I');
+        expect(html).toMatch(
+            /<option(?=[^>]*value="agility:3")(?=[^>]*disabled)[^>]*>/,
+        );
+        expect(html).toContain('Earn the previous qualification first.');
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Рост в холке: 46 см'
+                : 'Height at withers: 46 cm',
+        );
+    },
+);
+
+it.each(['en', 'ru'])(
+    'separates qualification, category standings and certificates from a cash prize in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'nosework';
+        event.regulation = {
+            ...regulationFixture(),
+            format: 'nosework',
+            rankLabel: 'Nosework qualification trial',
+        };
+        event.status = 'completed';
+        event.canRegister = false;
+        const entry = entryFixture();
+        entry.status = 'completed';
+        entry.rank = null;
+        entry.prize = 0;
+        entry.result = {
+            time: 80,
+            score: 235,
+            penalties: 0,
+            eliminated: false,
+            stages: [],
+            assessment: {
+                code: 'not_qualified',
+                label: 'Qualification not achieved',
+                qualified: false,
+            },
+            standings: [
+                {
+                    key: 'objects',
+                    label: 'Objects · Programme 1 · NW-1',
+                    rank: 2,
+                    score: 96,
+                    time: 21,
+                    penalties: 4,
+                    qualified: true,
+                },
+            ],
+        };
+        entry.awards = [
+            {
+                name: 'NW-1 programme certificate',
+                code: 'NW1',
+                kind: 'qualification',
+                discipline: 'nosework',
+                frequency: 'daily',
+                awardedAt: '2026-10-04T18:40:00Z',
+                classKey: 'nw1',
+            },
+        ];
+        event.entries = [entry];
+
+        const html = await renderEvent(event, entry, locale);
+
+        expect(html).toContain('Qualification not achieved');
+        expect(html).toContain('Objects · Programme 1 · NW-1');
+        expect(html).toContain('NW-1 programme certificate');
+        expect(html).toContain(
+            locale === 'ru' ? 'Квалификации' : 'Qualifications',
+        );
+        expect(html).not.toMatch(
+            locale === 'ru' ? />\s*0 монет\s*</ : />\s*0 coins\s*</,
+        );
+        expect(html).not.toContain('Place 0');
+    },
+);
 
 it.each([
     {
@@ -270,6 +401,9 @@ it('shows server preparation and blockers while allowing a busy dog to be select
     const html = await renderEvent(eventFixture(), null, 'en', dog);
 
     expect(html).toContain('Health must be at least 60%.');
+    expect(html).toMatch(
+        /data-testid="preparation-division"[^>]*>Novice · large<\/span>/,
+    );
     expect(html).toContain('Care effect on quality');
     expect(html).toContain('0.86');
     expect(html).toContain('Hydration');
@@ -587,4 +721,130 @@ it('evaluates a retired producer through the selected offspring without offering
     expect(html).not.toContain('<dt>Time</dt>');
     expect(html).not.toContain('<dt>Fatigue</dt>');
     expect(html).not.toContain('<dt>Focus</dt>');
+});
+
+it('offers the eligible age classes and shows age at the exhibition start', async () => {
+    const event = eventFixture();
+    event.discipline = 'conformation';
+    const dog = dogFixture();
+    dog.ageMonths = 16;
+    dog.defaultClass = 'junior';
+    dog.availableClasses = [
+        { key: 'junior', label: 'Junior' },
+        { key: 'intermediate', label: 'Intermediate' },
+        { key: 'open', label: 'Open' },
+    ];
+    const html = await renderEvent(event, null, 'en', dog);
+
+    expect(html).toContain('id="event-exhibition-class"');
+    expect(html).toContain('Intermediate');
+    expect(html).toContain('Age at the start: 1 year 4 months');
+    expect(html).toContain('One class per exhibition.');
+});
+
+it('shows all awards earned by one exhibition entry', async () => {
+    const event = eventFixture();
+    event.discipline = 'conformation';
+    event.status = 'completed';
+    event.canRegister = false;
+    const entry = entryFixture();
+    entry.status = 'completed';
+    entry.rank = 1;
+    entry.awards = [
+        {
+            name: '1st place — Open',
+            discipline: 'conformation',
+            frequency: 'daily',
+            awardedAt: event.startsAt,
+            code: 'conformation_class_place_1',
+            classKey: 'open',
+            rank: 1,
+            ageMonths: 30,
+            breedId: 1,
+        },
+        {
+            name: 'Best male',
+            discipline: 'conformation',
+            frequency: 'daily',
+            awardedAt: event.startsAt,
+            code: 'conformation_best_male',
+            classKey: 'open',
+            rank: 1,
+            ageMonths: 30,
+            breedId: 1,
+        },
+        {
+            name: 'Best of breed',
+            discipline: 'conformation',
+            frequency: 'daily',
+            awardedAt: event.startsAt,
+            code: 'conformation_best_of_breed',
+            classKey: 'open',
+            rank: 1,
+            ageMonths: 30,
+            breedId: 1,
+        },
+    ];
+    event.entries = [entry];
+    const html = await renderEvent(event, entry);
+
+    expect(html).toContain('1st place — Open');
+    expect(html).toContain('Best male');
+    expect(html).toContain('Best of breed');
+});
+
+it('does not offer an archived producer as an eligible dog for a new progeny entry', async () => {
+    const event = eventFixture();
+    event.discipline = 'progeny';
+    const dog = dogFixture();
+    dog.isActive = false;
+    dog.offspring = [2, 3, 4].map((id) => ({
+        id,
+        name: `Offspring ${id}`,
+        exterior: dog.exterior,
+        titlesCount: 0,
+    }));
+    const html = await renderEvent(event, null, 'en', dog);
+
+    expect(html).toMatch(/<option(?=[^>]*value="1")(?=[^>]*disabled)[^>]*>/);
+    expect(html).not.toContain('id="event-offspring-');
+    expect(html).toMatch(
+        /<button(?=[^>]*type="submit")(?=[^>]*disabled)[^>]*>/,
+    );
+});
+
+it('shows the saved exhibition class in preparation instead of the server default class', async () => {
+    const event = eventFixture();
+    event.discipline = 'conformation';
+    const dog = dogFixture();
+    dog.ageMonths = 16;
+    dog.defaultClass = 'junior';
+    dog.availableClasses = [
+        { key: 'junior', label: 'Junior' },
+        { key: 'intermediate', label: 'Intermediate' },
+        { key: 'open', label: 'Open' },
+    ];
+    dog.preparation = {
+        careMultiplier: 1,
+        initialFatigue: 0,
+        initialFocus: 100,
+        states: {},
+        normalizedStats: {},
+        modifiers: { precision: 0, stamina: 0, pace: 0, focus: 0 },
+        stats: {},
+        potentials: {},
+        skills: {},
+        stages: [],
+        pedigree: { generation: 1, knownParents: 0 },
+        divisionLabel: 'Junior · Shepherd · Male',
+        blockingReasons: [],
+    };
+    const entry = entryFixture();
+    entry.plan.exhibition_class = 'intermediate';
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toMatch(
+        /data-testid="preparation-division"[^>]*>Intermediate<\/span>/,
+    );
+    expect(html).not.toContain('Junior · Shepherd · Male');
 });

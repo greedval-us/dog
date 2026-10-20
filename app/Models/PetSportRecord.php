@@ -15,12 +15,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $wins
  * @property int $experience
  * @property int $tier
+ * @property array<string,mixed> $regulatory_progress
  */
-#[Fillable(['pet_id', 'discipline', 'starts', 'wins', 'experience', 'tier'])]
+#[Fillable(['pet_id', 'discipline', 'starts', 'wins', 'experience', 'tier', 'regulatory_progress'])]
 class PetSportRecord extends Model
 {
     /** @use HasFactory<PetSportRecordFactory> */
     use HasFactory;
+
+    protected $attributes = ['regulatory_progress' => '[]'];
 
     /** @return BelongsTo<Pet, $this> */
     public function pet(): BelongsTo
@@ -31,6 +34,6 @@ class PetSportRecord extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['starts' => 'integer', 'wins' => 'integer', 'experience' => 'integer', 'tier' => 'integer'];
+        return ['starts' => 'integer', 'wins' => 'integer', 'experience' => 'integer', 'tier' => 'integer', 'regulatory_progress' => 'array'];
     }
 }

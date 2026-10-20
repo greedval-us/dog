@@ -6,6 +6,7 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -32,7 +33,11 @@ final class UpdateGameEventEntry
                 throw new GameEventUnavailable('events.errors.closed');
             }
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $entry->update(['plan' => $preparation->plan, 'gear_ids' => $gearIds]);
+            $changes = ['plan' => $preparation->plan, 'gear_ids' => $gearIds];
+            if ($event->discipline === 'conformation' || EventRegulationData::isRegulated($event)) {
+                $changes['division'] = $this->admission->division($event, $pet, $preparation->plan);
+            }
+            $entry->update($changes);
 
             return $entry;
         }, attempts: 3);

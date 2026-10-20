@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, Flower2, GitBranch, Leaf, Sparkles } from '@lucide/vue';
+import { ArrowLeft, Flower2, GitBranch, Sparkles } from '@lucide/vue';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import HelpHint from '@/components/HelpHint.vue';
@@ -60,29 +60,17 @@ const archivedDate = computed(() =>
             </Button>
         </div>
         <SurfaceCard class="pet-memorial-notice">
-            <component
-                :is="pet.lifecycle.status === 'retired' ? Leaf : Flower2"
-                :size="27"
-                aria-hidden="true"
-            />
+            <Flower2 :size="27" aria-hidden="true" />
             <div>
                 <h2>
-                    {{
-                        t(
-                            pet.lifecycle.status === 'retired'
-                                ? 'A well-earned rest'
-                                : 'Always remembered',
-                        )
-                    }}
+                    {{ t('Always remembered') }}
                 </h2>
                 <p v-if="archivedDate">
                     {{
-                        t(
-                            pet.lifecycle.status === 'retired'
-                                ? '{name} retired on {date}.'
-                                : '{name} passed away on {date}.',
-                            { name: pet.name, date: archivedDate },
-                        )
+                        t('{name} passed away on {date}.', {
+                            name: pet.name,
+                            date: archivedDate,
+                        })
                     }}
                 </p>
                 <p>

@@ -18,6 +18,7 @@ use App\Models\PetHistoryEntry;
 use App\Models\PetHistoryEvent;
 use App\Models\User;
 use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Services\PetLifecycle;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
@@ -209,12 +210,12 @@ test('simultaneous boarding synchronization buys the same offline hours only onc
     $this->assertDatabaseHas('currency_transactions', ['user_id' => $user->id, 'amount' => $balance - 10, 'reason' => 'pet_boarding']);
 })->with(['cheap' => ['cheap', 8], 'premium' => ['premium', 4]]);
 
-test('simultaneous retirement requests archive the dog once free its slot and preserve the frozen snapshot', function () {
+test('simultaneous retirement requests finish career once and keep the dog available for care', function () {
     $this->freezeSecond();
     PetHistoryEvent::query()->firstOrCreate(['code' => 'life.retirement'], [
         'kind' => 'action', 'name' => ['en' => 'Retirement'], 'conditions' => [], 'is_active' => true,
     ]);
-    $pet = Pet::factory()->create(['born_at' => now()->subMonthsNoOverflow(3),
+    $pet = Pet::factory()->create(['born_at' => now()->subDays(96),
         'health' => 75, 'satiety' => 60, 'hydration' => 65, 'energy' => 80, 'speed' => 40]);
     $operation = ['action' => 'retire', 'pet_id' => $pet->id];
 
@@ -223,26 +224,28 @@ test('simultaneous retirement requests archive the dog once free its slot and pr
     $archived = $pet->fresh();
     expect($archived->retired_at)->toEqual(now());
     expect($archived->died_at)->toBeNull();
-    expect($archived->user->pets()->active()->count())->toBe(0);
+    expect($archived->user->pets()->active()->count())->toBe(1);
     expect($archived->user->pets()->whereNotNull('retired_at')->count())->toBe(1);
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'health' => 75, 'satiety' => 60,
         'hydration' => 65, 'energy' => 80, 'speed' => 40, 'activity' => null]);
     expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
-    $snapshot = $archived->getAttributes();
-    $this->travel(90)->days();
+    $this->travel(1)->hours();
     app(PetLifecycle::class)->synchronizeOwner($pet->user);
 
-    expect($pet->fresh()->getAttributes())->toBe($snapshot);
+    $advanced = $pet->fresh();
+    $advanced->advanceTo(now(), app(PetDecayCalculator::class));
+    expect($advanced->satiety)->toBe(55.0);
+    expect($advanced->isActive())->toBeTrue();
     expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->count())->toBe(1);
 });
 
-test('retirement racing an early care completion cancels the unfinished action without effects or experience', function () {
+test('retirement racing an early care completion preserves unfinished care without premature effects or experience', function () {
     $this->freezeSecond();
     PetHistoryEvent::query()->firstOrCreate(['code' => 'life.retirement'], [
         'kind' => 'action', 'name' => ['en' => 'Retirement'], 'conditions' => [], 'is_active' => true,
     ]);
     $owner = User::factory()->create(['coins' => 30, 'gems' => 5]);
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(3), 'mood' => 20, 'energy' => 50]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(96), 'mood' => 20, 'energy' => 50]);
     $care = app(StartPetCare::class)->handle($owner, $pet->id, 'attention', [], (string) Str::uuid());
 
     $results = runDatabaseRace($owner, [
@@ -250,12 +253,12 @@ test('retirement racing an early care completion cancels the unfinished action w
         ['action' => 'care-complete', 'pet_id' => $pet->id, 'token' => $care->token],
     ]);
 
-    expect($results)->toBeIn([['ok', 'unavailable'], ['ok', 'replayed']]);
-    expect($care->fresh()->cancelled_at)->toEqual(now());
+    expect($results)->toBe(['ok', 'unavailable']);
+    expect($care->fresh()->cancelled_at)->toBeNull();
     expect($pet->fresh()->retired_at)->toEqual(now());
-    expect($owner->pets()->active()->count())->toBe(0);
+    expect($owner->pets()->active()->count())->toBe(1);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null, 'experience_awarded' => null]);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 20, 'activity' => null, 'activity_token' => null]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 20, 'activity' => 'play', 'activity_token' => $care->activity_token]);
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 30, 'gems' => 5, 'experience' => '0', 'active_days' => 0]);
     expect($owner->fresh()->pet_statistics)->toBe([]);
     $this->assertDatabaseCount('currency_transactions', 0);
@@ -357,13 +360,13 @@ test('simultaneous free replacements issue one active dog while preserving the a
     $claimedAt = now()->subDays(5);
     $dog = Dog::factory()->create(['is_starter' => true]);
     $user = User::factory()->create(['coins' => 1000, 'pet_slots' => 2, 'starter_pet_claimed_at' => $claimedAt]);
-    $archived = Pet::factory()->for($user)->retired()->create();
+    $archived = Pet::factory()->for($user)->deceased()->create();
     $operation = ['action' => 'starter-adoption', 'dog_id' => $dog->id];
 
     expect(runDatabaseRace($user, [$operation, $operation]))->toBe(['ok', 'unavailable']);
 
     expect($user->pets()->active()->count())->toBe(1);
-    expect($archived->fresh()->retired_at)->toEqual(now());
+    expect($archived->fresh()->died_at)->toEqual(now());
     expect($user->fresh()->starter_pet_claimed_at)->toEqual($claimedAt);
     $this->assertDatabaseCount('pets', 2);
     $this->assertDatabaseCount('currency_transactions', 0);

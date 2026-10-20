@@ -3,6 +3,8 @@ import { Link } from '@inertiajs/vue3';
 import { ChevronDown, PawPrint, Trophy } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import HelpHint from '@/components/HelpHint.vue';
+import EventAwardList from '@/components/EventAwardList.vue';
+import EventResultAssessment from '@/components/EventResultAssessment.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
@@ -25,6 +27,12 @@ const { decimal, stageLabel, optionLabel, modifierEffect } =
     useGameEventPresentation();
 const ownEntry = computed(() => props.entry);
 const isShow = computed(() => isExhibition(props.event.discipline));
+const scoredResult = computed(
+    () =>
+        isShow.value ||
+        (Boolean(props.event.regulation) &&
+            props.event.discipline === 'nosework'),
+);
 const entriesByDivision = computed(() =>
     groupEventEntries(props.event.entries),
 );
@@ -119,6 +127,12 @@ watch(
             <p v-if="ownEntry.divisionLabel" class="event-note">
                 {{ ownEntry.divisionLabel }}
             </p>
+            <EventResultAssessment
+                v-if="!entryWasWithdrawn(ownEntry)"
+                :assessment="ownEntry.result.assessment"
+                :standings="ownEntry.result.standings"
+            />
+            <EventAwardList :awards="ownEntry.awards" />
         </SurfaceCard>
         <SurfaceCard
             :title="
@@ -226,6 +240,9 @@ watch(
                                                 : ''
                                         }}</small
                                     >
+                                    <EventAwardList
+                                        :awards="participant.awards"
+                                    />
                                 </td>
                                 <td>
                                     <template v-if="participant.result"
@@ -240,7 +257,16 @@ watch(
                                             "
                                             >{{ t('Eliminated') }}</span
                                         ><template v-else
-                                            ><span v-if="isShow">{{
+                                            ><span
+                                                v-if="
+                                                    participant.result
+                                                        .assessment
+                                                "
+                                                >{{
+                                                    participant.result
+                                                        .assessment.label
+                                                }}</span
+                                            ><span v-if="scoredResult">{{
                                                 t('Score: {score}', {
                                                     score: decimal(
                                                         participant.result
@@ -310,6 +336,11 @@ watch(
             >
                 {{ replay.result.reason }}
             </p>
+            <EventResultAssessment
+                v-if="!replayWithdrawn && replay.id !== ownEntry?.id"
+                :assessment="replay.result.assessment"
+                :standings="replay.result.standings"
+            />
             <div
                 v-else-if="!replayWithdrawn"
                 class="surface-heading-help event-replay-intro"
@@ -417,7 +448,15 @@ watch(
                         number(stageIndex + 1)
                     }}</span>
                     <div class="event-replay-body">
-                        <h3>{{ stageLabel(stage.key) }}</h3>
+                        <h3>
+                            {{
+                                event.regulation
+                                    ? (event.stages.find(
+                                          (item) => item.key === stage.key,
+                                      )?.label ?? stageLabel(stage.key))
+                                    : stageLabel(stage.key)
+                            }}
+                        </h3>
                         <strong v-if="event.discipline !== 'progeny'">{{
                             optionLabel(
                                 event.discipline,
@@ -544,7 +583,7 @@ watch(
                         ? t('Withdrawn')
                         : replay.result.eliminated
                           ? t('Eliminated')
-                          : isShow
+                          : scoredResult
                             ? t('Final score: {score}', {
                                   score: decimal(replay.result.score),
                               })

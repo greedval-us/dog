@@ -3,6 +3,7 @@
 namespace App\Modules\Pets\Queries;
 
 use App\Models\Pet;
+use App\Modules\Pets\Calculators\PetAgeRules;
 use Carbon\CarbonImmutable;
 
 final class BreedingEligibility
@@ -17,11 +18,15 @@ final class BreedingEligibility
             return 'breeding.errors.archived';
         }
 
+        if (! $system && ($pet->retired_at !== null || $pet->ageMonthsAt($at) >= PetAgeRules::BREEDING_MAXIMUM_MONTHS)) {
+            return 'breeding.errors.retired';
+        }
+
         if ($pet->isBusy()) {
             return 'breeding.errors.busy';
         }
 
-        if (! $system && $at->lessThan($pet->born_at->addDays(config('doglive.breeding_minimum_age_days', 7)))) {
+        if (! $system && $pet->ageMonthsAt($at) < PetAgeRules::SPORT_MINIMUM_MONTHS) {
             return 'breeding.errors.young';
         }
 

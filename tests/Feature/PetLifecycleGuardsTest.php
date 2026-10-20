@@ -60,9 +60,9 @@ test('a dog with zero health cannot start a new action and its death persists af
     $this->assertDatabaseCount('currency_transactions', 0);
 })->with(['care', 'work', 'skill', 'veterinarian']);
 
-test('unfinished care is cancelled without restoring states gaining attributes or giving experience when its dog becomes inactive', function (bool $retired) {
-    $pet = $retired
-        ? Pet::factory()->retired()->create(['health' => 50, 'satiety' => 20, 'speed' => 10])
+test('unfinished care is cancelled without restoring states gaining attributes or giving experience when its dog becomes inactive', function (bool $surrendered) {
+    $pet = $surrendered
+        ? Pet::factory()->create(['surrendered_at' => now(), 'health' => 50, 'satiety' => 20, 'speed' => 10])
         : Pet::factory()->create(['health' => 0, 'satiety' => 20, 'speed' => 10]);
     $care = PetCareAction::factory()->create([
         'pet_id' => $pet->id,
@@ -76,15 +76,15 @@ test('unfinished care is cancelled without restoring states gaining attributes o
 
     expect($care->fresh()->cancelled_at)->toEqual(now());
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null, 'experience_awarded' => null]);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'health' => $retired ? 50 : 0, 'satiety' => 20, 'speed' => 10,
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'health' => $surrendered ? 50 : 0, 'satiety' => 20, 'speed' => 10,
         'activity' => null, 'activity_token' => null]);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '0']);
-})->with(['death' => [false], 'retirement' => [true]]);
+})->with(['death' => [false], 'shelter' => [true]]);
 
-test('unfinished dog work returns its cancelled receipt without rewards even when completion is requested early or repeatedly', function (bool $retired) {
+test('unfinished dog work returns its cancelled receipt without rewards even when completion is requested early or repeatedly', function (bool $surrendered) {
     $owner = User::factory()->create(['coins' => 20, 'gems' => 5]);
-    $pet = $retired
-        ? Pet::factory()->for($owner)->retired()->create()
+    $pet = $surrendered
+        ? Pet::factory()->for($owner)->create(['surrendered_at' => now()])
         : Pet::factory()->for($owner)->create(['health' => 0]);
     $shift = DogWorkShift::factory()->create(['pet_id' => $pet->id, 'coins_reward' => 150, 'gems_reward' => 10]);
     $pet->update(['activity' => PetActivity::Work, 'activity_token' => $shift->activity_token,
@@ -99,7 +99,25 @@ test('unfinished dog work returns its cancelled receipt without rewards even whe
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'activity' => null, 'activity_token' => null]);
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 20, 'gems' => 5, 'experience' => '0']);
     $this->assertDatabaseCount('currency_transactions', 0);
-})->with(['death' => [false], 'retirement' => [true]]);
+})->with(['death' => [false], 'shelter' => [true]]);
+
+test('a job accepted before retirement can finish and pay its saved reward once', function () {
+    $owner = User::factory()->create(['coins' => 20, 'gems' => 5]);
+    $pet = Pet::factory()->for($owner)->retired()->create(['born_at' => now()->subDays(120)]);
+    $shift = DogWorkShift::factory()->create(['pet_id' => $pet->id, 'coins_reward' => 150, 'gems_reward' => 10,
+        'started_at' => now()->subMinutes(30), 'ends_at' => now()]);
+    $pet->update(['activity' => PetActivity::Work, 'activity_token' => $shift->activity_token,
+        'activity_started_at' => $shift->started_at, 'activity_ends_at' => $shift->ends_at]);
+
+    app(CompleteDogWork::class)->handle($owner, $shift->token);
+    app(CompleteDogWork::class)->handle($owner, $shift->token);
+
+    expect($shift->fresh()->completed_at)->toEqual(now());
+    expect($shift->fresh()->cancelled_at)->toBeNull();
+    expect($pet->fresh()->isActive())->toBeTrue();
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 170, 'gems' => 15]);
+    $this->assertDatabaseCount('currency_transactions', 2);
+});
 
 test('an archived dog cannot select or buy appearance and no account unlock or payment is created', function (bool $purchase) {
     Storage::fake('local');
@@ -147,17 +165,17 @@ test('replaying a completed veterinary receipt after death cannot revive the dog
     $this->assertDatabaseCount('currency_transactions', 1);
 });
 
-test('a six month old offline dog frees its slot for one free replacement without losing the original claim date', function () {
-    $this->freezeTime();
+test('natural death frees the slot for one free replacement without losing the original claim date', function () {
+    $this->freezeSecond();
     $owner = User::factory()->create(['coins' => 1000, 'pet_slots' => 1, 'starter_pet_claimed_at' => now()->subMonths(6)]);
     $claimedAt = $owner->starter_pet_claimed_at;
-    $oldPet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(6), 'health' => 100]);
+    $oldPet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(144), 'lifespan_months' => 144, 'health' => 100]);
     $breed = Dog::factory()->create(['is_starter' => true]);
     $data = new AdoptStarterPetData($breed->id, 'Новый друг');
 
     $replacement = app(AdoptStarterPet::class)->handle($owner, $data);
 
-    expect($oldPet->fresh()->retired_at)->toEqual(now());
+    expect($oldPet->fresh()->died_at)->toEqual(now());
     expect($replacement->user_id)->toBe($owner->id);
     expect($owner->pets()->active()->count())->toBe(1);
     expect($owner->fresh()->starter_pet_claimed_at)->toEqual($claimedAt);

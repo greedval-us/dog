@@ -51,7 +51,7 @@ final class StartDogWork
             }
 
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
-            if (! $pet->isActive() && $pet->retired_at === null) {
+            if (! $pet->isActive()) {
                 throw new PetUnavailable('This dog is no longer active.');
             }
             $offer = DogWorkOffer::query()->with('board')->lockForUpdate()->find($data->offerId);

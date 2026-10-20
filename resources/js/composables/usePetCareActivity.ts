@@ -69,7 +69,7 @@ export function usePetCareActivity(
         finish.post(complete.url(petId()), {
             ...(background ? { headers: backgroundRequestHeaders } : {}),
             preserveScroll: true,
-            only: ['pet', 'care'],
+            only: ['pet', 'care', 'ownership'],
             onFinish: () => {
                 completionFailed.value = care().active?.token === token;
             },

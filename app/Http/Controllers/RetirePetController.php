@@ -22,8 +22,8 @@ class RetirePetController extends Controller
             throw ValidationException::withMessages(['retirement' => __($exception->getMessage())]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Your dog has retired. Their card is preserved in the Pet Memorial.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Your dog has retired from career. You can continue caring for them.')]);
 
-        return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $pet]);
+        return to_route('dashboard', ['pet' => $pet]);
     }
 }

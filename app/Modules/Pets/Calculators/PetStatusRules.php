@@ -10,6 +10,10 @@ use App\Modules\Pets\Enums\PetState;
  */
 final class PetStatusRules
 {
+    public const int MIN_MODIFIER_PERCENT = -50;
+
+    public const int MAX_MODIFIER_PERCENT = 50;
+
     /** @param list<Effect> $effects
      * @return list<Effect>
      */
@@ -159,7 +163,7 @@ final class PetStatusRules
             }
         }
         foreach ($result as $key => $value) {
-            $result[$key] = max(-50, min(50, $value));
+            $result[$key] = max(self::MIN_MODIFIER_PERCENT, min(self::MAX_MODIFIER_PERCENT, $value));
         }
 
         return $result;
@@ -182,7 +186,7 @@ final class PetStatusRules
 
     public function energyCost(int $base, int $modifier): int
     {
-        return $base === 0 ? 0 : max(1, (int) ceil($base * (100 + max(-50, min(50, $modifier))) / 100));
+        return $base === 0 ? 0 : max(1, (int) ceil($base * (100 + max(self::MIN_MODIFIER_PERCENT, min(self::MAX_MODIFIER_PERCENT, $modifier))) / 100));
     }
 
     /** @param array<string, int|float> $effects
@@ -193,7 +197,7 @@ final class PetStatusRules
     {
         foreach ($effects as $state => $value) {
             $modifier = $modifiers[$state.($value >= 0 ? '_gain_percent' : '_loss_percent')] ?? 0;
-            $effects[$state] = round($value * (100 + max(-50, min(50, $modifier))) / 100, 4);
+            $effects[$state] = round($value * (100 + max(self::MIN_MODIFIER_PERCENT, min(self::MAX_MODIFIER_PERCENT, $modifier))) / 100, 4);
         }
 
         return $effects;

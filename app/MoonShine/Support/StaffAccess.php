@@ -51,7 +51,9 @@ final class StaffAccess
             MoonshineUserRole::class => $role === StaffRole::Administrator && $read,
             User::class => in_array($role, [StaffRole::Administrator, StaffRole::Moderator], true)
                 && ($read || $ability === Ability::UPDATE),
-            Pet::class, AdminAuditLog::class => in_array($role, [StaffRole::Administrator, StaffRole::Moderator], true) && $read,
+            Pet::class => (in_array($role, [StaffRole::Administrator, StaffRole::Moderator], true) && $read)
+                || ($role === StaffRole::Administrator && $ability === Ability::UPDATE),
+            AdminAuditLog::class => in_array($role, [StaffRole::Administrator, StaffRole::Moderator], true) && $read,
             CurrencyTransaction::class, ItemPurchase::class, KennelPurchase::class, PetCareAction::class, DogWorkShift::class => in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true) && $read,
             PetHistoryEvent::class, PetHistoryPhrase::class => ($read && in_array($role, [StaffRole::Administrator, StaffRole::Analyst], true))
                 || ($role === StaffRole::Administrator && in_array($ability, [Ability::CREATE, Ability::UPDATE], true)),

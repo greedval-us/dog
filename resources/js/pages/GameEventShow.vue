@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import GameEventEntryForm from '@/components/GameEventEntryForm.vue';
+import EventRegulationSummary from '@/components/EventRegulationSummary.vue';
 import GameEventResults from '@/components/GameEventResults.vue';
 import Heading from '@/components/Heading.vue';
 import HelpHint from '@/components/HelpHint.vue';
@@ -63,6 +64,7 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     t('All event times are shown in Moscow time.')
                 }}</span>
             </div>
+            <EventRegulationSummary :regulation="event.regulation" />
             <dl class="event-overview-facts">
                 <div>
                     <dt>

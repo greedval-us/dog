@@ -39,7 +39,8 @@ final class PuppyPlacementService
         }
         $dog = Dog::query()->findOrFail($puppy->dog_id);
         $pet = $dog->newPet(new NewPetData(name: $name, sex: $puppy->sex, coatColor: $puppy->coat_color, potentials: $potentials, exterior: $puppy->exterior));
-        $pet->forceFill(['father_id' => $puppy->father_id, 'mother_id' => $puppy->mother_id, 'generation' => $puppy->generation]);
+        $pet->forceFill(['father_id' => $puppy->father_id, 'mother_id' => $puppy->mother_id, 'generation' => $puppy->generation,
+            'born_at' => $puppy->litter->born_at ?? now()]);
         $pet->user()->associate($owner);
         $pet->save();
         $puppy->forceFill(['status' => 'placed', 'user_id' => $owner->id, 'pet_id' => $pet->id, 'placed_at' => now(), 'sale_price' => null])->save();

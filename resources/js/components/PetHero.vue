@@ -4,6 +4,7 @@ import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
 import PetRetirement from '@/components/PetRetirement.vue';
+import PetAge from '@/components/PetAge.vue';
 import type { PetAppearance } from '@/types/appearance';
 import { useI18n } from '@/composables/useI18n';
 import type { PlayerPet } from '@/types/pet';
@@ -66,13 +67,14 @@ const date = (value: string) =>
                     :text="t('Born {date}', { date: date(pet.bornAt) })"
                 />
             </div>
+            <PetAge :age="pet.age" :status="pet.lifecycle.status" />
             <span
                 v-if="pet.lifecycle.status !== 'active'"
                 class="pet-lifecycle-status"
                 :class="'is-' + pet.lifecycle.status"
             >
                 <component
-                    :is="pet.lifecycle.status === 'retired' ? Leaf : Flower2"
+                    :is="pet.lifecycle.status === 'deceased' ? Flower2 : Leaf"
                     :size="16"
                     aria-hidden="true"
                 />
@@ -80,7 +82,9 @@ const date = (value: string) =>
                     t(
                         pet.lifecycle.status === 'retired'
                             ? 'Retired'
-                            : 'In loving memory',
+                            : pet.lifecycle.status === 'surrendered'
+                              ? 'Passed on to a shelter'
+                              : 'In loving memory',
                     )
                 }}
             </span>
@@ -107,7 +111,10 @@ const date = (value: string) =>
             </figure>
             <PetAppearanceControls
                 v-if="
-                    appearance && !readOnly && pet.lifecycle.status === 'active'
+                    appearance &&
+                    !readOnly &&
+                    (pet.lifecycle.status === 'active' ||
+                        pet.lifecycle.status === 'retired')
                 "
                 :pet-id="pet.id"
                 :appearance="appearance"

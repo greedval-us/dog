@@ -100,7 +100,7 @@ final class PetBoarding
                     }
                 }
             }
-            $petThrough = min($through, $pet->automaticRetirementAt()->getTimestamp() - 1);
+            $petThrough = min($through, $pet->naturalDeathAt()->getTimestamp() - 1);
             if ($startsAt > $petThrough) {
                 continue;
             }
@@ -130,7 +130,7 @@ final class PetBoarding
                 continue;
             }
             $startsAt = $candidates[$petId]['starts_at'];
-            $endsAt = min($startsAt + $hours * PetBoardingRules::SECONDS_PER_HOUR, $pet->automaticRetirementAt()->getTimestamp());
+            $endsAt = min($startsAt + $hours * PetBoardingRules::SECONDS_PER_HOUR, $pet->naturalDeathAt()->getTimestamp());
             $payment = $this->wallet->change($owner, 'coins', -$hours * $price,
                 'pet-boarding:'.$petId.':'.$startsAt.':'.$hours.':'.$window['plan'], 'pet_boarding');
             $owner->coins = $payment->balance_after;

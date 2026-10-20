@@ -131,6 +131,47 @@
     font-size: 13px;
     line-height: 1.65;
 }
+.event-classification,
+.event-regulation,
+.event-award-groups,
+.event-assessment {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+.event-classification-reasons {
+    display: grid;
+    gap: 6px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.65;
+}
+.event-regulation-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+}
+.event-award-kind {
+    color: var(--muted-foreground);
+    font-size: 11px;
+}
+.event-assessment-grade {
+    font-weight: 600;
+    color: var(--muted-foreground);
+}
+.event-assessment-grade.is-qualified {
+    color: var(--success);
+}
+.event-standing-table caption {
+    padding-bottom: 10px;
+    text-align: left;
+    font-weight: 600;
+}
+.event-standing-table th[scope='row'] {
+    min-width: 120px;
+    font-weight: 600;
+}
 .event-rules p + p {
     margin-top: 12px;
 }
@@ -9354,5 +9395,141 @@ a.pedigree-dog:focus-visible {
     ::view-transition-old(*),
     ::view-transition-new(*) {
         animation: none !important;
+    }
+}
+/* Age choices and ownership */
+.kennel-age-picker {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.kennel-age-options {
+    display: grid;
+    gap: 10px;
+}
+.kennel-age-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-soft);
+    cursor: pointer;
+}
+.kennel-age-option.is-selected {
+    border-color: var(--ring);
+    background: var(--accent);
+}
+.kennel-age-option input {
+    margin-top: 4px;
+    accent-color: var(--primary);
+}
+.kennel-age-option strong,
+.kennel-age-option small {
+    display: block;
+}
+.kennel-age-option small {
+    margin-top: 5px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+}
+.kennel-age-picker:disabled .kennel-age-option {
+    cursor: wait;
+    opacity: 0.7;
+}
+.pet-ownership {
+    margin-top: 22px;
+}
+.pet-ownership-options {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+}
+.pet-sale-form,
+.pet-ownership-shelter {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    min-width: 0;
+}
+.pet-ownership-shelter {
+    border-left: 1px solid var(--border);
+    padding-left: 24px;
+}
+.pet-ownership-shelter p {
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.6;
+}
+.pet-market-places {
+    margin-bottom: 24px;
+    color: var(--muted-foreground);
+}
+.pet-market-section + .pet-market-section {
+    margin-top: 28px;
+}
+.pet-market-section > h2 {
+    margin-bottom: 16px;
+    font-size: 20px;
+    font-weight: 700;
+}
+.pet-market-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+.pet-market-card {
+    min-width: 0;
+}
+.pet-market-card [data-slot='card-content'] {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+}
+.pet-market-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+}
+.pet-market-retired {
+    color: var(--sage-ink);
+}
+.pet-market-price {
+    font-size: 20px;
+    font-weight: 700;
+}
+.pet-age-summary {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+.pet-age-summary p {
+    margin: 0;
+}
+.event-entry-awards {
+    margin-top: 0.4rem;
+}
+.event-entry-awards li {
+    font-size: 0.8rem;
+    color: var(--primary);
+}
+@media (max-width: 1100px) {
+    .pet-market-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 650px) {
+    .pet-ownership-options,
+    .pet-market-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .pet-ownership-shelter {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        padding: 18px 0 0;
     }
 }

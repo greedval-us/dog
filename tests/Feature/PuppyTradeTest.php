@@ -108,7 +108,7 @@ test('the puppy market separates active player listings from kennel puppies', fu
         ->where('puppies.0.price', 500)->where('puppies.0.seller', null));
 });
 
-test('keeping a puppy preserves its genetics and ancestry and starts its game lifetime on acquisition', function () {
+test('keeping a puppy preserves its genetics ancestry and original litter birth date', function () {
     $owner = User::factory()->create(['coins' => 317]);
     $puppy = tradePuppy($owner, 'pending', [
         'coat_color' => 'silver', 'generation' => 4, 'endurance_potential' => 135, 'speed_potential' => 127,
@@ -129,7 +129,7 @@ test('keeping a puppy preserves its genetics and ancestry and starts its game li
         'endurance_potential' => 135, 'speed_potential' => 127, 'strength_potential' => 88,
         'agility_potential' => 101, 'obedience_potential' => 73, 'intelligence_potential' => 59,
         'endurance' => 27, 'speed' => 25, 'strength' => 18, 'agility' => 20, 'obedience' => 15, 'intelligence' => 12,
-        'born_at' => now()->toDateTimeString(),
+        'born_at' => $puppy->litter->born_at->toDateTimeString(),
     ]);
     $this->assertDatabaseHas('puppies', ['id' => $puppy->id, 'status' => 'placed', 'pet_id' => $placement->pet_id]);
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 317, 'experience' => '0']);

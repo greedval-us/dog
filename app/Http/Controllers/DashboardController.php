@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Appearance\Queries\GetPetAppearance;
 use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Pets\Queries\GetPetCareer;
+use App\Modules\Pets\Queries\GetPetOwnership;
 use App\Modules\Pets\Queries\GetPetSkills;
 use App\Modules\Pets\Queries\GetPetSlots;
 use App\Modules\Pets\Queries\GetPrimaryPet;
@@ -18,7 +19,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare, GetPetSkills $getSkills, GetPetCareer $getCareer): Response|RedirectResponse
+    public function __invoke(Request $request, GetPrimaryPet $getPrimaryPet, GetPetAppearance $getAppearance, GetPetSlots $getSlots, GetPetCare $getCare, GetPetSkills $getSkills, GetPetCareer $getCareer, GetPetOwnership $getOwnership): Response|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
@@ -43,6 +44,10 @@ class DashboardController extends Controller
         $petId = $selectedPet?->id;
 
         if ($selectedPet !== null && ! $selectedPet->isActive()) {
+            if ($selectedPet->surrendered_at !== null) {
+                return to_route('dashboard');
+            }
+
             return to_route('players.memorial.show', ['user' => $user->username, 'pet' => $petId]);
         }
 
@@ -50,6 +55,7 @@ class DashboardController extends Controller
             'canClaimStarterPet' => fn () => $user->canClaimStarterPet(),
             'slots' => fn () => $getSlots->handle($user),
             'pet' => fn () => $petId === null ? null : $getPrimaryPet->handle($user, app()->getLocale(), $petId)?->toArray(),
+            'ownership' => fn () => $petId === null ? null : $getOwnership->handle($user, $petId, app()->getLocale()),
             'career' => Inertia::optional(fn () => $petId === null ? null : $getCareer->handle($user, $petId, app()->getLocale(), $cursor)),
             'care' => Inertia::defer(fn () => $petId === null ? null : $getCare->handle($user, $petId, app()->getLocale()), 'care', rescue: true),
             'skills' => Inertia::defer(fn () => $petId === null ? null : $getSkills->handle($user, $petId, app()->getLocale()), 'care', rescue: true),

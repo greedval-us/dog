@@ -26,7 +26,7 @@ final class RetirePet
             }
             $pet = $owner->pets()->lockForUpdate()->findOrFail($petId);
             $this->lifecycle->assertCanAdvance($owner, $at);
-            if ($pet->died_at !== null) {
+            if (! $pet->isActive()) {
                 throw new PetUnavailable('This dog is no longer active.');
             }
             if ($pet->retired_at !== null) {
@@ -34,7 +34,7 @@ final class RetirePet
             }
             $pet->advanceTo($at, $this->decay);
             if (! $pet->canRetire($at)) {
-                throw new PetUnavailable('Retirement is available three months after birth.');
+                throw new PetUnavailable('This dog is no longer active.');
             }
             $pet->retired_at = $at;
             $this->lifecycle->persist($pet);

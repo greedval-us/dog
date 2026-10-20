@@ -8,7 +8,7 @@ use App\Modules\Pets\Queries\BreedingEligibility;
 test('a breeding parent becomes eligible exactly at the age and cooldown boundaries', function () {
     $this->freezeSecond();
     $at = now();
-    $pet = Pet::factory()->make(['born_at' => $at->subDays(7)->addSecond()]);
+    $pet = Pet::factory()->make(['born_at' => $at->subDays(18)->addSecond()]);
     $eligibility = app(BreedingEligibility::class);
 
     expect($eligibility->reason($pet, $at))->toBe('breeding.errors.young');
@@ -24,10 +24,19 @@ test('only explicitly selected system partners bypass age and archival restricti
     $pet = Pet::factory()->make(['retired_at' => $at, 'born_at' => $at]);
     $eligibility = app(BreedingEligibility::class);
 
-    expect($eligibility->reason($pet, $at))->toBe('breeding.errors.archived');
+    expect($eligibility->reason($pet, $at))->toBe('breeding.errors.retired');
     expect($eligibility->reason($pet, $at, true))->toBeNull();
     $pet->health = 0;
     expect($eligibility->reason($pet, $at, true))->toBe('breeding.errors.unhealthy');
+});
+
+test('breeding closes exactly at ten game years', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->make(['born_at' => now()->subDays(120)]);
+    $eligibility = app(BreedingEligibility::class);
+
+    expect($eligibility->reason($pet, now()->subSecond()))->toBeNull();
+    expect($eligibility->reason($pet, now()))->toBe('breeding.errors.retired');
 });
 
 test('breeding rejects distant direct ancestry and half siblings while allowing unrelated cousins', function () {

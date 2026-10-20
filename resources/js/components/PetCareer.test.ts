@@ -117,6 +117,49 @@ it.each(['en', 'ru'])(
 );
 
 it.each(['en', 'ru'])(
+    'labels certificates and championship titles separately and never promises a title for every win in %s',
+    async (locale) => {
+        const career = careerFixture();
+        career.titles = [
+            {
+                ...career.titles[0],
+                name: 'CACAg',
+                code: 'CACAg',
+                kind: 'certificate',
+                classKey: 'a3',
+            },
+            {
+                ...career.titles[0],
+                name: 'International Agility Champion',
+                code: 'CIAG',
+                kind: 'championship',
+                count: 1,
+                classKey: null,
+            },
+        ];
+        career.results.entries[0].rank = null;
+
+        const html = await renderCareer(locale, career);
+
+        expect(html).toContain(
+            locale === 'ru' ? 'Сертификаты' : 'Certificates',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'Чемпионские титулы' : 'Championship titles',
+        );
+        expect(html).toContain('CACAg');
+        expect(html).toContain('International Agility Champion');
+        expect(html).not.toContain('Place 0');
+        career.titles = [];
+        const emptyAwards = await renderCareer(locale, career);
+        expect(emptyAwards).not.toContain(
+            'A first-place finish earns a title.',
+        );
+        expect(emptyAwards).not.toContain('Первое место приносит титул.');
+    },
+);
+
+it.each(['en', 'ru'])(
     'explains a first career and links to registration in %s',
     async (locale) => {
         const career = careerFixture();
@@ -132,5 +175,26 @@ it.each(['en', 'ru'])(
         );
         expect(html).toContain('href="/game-events"');
         expect(html).not.toContain('pet-career-result-list');
+    },
+);
+
+it.each(['en', 'ru'])(
+    'shows the document count supporting a scoped diploma in %s',
+    async (locale) => {
+        const career = careerFixture();
+        career.titles[0] = {
+            ...career.titles[0],
+            kind: 'championship',
+            scopeKey: 'region:moscow:issue:proof',
+            sourceCount: 3,
+        };
+
+        const html = await renderCareer(locale, career);
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Документов в основании: 3'
+                : 'Supporting documents: 3',
+        );
     },
 );

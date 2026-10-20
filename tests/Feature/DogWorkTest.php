@@ -66,6 +66,19 @@ test('starting reserves one place and energy and exact-time completion rewards o
     expect($pet->refresh()->isBusy())->toBeFalse();
 });
 
+test('a healthy senior can start work after ten game years until voluntarily retired', function () {
+    $this->freezeSecond();
+    $offer = DogWorkOffer::factory()->create();
+    $pet = dogWorkReadyPet($offer, attributes: ['born_at' => now()->subDays(120)]);
+    $view = app(GetDogWorkBoard::class)->handle($pet->user, $offer->board, $pet->id, 'en');
+
+    expect($view['offers'][0]['reason'])->toBeNull();
+    $this->actingAs($pet->user)->post(route('dog-work.store'), dogWorkPayload($pet, $offer))->assertSessionHasNoErrors();
+
+    expect($pet->fresh()->retired_at)->toBeNull();
+    $this->assertDatabaseCount('dog_work_shifts', 1);
+});
+
 test('the last daily place is shared by different players', function () {
     $this->freezeSecond();
     $offer = DogWorkOffer::factory()->create(['daily_limit' => 1]);

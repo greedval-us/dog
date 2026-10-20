@@ -15,9 +15,10 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $pet_name
  * @property string $token
  * @property int $price_paid
+ * @property int $age_months
  * @property int|null $currency_transaction_id
  */
-#[Fillable(['user_id', 'dog_id', 'pet_id', 'pet_name', 'token', 'price_paid', 'currency_transaction_id'])]
+#[Fillable(['user_id', 'dog_id', 'pet_id', 'pet_name', 'token', 'price_paid', 'age_months', 'currency_transaction_id'])]
 class KennelPurchase extends Model
 {
     /** @use HasFactory<KennelPurchaseFactory> */
@@ -31,6 +32,7 @@ class KennelPurchase extends Model
             'dog_id' => 'integer',
             'pet_id' => 'integer',
             'price_paid' => 'integer',
+            'age_months' => 'integer',
             'currency_transaction_id' => 'integer',
         ];
     }

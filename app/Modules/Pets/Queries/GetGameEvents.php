@@ -13,10 +13,13 @@ use App\Modules\Pets\Calculators\GameEventAdmissionRules;
 use App\Modules\Pets\Calculators\GameEventPerformance;
 use App\Modules\Pets\Calculators\GameEventSimulator;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\Calculators\RegulatedEventRules;
 use App\Modules\Pets\Calculators\SkillRules;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\DTO\GameEventDivisionData;
 use App\Modules\Pets\DTO\PetCompetitionSnapshot;
 use App\Modules\Pets\DTO\PetTitleData;
+use App\Modules\Pets\Enums\ExhibitionClass;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -29,6 +32,8 @@ final class GetGameEvents
         private SkillRules $skills,
         private GameEventPerformance $performance,
         private GameEventAdmissionRules $admissionRules,
+        private RegulatedEventRules $regulatedRules,
+        private GetPetEventProfile $profiles,
     ) {}
 
     /**
@@ -71,7 +76,7 @@ final class GetGameEvents
     /** @return array{event:array<string, mixed>, entry:array<string, mixed>|null} */
     public function showState(User $user, GameEvent $event, string $locale, ?string $division = null): array
     {
-        $event->load(['entries' => fn (Relation $entries) => $entries->where('user_id', $user->id)->with(['pet.dog', 'user:id,username'])])->loadCount($this->entryCounts());
+        $event->load(['entries' => fn (Relation $entries) => $entries->where('user_id', $user->id)->with(['pet.dog', 'user:id,username', 'titles'])])->loadCount($this->entryCounts());
         $own = $event->entries->firstWhere('user_id', $user->id);
         $groups = $event->entries()->whereIn('status', ['registered', 'frozen', 'completed'])
             ->select('division')->selectRaw('SUM(CASE WHEN is_npc THEN 0 ELSE 1 END) AS human_count, SUM(CASE WHEN is_npc THEN 1 ELSE 0 END) AS club_count')
@@ -80,7 +85,7 @@ final class GetGameEvents
         $activeDivision = $division !== null && $divisionKeys->contains($division) ? $division
             : ($own !== null && $divisionKeys->contains($own->division) ? $own->division : $divisionKeys->first());
         $entries = $activeDivision === null ? collect() : $event->entries()->where('division', $activeDivision)
-            ->whereIn('status', ['registered', 'frozen', 'completed'])->with(['pet.dog', 'user:id,username'])
+            ->whereIn('status', ['registered', 'frozen', 'completed'])->with(['pet.dog', 'user:id,username', 'titles'])
             ->orderByRaw('rank IS NULL')->orderBy('rank')->orderBy('id')->get();
         $breedIds = $divisionKeys->map(fn (string $key): ?int => preg_match('/^[^:]+:breed-(\d+)/', $key, $match) === 1 ? (int) $match[1] : null)->filter();
         $breeds = Dog::query()->whereIn('id', $breedIds)->get()->keyBy('id');
@@ -133,13 +138,14 @@ final class GetGameEvents
             'clubCount' => (int) $event->getAttribute('club_count'),
             'fieldSize' => (int) ($event->rules['field_size'] ?? 8),
             'calculationVersion' => (int) $event->rules['version'],
+            'regulation' => EventRegulationData::fromEvent($event, app()->getLocale()),
             'participationRules' => [
                 'playerDailyLimit' => (int) config('game-events.daily_limit', 3),
                 'petDailyLimit' => (int) config('game-events.pet_daily_limit', 2),
                 'petRestHours' => (int) config('game-events.pet_rest_hours', 2),
             ],
             'canRegister' => $event->status === 'registration' && $at->greaterThanOrEqualTo($event->registration_opens_at) && $at->lessThan($event->closes_at) && $own === null,
-            'stages' => array_map(fn (string $key): array => ['key' => $key, 'label' => $key, 'options' => ['careful', 'balanced', 'bold']], $event->rules['stages']),
+            'stages' => array_map(fn (string $key): array => ['key' => $key, 'label' => EventRegulationData::isRegulated($event) ? __('events.stages.'.$key) : $key, 'options' => ['careful', 'balanced', 'bold']], $event->rules['stages']),
         ];
     }
 
@@ -149,6 +155,13 @@ final class GetGameEvents
         $result = $entry->result;
         if ($result !== null && isset($result['stages'])) {
             $result['stages'] = array_map(fn (array $stage): array => [...$stage, 'reason' => __('events.notes.'.($stage['note'] ?? 'clean'), [], $locale)], $result['stages']);
+            if (($result['version'] ?? null) === 3) {
+                $grade = (string) ($result['grade'] ?? (($result['qualified'] ?? false) ? 'qualified' : 'not_qualified'));
+                $result['assessment'] = ['code' => $grade, 'label' => __('events.grades.'.$grade, [], $locale), 'qualified' => (bool) ($result['qualified'] ?? false)];
+                $result['standings'] = array_map(fn (array $standing): array => [
+                    ...$standing, 'label' => __('events.standings.'.(string) $standing['key'], [], $locale),
+                ], $result['standings'] ?? []);
+            }
         } elseif ($result !== null) {
             $result = ['version' => GameEventSimulator::VERSION, 'score' => 0, 'time' => 0, 'penalties' => 0, 'eliminated' => true, 'stages' => [], 'reason' => __($result['reason'] ?? 'events.errors.unavailable', [], $locale)];
         }
@@ -162,6 +175,8 @@ final class GetGameEvents
             'plan' => $entry->user_id === $user->id || $entry->status !== 'registered' ? $entry->plan : ['stages' => [], 'offspring_ids' => []],
             'gearIds' => $entry->user_id === $user->id ? $entry->gear_ids : [],
             'rank' => $entry->rank, 'prize' => $entry->prize, 'result' => $result,
+            'awards' => $entry->relationLoaded('titles') ? $entry->titles->map(fn ($title): array => PetTitleData::fromTitle($title, $locale))->values()->all() : [],
+            'ageMonths' => $entry->snapshot['age_months'] ?? null,
         ];
     }
 
@@ -175,11 +190,23 @@ final class GetGameEvents
 
         return array_values($pets->map(function (Pet $pet) use ($children, $locale, $event): array {
             $pet->advanceTo(now(), $this->decay);
+            $ageMonths = $pet->ageMonthsAt($event->starts_at ?? now());
+            $classes = $event?->discipline === GameEventDiscipline::Conformation->value ? ExhibitionClass::availableAt($ageMonths) : [];
+            $profile = $this->profiles->forPet($pet);
+            $entryOptions = $event !== null && EventRegulationData::isRegulated($event)
+                ? $this->regulatedRules->entryOptions($event->discipline, EventRegulationData::rules($event), $profile, $ageMonths) : [];
+            $eligibleOptions = array_values(array_filter($entryOptions, fn (array $option): bool => $option['eligible']));
 
             return [
                 'id' => $pet->id, 'name' => $pet->name, 'breed' => $pet->dog->localizedName($locale), 'size' => $pet->size->value,
                 'isActive' => $pet->isActive(), 'isBusy' => $pet->isBusy(), 'exterior' => $pet->exterior,
                 'titles' => PetTitleData::fromPet($pet, $locale),
+                'ageMonths' => $ageMonths,
+                'availableClasses' => array_map(fn (ExhibitionClass $class): array => ['key' => $class->value, 'label' => __('events.classes.'.$class->value, [], $locale)], $classes),
+                'defaultClass' => $classes[0]->value ?? null,
+                'entryOptions' => array_map(fn (array $option): array => EventRegulationData::option($option, $locale, $pet->dog), $entryOptions),
+                'defaultEntryOption' => $eligibleOptions[0]['key'] ?? null,
+                'profile' => ['heightCm' => $profile['height_cm'], 'heightCategory' => $profile['height_category']],
                 'preparation' => $event === null ? null : $this->preparation($pet, $event, $locale),
                 'offspring' => array_values($children->filter(fn (Pet $child): bool => $child->dog_id === $pet->dog_id && ($child->father_id === $pet->id || $child->mother_id === $pet->id))->map(fn (Pet $child): array => [
                     'id' => $child->id, 'name' => $child->name, 'exterior' => $child->exterior, 'titlesCount' => (int) $child->getAttribute('titles_count'),
@@ -196,15 +223,31 @@ final class GetGameEvents
         $kind = GameEventDiscipline::from($event->discipline);
         $states = $snapshot['states'];
         $reasons = $this->admissionRules->blockingReasons($kind, [
-            'active' => $pet->isActive(), 'retiresAt' => $pet->automaticRetirementAt(),
+            'active' => $pet->isActive(), 'retired' => $pet->retired_at !== null, 'ageMonths' => $pet->ageMonthsAt($event->starts_at),
             'health' => $states['health'], 'hasDisease' => (bool) $pet->getAttribute('active_disease_episodes_exists'),
             'energyPercentage' => $states['energy'], 'energy' => $pet->energy,
             'busy' => $pet->isBusy(), 'activityEndsAt' => $pet->activity_ends_at,
         ], [
-            'endsAt' => $event->ends_at, 'closesAt' => $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
+            'startsAt' => $event->starts_at, 'closesAt' => $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
+            ...(EventRegulationData::isRegulated($event) ? [
+                'minimumMonths' => $this->regulatedRules->minimumMonths($event->discipline, EventRegulationData::rules($event), []),
+            ] : []),
         ]);
         $tier = (int) ($pet->sportRecords->firstWhere('discipline', $event->discipline)->tier ?? 0);
         $division = ['novice', 'open', 'champion'][min(2, $tier)].':'.$kind->divisionGroup($pet->size->value, $pet->dog_id);
+        if ($kind === GameEventDiscipline::Conformation) {
+            $class = ExhibitionClass::availableAt($pet->ageMonthsAt($event->starts_at))[0]->value ?? 'unavailable';
+            $division = $class.':breed-'.$pet->dog_id.':'.$pet->sex->value;
+        }
+        if (EventRegulationData::isRegulated($event)) {
+            $options = $this->regulatedRules->entryOptions($event->discipline, EventRegulationData::rules($event), $this->profiles->forPet($pet), $pet->ageMonthsAt($event->starts_at));
+            $eligible = array_values(array_filter($options, fn (array $option): bool => $option['eligible']));
+            if ($eligible !== []) {
+                $division = $this->regulatedRules->division($event->discipline, EventRegulationData::rules($event), $this->profiles->forPet($pet), $eligible[0]['plan']);
+            } else {
+                $reasons[] = 'events.errors.qualification';
+            }
+        }
         $stageKeys = array_values($event->rules['stages']);
 
         return [
@@ -214,8 +257,8 @@ final class GetGameEvents
             'blockingReasons' => array_map(fn (string $reason): string => __($reason, [], $locale), $reasons),
             'stages' => array_map(fn (int $index, string $key): array => [
                 'key' => $key,
-                'weights' => $this->performance->stageWeights($event->discipline, $index),
-                'quality' => round($this->performance->stageQuality($event->discipline, $snapshot['stats'], $snapshot['skills'], $index) * $preparation['careMultiplier'], 2),
+                'weights' => $this->performance->stageWeights($event->discipline, $event->discipline === 'agility' ? $index % 3 : min(2, $index)),
+                'quality' => round($this->performance->stageQuality($event->discipline, $snapshot['stats'], $snapshot['skills'], $event->discipline === 'agility' ? $index % 3 : min(2, $index)) * $preparation['careMultiplier'], 2),
             ], array_keys($stageKeys), $stageKeys),
         ];
     }

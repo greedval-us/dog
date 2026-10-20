@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\DTO\GameEventAdmissionData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetActivity;
@@ -75,18 +76,23 @@ final class GameEventFreezing
 
         $groups = $event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division');
         foreach ($groups as $division => $humans) {
-            if ($humans->count() > $event->rules['field_size']) {
+            if (! EventRegulationData::isRegulated($event) && $event->discipline !== GameEventDiscipline::Conformation->value && $humans->count() > $event->rules['field_size']) {
                 foreach ($humans->slice($event->rules['field_size']) as $entry) {
                     $this->withdraw($entry, $owners->get($entry->user_id), 'events.errors.full', $at, $pets->get($entry->pet_id));
                 }
             }
             $reference = $humans->first()->snapshot;
-            for ($index = min($humans->count(), $event->rules['field_size']); $index < $event->rules['field_size']; $index++) {
+            if (EventRegulationData::isRegulated($event) && (EventRegulationData::rules($event)['format'] ?? null) === 'odor_test') {
+                continue;
+            }
+            for ($index = $humans->count(); $index < $event->rules['field_size']; $index++) {
                 $key = $event->seed.':npc:'.$division.':'.$index;
                 GameEventEntry::query()->create([
                     'game_event_id' => $event->id, 'is_npc' => true, 'operation_token' => $this->randomness->token($key.':event:'.$event->id),
                     'registration_hash' => hash('sha256', $key), 'division' => $division, 'status' => 'frozen',
-                    'fee' => 0, 'gear_ids' => [], 'plan' => ['stages' => ['balanced', 'careful', 'bold']],
+                    'fee' => 0, 'gear_ids' => [], 'plan' => EventRegulationData::isRegulated($event)
+                        ? [...$humans->first()->plan, 'stages' => array_fill(0, count($event->rules['stages']), 'balanced')]
+                        : ['stages' => ['balanced', 'careful', 'bold']],
                     'snapshot' => $this->npcs->generate($reference, $division, $key, $index),
                 ]);
             }
@@ -117,6 +123,10 @@ final class GameEventFreezing
 
     private function freezeEntry(GameEvent $event, GameEventEntry $entry, User $owner, Pet $pet, GameEventAdmissionData $preparation): void
     {
+        if ($event->discipline === GameEventDiscipline::Conformation->value || EventRegulationData::isRegulated($event)) {
+            $entry->division = $this->admission->division($event, $pet, $preparation->plan);
+            $entry->plan = $preparation->plan;
+        }
         $entry->snapshot = $this->admission->snapshot($event, $pet, $preparation->plan, $preparation->gear);
         $entry->status = 'frozen';
         $entry->save();

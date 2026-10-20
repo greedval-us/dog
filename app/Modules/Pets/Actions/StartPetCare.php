@@ -73,7 +73,7 @@ final class StartPetCare
             $preparation = str_starts_with($variant, 'training:') ? $this->trainingPreparation : $this->carePreparation;
             $option = $preparation->option($pet, $variant);
 
-            if (! $pet->isActive() && $pet->retired_at === null) {
+            if (! $pet->isActive()) {
                 throw PetUnavailable::forCare(CareRefusal::Inactive);
             }
 
@@ -100,7 +100,7 @@ final class StartPetCare
             $at = now();
             $this->lifecycle->assertCanAdvance($owner, $at);
             $status = $this->state->advance($pet, $at);
-            if ($pet->died_at !== null || $pet->retired_at !== null || $pet->health <= 0) {
+            if (! $pet->isActive()) {
                 throw PetUnavailable::forCare(CareRefusal::Inactive);
             }
             $prepared = $preparation->prepare($owner, $pet, $variant, $itemIds, $option, $status, $rolls);

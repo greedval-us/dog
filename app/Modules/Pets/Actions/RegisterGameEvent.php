@@ -7,6 +7,7 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Services\GameEventAdmission;
@@ -84,7 +85,8 @@ final class RegisterGameEvent
             }
             $this->reservations->assertCanRegister($pet, $event);
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $division = $this->availableDivision($event, $this->admission->division($event, $pet));
+            $baseDivision = $this->admission->division($event, $pet, $preparation->plan);
+            $division = $event->discipline === 'conformation' || EventRegulationData::isRegulated($event) ? $baseDivision : $this->availableDivision($event, $baseDivision);
             try {
                 $this->wallet->change($owner, 'coins', -$expectedFee, 'event-registration:'.$token, 'event_registration');
             } catch (InsufficientFunds) {
