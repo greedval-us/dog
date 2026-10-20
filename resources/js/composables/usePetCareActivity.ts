@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useServerClock } from '@/composables/useServerClock';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import { complete } from '@/routes/pets/care';
 import type { PetCare } from '@/types/pet-care';
 
@@ -49,6 +50,10 @@ export function usePetCareActivity(
     const finishError = computed(() => Object.values(finish.errors).join(' '));
 
     function finishActivity(): void {
+        completeActivity(false);
+    }
+
+    function completeActivity(background: boolean): void {
         const active = care().active;
         if (
             !active ||
@@ -62,6 +67,7 @@ export function usePetCareActivity(
         completionFailed.value = false;
         finish.token = token;
         finish.post(complete.url(petId()), {
+            ...(background ? { headers: backgroundRequestHeaders } : {}),
             preserveScroll: true,
             only: ['pet', 'care'],
             onFinish: () => {
@@ -79,7 +85,8 @@ export function usePetCareActivity(
                 ? care().active?.token
                 : null,
         (token) => {
-            if (token && token !== lastCompletionAttempt) finishActivity();
+            if (token && token !== lastCompletionAttempt)
+                completeActivity(true);
         },
     );
 

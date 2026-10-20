@@ -51,8 +51,8 @@ test('feeding history records the capped recovery at the finish time once despit
     $completed = PetHistoryEntry::query()->where('pet_id', $pet->id)->where('source_key', 'care:'.$care->id.':completed')->sole();
     expect($completed->occurred_at->equalTo($care->ends_at))->toBeTrue();
     expect($completed->details['changes'])->toEqual([[
-        'metric' => 'satiety', 'before' => 94.9584, 'after' => 100,
-        'delta' => 5.0417, 'unit' => 'percent',
+        'metric' => 'satiety', 'before' => 94.9931, 'after' => 100,
+        'delta' => 5.007, 'unit' => 'percent',
     ]]);
     $this->assertDatabaseCount('pet_care_actions', 1);
     $this->assertDatabaseCount('item_usages', 1);

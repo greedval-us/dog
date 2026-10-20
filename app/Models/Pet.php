@@ -23,9 +23,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ * @phpstan-import-type BoardingPeriod from \App\Modules\Pets\Calculators\PetBoardingRules
  *
  * @property list<Effect>|null $buffs
  * @property list<Effect>|null $debuffs
+ * @property list<BoardingPeriod>|null $boarding_periods
  * @property int $id
  * @property int|null $user_id
  * @property int $dog_id
@@ -94,6 +96,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['user_id', 'dog_id', 'father_id', 'mother_id', 'name', 'sex', 'coat_color', 'description', 'size', 'born_at', 'generation', 'exterior', 'is_purebred', 'is_favorite', 'retired_at', 'activity', 'activity_started_at', 'activity_ends_at', 'activity_token', 'last_activity_at', 'state_updated_at', 'stats_updated_at', 'stat_decay_remainders', 'endurance', 'endurance_potential', 'speed', 'speed_potential', 'strength', 'strength_potential', 'agility', 'agility_potential', 'obedience', 'obedience_potential', 'intelligence', 'intelligence_potential', 'health', 'health_max', 'energy', 'energy_max', 'satiety', 'satiety_max', 'hydration', 'hydration_max', 'mood', 'mood_max', 'cleanliness', 'cleanliness_max', 'bond', 'bond_max', 'food_per_day', 'water_per_day', 'buffs', 'debuffs'])]
 class Pet extends Model
 {
+    public const int MINIMUM_RETIREMENT_AGE_MONTHS = 3;
+
+    public const int AUTOMATIC_RETIREMENT_AGE_MONTHS = 6;
+
     /** @use HasFactory<PetFactory> */
     use HasFactory;
 
@@ -199,12 +205,12 @@ class Pet extends Model
 
     public function retirementEligibleAt(): CarbonImmutable
     {
-        return $this->born_at->addMonthsNoOverflow(3);
+        return $this->born_at->addMonthsNoOverflow(self::MINIMUM_RETIREMENT_AGE_MONTHS);
     }
 
     public function automaticRetirementAt(): CarbonImmutable
     {
-        return $this->born_at->addMonthsNoOverflow(6);
+        return $this->born_at->addMonthsNoOverflow(self::AUTOMATIC_RETIREMENT_AGE_MONTHS);
     }
 
     public function canRetire(CarbonImmutable $at): bool
@@ -254,7 +260,7 @@ class Pet extends Model
         $effects = [...($this->buffs ?? []), ...($this->debuffs ?? [])];
         $diedAt = $this->health <= 0 ? $this->state_updated_at->min($at) : null;
         if ($at->greaterThan($this->state_updated_at)) {
-            $result = $calculator->statesUntilDeath($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $result = $calculator->statesUntilDeath($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects, $this->boarding_periods ?? []);
             $this->fill($result['values']);
             if ($result['diedAt'] !== null) {
                 $diedAt = CarbonImmutable::createFromTimestampUTC($result['diedAt']);
@@ -268,10 +274,15 @@ class Pet extends Model
             foreach (PetStat::cases() as $stat) {
                 $stats[$stat->value] = (int) $this->getAttribute($stat->value);
             }
-            $result = $calculator->stats($stats, $this->stat_decay_remainders ?? [], $this->stats_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $result = $calculator->stats($stats, $this->stat_decay_remainders ?? [], $this->stats_updated_at->getTimestamp(), $at->getTimestamp(), $effects, $this->boarding_periods ?? []);
             $this->fill($result['values']);
             $this->stat_decay_remainders = $result['remainders'];
             $this->stats_updated_at = $at;
+        }
+        if ($this->boarding_periods !== null) {
+            $consumedThrough = min($this->state_updated_at->getTimestamp(), $this->stats_updated_at->getTimestamp());
+            $this->boarding_periods = array_values(array_filter($this->boarding_periods,
+                fn (array $period): bool => $period['ends_at'] > $consumedThrough));
         }
 
         if ($diedAt !== null) {
@@ -307,6 +318,7 @@ class Pet extends Model
         return [
             'buffs' => 'array',
             'debuffs' => 'array',
+            'boarding_periods' => 'array',
             'sex' => PetSex::class,
             'size' => DogSize::class,
             'born_at' => 'datetime',

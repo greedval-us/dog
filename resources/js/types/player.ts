@@ -77,6 +77,14 @@ export type AvatarLimits = {
     stored_dimension: number;
 };
 
+export type BoardingPlan = 'off' | 'cheap' | 'premium';
+
+export type BoardingSettings = {
+    plan: BoardingPlan;
+    inactivitySeconds: number;
+    hourlyPrices: { cheap: number; premium: number };
+};
+
 export type DailyWork = {
     completedToday: boolean;
     canWork: boolean;

@@ -6,6 +6,7 @@ import InputError from '@/components/InputError.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import { store } from '@/routes/daily-work';
 import type { DailyWork } from '@/types/player';
 
@@ -34,6 +35,7 @@ onMounted(() => {
             refreshing = true;
             router.reload({
                 only: ['dailyWork'],
+                headers: backgroundRequestHeaders,
                 onFinish: () => {
                     refreshing = false;
                 },

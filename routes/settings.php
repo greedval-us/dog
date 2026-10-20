@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PetBoardingController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::put('settings/boarding', [PetBoardingController::class, 'update'])
+        ->middleware('throttle:15,1')->name('boarding.update');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('settings/security', [SecurityController::class, 'edit'])

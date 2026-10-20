@@ -5665,6 +5665,35 @@
     display: grid;
     gap: 18px;
 }
+.boarding-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 18px;
+}
+.boarding-details > div {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+}
+.boarding-details h3 {
+    font-size: 15px;
+    font-weight: 700;
+}
+.boarding-details strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+}
+.boarding-payment-note {
+    display: grid;
+    gap: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted-foreground);
+}
 .player-profile-page {
     min-width: 0;
 }

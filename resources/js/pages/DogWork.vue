@@ -20,6 +20,7 @@ import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { useServerClock } from '@/composables/useServerClock';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import { index, store, complete } from '@/routes/dog-work';
 import { dashboard } from '@/routes';
 import { index as kennel } from '@/routes/kennel';
@@ -53,7 +54,11 @@ const resetsAt = computed(() =>
         timeZone: props.board.timezone,
     }).format(new Date(props.board.resetsAt)),
 );
-const poll = usePoll(30_000, { only: ['board'] }, { mode: 'rest' });
+const poll = usePoll(
+    30_000,
+    { only: ['board'], headers: backgroundRequestHeaders },
+    { mode: 'rest' },
+);
 watch(pending, (value) => {
     if (value) poll.stop();
     else poll.start();

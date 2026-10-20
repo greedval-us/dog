@@ -19,9 +19,10 @@ final class GetPlayerDogs
             return [];
         }
 
+        $appearancePairs = $pets->unique(fn (Pet $pet): string => $pet->dog_id.':'.$pet->coat_color);
         $assets = GameAsset::query()->where('is_active', true)
-            ->where(function (Builder $query) use ($pets): void {
-                foreach ($pets as $pet) {
+            ->where(function (Builder $query) use ($appearancePairs): void {
+                foreach ($appearancePairs as $pet) {
                     $query->orWhere(fn (Builder $query) => $query->compatibleWith($pet));
                 }
             })

@@ -105,6 +105,14 @@ it('pauses during a mutation and resumes while registration remains active', asy
     await nextTick();
 
     expect(poll.start).toHaveBeenCalledTimes(2);
+    expect(poll.usePoll).toHaveBeenCalledWith(
+        30_000,
+        {
+            only: ['event', 'entry', 'serverNow'],
+            headers: { 'X-DogLive-Background': '1' },
+        },
+        { mode: 'rest', autoStart: true },
+    );
 });
 
 it.each([
@@ -127,7 +135,10 @@ it.each([
         entryStatus.value = current;
         await nextTick();
 
-        expect(poll.reload).toHaveBeenCalledExactlyOnceWith({ only: ['auth'] });
+        expect(poll.reload).toHaveBeenCalledExactlyOnceWith({
+            only: ['auth'],
+            headers: { 'X-DogLive-Background': '1' },
+        });
     },
 );
 

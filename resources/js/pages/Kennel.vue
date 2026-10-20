@@ -110,7 +110,7 @@ function submit() {
                 <Coins v-else :size="21" aria-hidden="true" />
                 {{
                     canClaimStarterPet
-                        ? t('Your first dog is free')
+                        ? t('A free dog is waiting for you')
                         : t('A new friend for {amount} coins', {
                               amount: number(price),
                           })
@@ -284,7 +284,7 @@ function submit() {
                             {{
                                 canClaimStarterPet
                                     ? t(
-                                          'Your first dog is free. Each next dog costs {amount} coins.',
+                                          'When you have no active dogs, you can take one home for free. Additional dogs cost {amount} coins.',
                                           { amount: number(price) },
                                       )
                                     : t('One dog takes one free place.')

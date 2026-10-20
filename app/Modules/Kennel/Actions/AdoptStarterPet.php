@@ -37,14 +37,12 @@ final class AdoptStarterPet
 
             $this->lifecycle->assertCanAdvance($owner);
 
-            $claimed = User::query()
-                ->whereKey($user->id)
-                ->eligibleForStarterPet()
-                ->update(['starter_pet_claimed_at' => now()]);
-
-            if ($claimed !== 1) {
+            if (! $owner->canClaimStarterPet()) {
                 throw new StarterPetAlreadyClaimed;
             }
+
+            User::query()->whereKey($owner->id)->whereNull('starter_pet_claimed_at')
+                ->update(['starter_pet_claimed_at' => now()]);
 
             $dog = Dog::query()->find($data->dogId);
 

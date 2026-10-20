@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
+    config(require base_path('tests/Fixtures/long-care-timing.php'));
     $this->withoutVite();
     $this->travelTo(CarbonImmutable::parse('2026-10-03 12:00:00', 'UTC'));
 });

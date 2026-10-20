@@ -9,6 +9,7 @@ use App\Models\CurrencyTransaction;
 use App\Models\Pet;
 use App\Models\Puppy;
 use App\Models\User;
+use App\Modules\Pets\Calculators\GameplayTiming;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
@@ -141,7 +142,7 @@ final class StartBreeding
                     throw new BreedingUnavailable('breeding.errors.funds');
                 }
             }
-            $bornAt = $at->addHours(config('doglive.breeding_birth_hours', 24));
+            $bornAt = $at->addSeconds(config('doglive.breeding_birth_seconds', GameplayTiming::BREEDING_BIRTH_SECONDS));
             $expiresAt = $bornAt->addDays(config('doglive.puppy_decision_days', 7));
             $litter = BreedingLitter::query()->create([
                 'operation_token' => $token, 'initiator_id' => $owner->id, 'own_pet_id' => $own->id,
@@ -162,7 +163,7 @@ final class StartBreeding
                     'generation' => max($father->generation, $mother->generation) + 1, 'exterior' => $puppy['exterior'], 'expires_at' => $expiresAt, ...$caps,
                 ]);
             }
-            $own->breeding_available_at = $at->addDays(config('doglive.breeding_cooldown_days', 7));
+            $own->breeding_available_at = $at->addSeconds(config('doglive.breeding_cooldown_seconds', GameplayTiming::BREEDING_COOLDOWN_SECONDS));
             $own->save();
             if ($kind === 'listing') {
                 $other->breeding_available_at = $own->breeding_available_at;

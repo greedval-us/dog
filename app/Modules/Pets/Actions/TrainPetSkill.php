@@ -87,7 +87,7 @@ final class TrainPetSkill
             $at = now()->startOfSecond();
             $this->reservations->assertAvailable($pet, $at->toImmutable(), $at->toImmutable()->addSecond());
             if ($progress?->cooldown_until?->greaterThan($at)) {
-                throw new PetUnavailable('Wait 24 hours between lessons for the same skill.');
+                throw new PetUnavailable('Wait for the cooldown between lessons for the same skill.');
             }
 
             $level = $skill->levels[$currentLevel];

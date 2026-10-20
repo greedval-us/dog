@@ -14,16 +14,17 @@ final class PetStateCalculator
      * @param  array<string, float>  $values
      * @param  array<string, int>  $maximums
      * @param  array<string, int>  $modifiers
+     * @param  array<string, int|float>  $rateOverrides
      * @return array<string, float>
      */
-    public function calculate(array $values, array $maximums, int $seconds, array $modifiers = []): array
+    public function calculate(array $values, array $maximums, int $seconds, array $modifiers = [], array $rateOverrides = []): array
     {
         if ($seconds <= 0) {
             return $values;
         }
 
         $hours = $seconds / 3600;
-        $rates = $this->balance['decay_per_hour'];
+        $rates = array_replace($this->balance['decay_per_hour'], $rateOverrides);
         foreach ($rates as $state => $rate) {
             $rates[$state] = max(0, $rate) * (100 + max(-50, min(50, $modifiers[$state.'_decay_percent'] ?? 0))) / 100;
         }

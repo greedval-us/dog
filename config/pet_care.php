@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Pets\Calculators\GameplayTiming;
+
 return [
     // Effects are percentage points of the dog's own capacity; energy costs are units.
     'feeding_by_size' => ['small' => 30, 'medium' => 22, 'large' => 15],
@@ -19,44 +21,44 @@ return [
     // A meal's satiety effect comes from feeding_by_size above.
     'options' => [
         'meal' => [
-            'duration' => 30, 'cooldown' => 300, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['meal'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['meal'], 'energy' => 0,
             'items' => ['food' => 1], 'effects' => [],
         ],
         'water' => [
-            'duration' => 15, 'cooldown' => 300, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['water'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['water'], 'energy' => 0,
             'items' => [], 'effects' => ['hydration' => 35],
         ],
         'walk' => [
-            'duration' => 300, 'cooldown' => 900, 'energy' => 12,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['walk'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['walk'], 'energy' => 12,
             'items' => ['collars' => 1, 'leashes' => 1],
             'effects' => ['mood' => 25, 'bond' => 4, 'satiety' => -8, 'hydration' => -10, 'cleanliness' => -12],
         ],
         'home' => [
-            'duration' => 120, 'cooldown' => 900, 'energy' => 4,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['home'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['home'], 'energy' => 4,
             'items' => [], 'effects' => ['mood' => 8, 'bond' => 1, 'satiety' => -3, 'hydration' => -3],
         ],
         'attention' => [
-            'duration' => 120, 'cooldown' => 600, 'energy' => 6,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['attention'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['attention'], 'energy' => 6,
             'items' => [], 'effects' => ['mood' => 10, 'bond' => 2, 'satiety' => -3, 'hydration' => -3],
         ],
         'toy' => [
-            'duration' => 180, 'cooldown' => 600, 'energy' => 10,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['toy'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['toy'], 'energy' => 10,
             'items' => ['toys' => 1], 'effects' => ['mood' => 18, 'bond' => 4, 'satiety' => -5, 'hydration' => -6],
         ],
         'wash' => [
-            'duration' => 60, 'cooldown' => 1200, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['wash'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['wash'], 'energy' => 0,
             'items' => [], 'effects' => ['cleanliness' => 10, 'bond' => 1],
         ],
         'care' => [
-            'duration' => 180, 'cooldown' => 1200, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['care'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['care'], 'energy' => 0,
             'items' => ['care' => 1], 'effects' => ['cleanliness' => 25, 'bond' => 3],
         ],
         'nap' => [
-            'duration' => 300, 'cooldown' => 1800, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['nap'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['nap'], 'energy' => 0,
             'items' => [], 'effects' => ['energy' => 25, 'health' => 1, 'satiety' => -4, 'hydration' => -4],
         ],
         'sleep' => [
-            'duration' => 1200, 'cooldown' => 3600, 'energy' => 0,
+            'duration' => GameplayTiming::CARE_DURATION_SECONDS['sleep'], 'cooldown' => GameplayTiming::CARE_COOLDOWN_SECONDS['sleep'], 'energy' => 0,
             'items' => [], 'effects' => ['energy' => 70, 'health' => 4, 'satiety' => -12, 'hydration' => -12],
         ],
     ],

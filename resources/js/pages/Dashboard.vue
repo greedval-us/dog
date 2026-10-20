@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Deferred, Head, Link, router, usePoll } from '@inertiajs/vue3';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import { ArrowRight } from '@lucide/vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import PetAppearanceControls from '@/components/PetAppearanceControls.vue';
@@ -32,7 +33,10 @@ defineProps<{
 }>();
 const { t } = useI18n();
 
-usePoll(60_000, { only: ['pet', 'care', 'skills'] });
+usePoll(60_000, {
+    only: ['pet', 'care', 'skills'],
+    headers: backgroundRequestHeaders,
+});
 </script>
 
 <template>
@@ -50,11 +54,11 @@ usePoll(60_000, { only: ['pet', 'care', 'skills'] });
                 :description="t('A place for your future best friend.')"
             />
             <EmptyState
-                :title="t('You do not have a dog yet')"
+                :title="t('There are currently no dogs in your care.')"
                 :description="
                     canClaimStarterPet
                         ? t(
-                              'Your first friend is waiting at the kennel. Choose a breed and take your dog home for free.',
+                              'A new friend is waiting at the kennel. Choose a breed and take your dog home for free.',
                           )
                         : t('There are currently no dogs in your care.')
                 "

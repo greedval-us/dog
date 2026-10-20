@@ -34,7 +34,7 @@ test('an instructor teaches one level at the exact requirements and charges coin
 
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 0, 'gems' => 7]);
     $this->assertDatabaseHas('pet_skill', ['pet_id' => $pet->id, 'skill_id' => $skill->id, 'level' => 1,
-        'last_trained_at' => now()->toDateTimeString(), 'cooldown_until' => now()->addHours(24)->toDateTimeString()]);
+        'last_trained_at' => now()->toDateTimeString(), 'cooldown_until' => now()->addSeconds(10)->toDateTimeString()]);
     $this->assertDatabaseCount('pet_skill_lessons', 1);
     $this->assertDatabaseHas('currency_transactions', ['user_id' => $owner->id, 'currency' => 'coins', 'amount' => -100, 'reason' => 'skill_lesson']);
     $this->assertDatabaseCount('currency_transactions', 1);
@@ -51,7 +51,7 @@ test('all five levels cost coins in order and a mastered skill cannot be purchas
     foreach (range(1, 5) as $level) {
         $this->post(route('pets.skills.store', $pet), skillLessonPayload($skill, $level))->assertSessionHasNoErrors();
         $this->assertDatabaseHas('pet_skill', ['pet_id' => $pet->id, 'skill_id' => $skill->id, 'level' => $level]);
-        $this->travel(24)->hours();
+        $this->travel(10)->seconds();
     }
     $this->post(route('pets.skills.store', $pet), skillLessonPayload($skill, 5))
         ->assertSessionHasErrors(['skill' => __('Your dog has mastered all five levels of this skill.')]);
@@ -65,17 +65,17 @@ test('all five levels cost coins in order and a mastered skill cannot be purchas
     expect($view['canTrain'])->toBeFalse();
 });
 
-test('the twenty four hour cooldown ends at its exact timestamp', function () {
+test('the ten second cooldown ends at its exact timestamp', function () {
     $this->freezeSecond();
     $owner = User::factory()->create(['coins' => 500]);
     $pet = Pet::factory()->for($owner)->create(['intelligence' => 100, 'obedience' => 100]);
     $skill = Skill::factory()->create();
     $this->actingAs($owner)->post(route('pets.skills.store', $pet), skillLessonPayload($skill))->assertSessionHasNoErrors();
     $next = skillLessonPayload($skill, 2);
-    $this->travel(86399)->seconds();
+    $this->travel(9)->seconds();
 
     $this->post(route('pets.skills.store', $pet), $next)
-        ->assertSessionHasErrors(['skill' => __('Wait 24 hours between lessons for the same skill.')]);
+        ->assertSessionHasErrors(['skill' => __('Wait for the cooldown between lessons for the same skill.')]);
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 400]);
     $this->assertDatabaseCount('pet_skill_lessons', 1);
     $this->travel(1)->seconds();

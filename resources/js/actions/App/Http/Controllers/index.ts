@@ -29,6 +29,7 @@ import PetMemorialController from './PetMemorialController'
 import KennelController from './KennelController'
 import GameImageController from './GameImageController'
 import Settings from './Settings'
+import PetBoardingController from './PetBoardingController'
 const Controllers = {
     LocaleController: Object.assign(LocaleController, LocaleController),
 SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
@@ -61,6 +62,7 @@ PetMemorialController: Object.assign(PetMemorialController, PetMemorialControlle
 KennelController: Object.assign(KennelController, KennelController),
 GameImageController: Object.assign(GameImageController, GameImageController),
 Settings: Object.assign(Settings, Settings),
+PetBoardingController: Object.assign(PetBoardingController, PetBoardingController),
 }
 
 export default Controllers

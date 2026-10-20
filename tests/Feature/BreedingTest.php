@@ -60,9 +60,9 @@ test('a paid mating stores an unborn litter and stable distribution then replays
 
     expect($damOwner->fresh()->coins)->toBe(900);
     expect($sireOwner->fresh()->coins)->toBe(100);
-    expect($first->born_at->format('Y-m-d H:i:s'))->toBe(now()->addHours(24)->format('Y-m-d H:i:s'));
-    expect($dam->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addDays(7)->format('Y-m-d H:i:s'));
-    expect($sire->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addDays(7)->format('Y-m-d H:i:s'));
+    expect($first->born_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
+    expect($dam->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
+    expect($sire->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
     expect($first->puppies()->count())->toBeBetween(2, 5);
     expect($first->puppies()->where('user_id', $sireOwner->id)->count())->toBe(1);
     expect($first->puppies()->where('status', 'unborn')->count())->toBe(count($original));
@@ -164,9 +164,20 @@ test('mating rolls back payment and parental cooldown if seller credit fails', f
 });
 
 test('the breeding board exposes the final inheritance forecast', function () {
+    $this->freezeTime();
+    config(['doglive.breeding_cooldown_seconds' => 360, 'doglive.breeding_birth_seconds' => 180]);
     [$owner, , $dam, , $listing] = breedingPair();
 
-    $this->actingAs($owner)->get(route('breeding.index', ['pet' => $dam->id, 'kind' => 'listing', 'partner' => $listing->id]))->assertInertia(fn (Assert $page) => $page->component('breeding/Index')->where('access.allowed', true)->has('preview.ranges', 6)->has('preview.colors', 4)->where('preview.reason', null));
+    $this->actingAs($owner)->get(route('breeding.index', ['pet' => $dam->id, 'kind' => 'listing', 'partner' => $listing->id]))->assertInertia(fn (Assert $page) => $page
+        ->component('breeding/Index')
+        ->where('access.allowed', true)
+        ->where('serverNow', now()->toIso8601String())
+        ->where('cooldownSeconds', 360)
+        ->where('pregnancySeconds', 180)
+        ->has('preview.ranges', 6)
+        ->where('preview.ranges.0', ['stat' => 'endurance', 'min' => 104, 'max' => 112])
+        ->has('preview.colors', 4)
+        ->where('preview.reason', null));
 });
 
 test('a player cannot breed another players female dog', function () {

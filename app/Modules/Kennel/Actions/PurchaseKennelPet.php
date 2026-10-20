@@ -56,7 +56,7 @@ final class PurchaseKennelPet
             }
 
             if ($owner->canClaimStarterPet()) {
-                throw new AdoptionUnavailable('Your first dog is free. Refresh the kennel to claim it.');
+                throw new AdoptionUnavailable('A free dog is available. Refresh the kennel to claim it.');
             }
 
             if ($owner->pets()->active()->count() >= $owner->pet_slots) {

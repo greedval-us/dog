@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Modules\Pets\Calculators\PetBoardingRules;
 use App\Modules\Pets\Calculators\PetCareRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Calculators\PetStateCalculator;
@@ -19,6 +20,7 @@ use Random\Randomizer;
  * @phpstan-import-type CareBalance from PetCareRules
  * @phpstan-import-type StateBalance from PetStateCalculator
  * @phpstan-import-type StatBalance from PetDecayCalculator
+ * @phpstan-import-type BoardingBalance from PetBoardingRules
  */
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +30,14 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(Randomizer::class, fn (): Randomizer => new Randomizer(new Secure));
+        $this->app->bind(PetBoardingRules::class, function (): PetBoardingRules {
+            /** @var BoardingBalance $balance */
+            $balance = Config::array('pet_boarding');
+            /** @var array<string, int|float> $statDecay */
+            $statDecay = Config::array('pet_stats.decay_per_hour');
+
+            return new PetBoardingRules($balance, $statDecay);
+        });
         $this->app->bind(PetCareRules::class, function (): PetCareRules {
             /** @var CareBalance $balance */
             $balance = Config::array('pet_care');

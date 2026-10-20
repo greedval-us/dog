@@ -20,6 +20,7 @@ use Random\Engine;
 use Random\Randomizer;
 
 beforeEach(function () {
+    config(require base_path('tests/Fixtures/long-care-timing.php'));
     $this->withoutVite();
     $this->freezeSecond();
 });

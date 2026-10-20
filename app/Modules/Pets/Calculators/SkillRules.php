@@ -9,7 +9,7 @@ final class SkillRules
 {
     public const MAX_LEVEL = 5;
 
-    public const COOLDOWN_SECONDS = 86400;
+    public const COOLDOWN_SECONDS = GameplayTiming::SKILL_COOLDOWN_SECONDS;
 
     /** @param array<mixed>|null $levels */
     public function valid(?array $levels): bool

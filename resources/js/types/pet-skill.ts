@@ -23,6 +23,7 @@ export type PetSkill = {
 
 export type PetSkills = {
     serverNow: string;
+    cooldownSeconds: number;
     token: string;
     skills: PetSkill[];
 };

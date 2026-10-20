@@ -6,10 +6,21 @@ use InvalidArgumentException;
 
 final class BreedingGeneticsCalculator
 {
+    public const int MIN_OFFSPRING_SPREAD = 9800;
+
+    public const int MAX_OFFSPRING_SPREAD = 10200;
+
+    private const int MAX_DATABASE_INTEGER = 2147483647;
+
+    public function offspringPotential(float $father, float $mother, int $spread): int
+    {
+        return max(1, min(self::MAX_DATABASE_INTEGER, (int) round(($father + $mother) / 2 * ($spread / 10000))));
+    }
+
     /** @return array{min: float, max: float} */
     public function range(int $current, int $potential): array
     {
-        if ($potential < 1 || $potential > 2147483647) {
+        if ($potential < 1 || $potential > self::MAX_DATABASE_INTEGER) {
             throw new InvalidArgumentException('Parent genetic limits must be positive database integers.');
         }
 

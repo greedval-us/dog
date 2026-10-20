@@ -353,6 +353,7 @@ test('event partial polling reads state without registration catalogues or lifec
 
     $this->withHeaders([
         'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'GameEventShow', 'X-Inertia-Partial-Data' => 'event,entry,serverNow',
+        'X-DogLive-Background' => '1',
         'X-Inertia-Version' => $initial->viewData('page')['version'],
     ])->get(route('game-events.show', $event))->assertOk()
         ->assertJsonPath('props.event.id', $event->id)->assertJsonPath('props.entry', null)
@@ -393,6 +394,7 @@ test('partial calendar polling does not create upcoming schedules', function () 
 
     $this->actingAs($owner)->withHeaders([
         'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'GameEvents', 'X-Inertia-Partial-Data' => 'events,serverNow',
+        'X-DogLive-Background' => '1',
         'X-Inertia-Version' => $initial->viewData('page')['version'],
     ])->get(route('game-events.index'))->assertOk();
 

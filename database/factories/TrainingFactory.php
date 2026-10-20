@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Training;
+use App\Modules\Pets\Calculators\GameplayTiming;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,8 +24,8 @@ class TrainingFactory extends Factory
             'stat_gains' => ['speed' => 4, 'endurance' => 4],
             'state_costs' => ['satiety' => 5, 'hydration' => 8, 'cleanliness' => 3],
             'energy_cost' => 15,
-            'duration_seconds' => 120,
-            'cooldown_seconds' => 600,
+            'duration_seconds' => GameplayTiming::DEFAULT_TRAINING_DURATION_SECONDS,
+            'cooldown_seconds' => GameplayTiming::DEFAULT_TRAINING_COOLDOWN_SECONDS,
             'risk_chance' => 0,
             'is_active' => true,
         ];

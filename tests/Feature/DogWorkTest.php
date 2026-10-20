@@ -142,7 +142,7 @@ test('catalogue edits do not change today’s terms or an accepted reward', func
     $job->update(['coins_reward' => 900, 'duration_seconds' => 1, 'daily_limit' => 1, 'is_active' => false]);
     $shift = app(StartDogWork::class)->handle($pet->user, $pet->id, new StartDogWorkData($offer->id, (string) Str::uuid()));
     expect($shift->coins_reward)->toBe(150);
-    expect($shift->ends_at->diffInSeconds($shift->started_at, true))->toBe(1800.0);
+    expect($shift->ends_at->diffInSeconds($shift->started_at, true))->toBe(15.0);
     expect($offer->refresh()->daily_limit)->toBe(20);
     $offer->update(['coins_reward' => 999]);
     $job->delete();

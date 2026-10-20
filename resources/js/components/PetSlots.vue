@@ -148,12 +148,12 @@ function purchase() {
                         class="pet-slot-action"
                         :title="
                             canClaimStarterPet
-                                ? t('Get your first dog')
+                                ? t('Take home a dog for free')
                                 : t('Visit the kennel')
                         "
                         :aria-label="
                             canClaimStarterPet
-                                ? t('Get your first dog')
+                                ? t('Take home a dog for free')
                                 : t('Visit the kennel')
                         "
                     >

@@ -13,6 +13,7 @@ use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Calculators\PlayerLevelRules;
 use App\Modules\Players\Enums\PlayerStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 final class GetBreedingBoard
@@ -28,17 +29,18 @@ final class GetBreedingBoard
             $dog->advanceTo(now(), $this->states);
         }
         $selected = $dogs->firstWhere('id', $petId);
-        $listingQuery = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog', 'pet.titles'])->orderBy('id');
+        $listingQuery = $this->activeListingsQuery();
         $partnerQuery = BreedingPartner::query()->where('is_active', true)->with(['pet.dog', 'pet.titles'])->orderBy('id');
         if ($selected !== null) {
-            $listingQuery->whereHas('pet', fn ($query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value));
-            $partnerQuery->whereHas('pet', fn ($query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value));
+            $compatiblePartner = fn (Builder $query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value);
+            $listingQuery->whereHas('pet', $compatiblePartner);
+            $partnerQuery->whereHas('pet', $compatiblePartner);
         }
         $listingPage = $listingQuery->cursorPaginate(12);
-        $listings = $listingPage->getCollection()->filter(fn (BreedingListing $listing): bool => $listing->pet->user_id === $listing->user_id && PlayerLevelRules::progress($listing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5))->values();
+        $listings = $listingPage->getCollection()->filter(fn (BreedingListing $listing): bool => $this->listingIsEligible($listing))->values();
         if ($kind === 'listing' && $partnerId !== null && ! $listings->contains('id', $partnerId)) {
-            $chosenListing = BreedingListing::query()->where('is_active', true)->whereHas('user', fn ($query) => $query->where('status', PlayerStatus::Active))->with(['user', 'pet.dog', 'pet.titles'])->find($partnerId);
-            if ($chosenListing !== null && $chosenListing->pet->user_id === $chosenListing->user_id && PlayerLevelRules::progress($chosenListing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5)) {
+            $chosenListing = $this->activeListingsQuery()->find($partnerId);
+            if ($chosenListing !== null && $this->listingIsEligible($chosenListing)) {
                 $listings->push($chosenListing);
             }
         }
@@ -47,6 +49,7 @@ final class GetBreedingBoard
         }
         $partners = $partnerQuery->get();
         $chosen = $kind === 'listing' ? $listings->firstWhere('id', $partnerId) : ($kind === 'partner' ? $partners->firstWhere('id', $partnerId) : null);
+        $ownPair = $chosen !== null && $chosen->pet->user_id === $user->id;
         $preview = null;
         if ($selected !== null && $chosen !== null) {
             $other = $chosen->pet;
@@ -62,7 +65,11 @@ final class GetBreedingBoard
             foreach (PetStat::cases() as $stat) {
                 $first = $this->genetics->range((int) $father->getAttribute($stat->value), (int) $father->getAttribute($stat->potentialColumn()));
                 $second = $this->genetics->range((int) $mother->getAttribute($stat->value), (int) $mother->getAttribute($stat->potentialColumn()));
-                $ranges[] = ['stat' => $stat->value, 'min' => max(1, min(2147483647, (int) round(($first['min'] + $second['min']) / 2 * 0.98))), 'max' => max(1, min(2147483647, (int) round(($first['max'] + $second['max']) / 2 * 1.02)))];
+                $ranges[] = [
+                    'stat' => $stat->value,
+                    'min' => $this->genetics->offspringPotential($first['min'], $second['min'], BreedingGeneticsCalculator::MIN_OFFSPRING_SPREAD),
+                    'max' => $this->genetics->offspringPotential($first['max'], $second['max'], BreedingGeneticsCalculator::MAX_OFFSPRING_SPREAD),
+                ];
             }
             $weights = $this->coatWeights->handle($father, $mother);
             $total = array_sum($weights);
@@ -73,21 +80,38 @@ final class GetBreedingBoard
             if ($colors === []) {
                 $reason = 'breeding.errors.unavailable';
             }
-            $preview = ['father' => $this->parent($father, $locale, $father->user_id === null), 'mother' => $this->parent($mother, $locale, $mother->user_id === null), 'ranges' => $ranges, 'colors' => $colors, 'reason' => $reason, 'ownPair' => $other->user_id === $user->id];
+            $preview = ['father' => $this->parent($father, $locale, $father->user_id === null), 'mother' => $this->parent($mother, $locale, $mother->user_id === null), 'ranges' => $ranges, 'colors' => $colors, 'reason' => $reason, 'ownPair' => $ownPair];
         }
 
         return [
+            'serverNow' => now()->toIso8601String(),
+            'cooldownSeconds' => config('doglive.breeding_cooldown_seconds'),
+            'pregnancySeconds' => config('doglive.breeding_birth_seconds'),
             'access' => ['level' => $level, 'requiredLevel' => config('doglive.breeding_minimum_level', 5), 'allowed' => $level >= config('doglive.breeding_minimum_level', 5) && $user->status === PlayerStatus::Active],
             'dogs' => $dogs->map(fn (Pet $pet): array => $this->parent($pet, $locale))->all(),
             'ownListings' => BreedingListing::query()->where('user_id', $user->id)->orderBy('id')->get()->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'petId' => $listing->pet_id, 'price' => $listing->price, 'isActive' => $listing->is_active])->all(),
             'listingPagination' => ['nextCursor' => $listingPage->nextCursor()?->encode(), 'previousCursor' => $listingPage->previousCursor()?->encode()],
-            'listings' => $listings->filter(fn (BreedingListing $listing): bool => $listing->pet->user_id === $listing->user_id && PlayerLevelRules::progress($listing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5))->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'price' => $listing->price, 'owner' => ['username' => $listing->user->username], 'pet' => $this->parent($listing->pet, $locale)])->values()->all(),
+            'listings' => $listings->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'price' => $listing->price, 'owner' => ['username' => $listing->user->username], 'pet' => $this->parent($listing->pet, $locale)])->values()->all(),
             'partners' => $partners->map(fn (BreedingPartner $partner): array => ['id' => $partner->id, 'price' => $partner->price, 'pet' => $this->parent($partner->pet, $locale, true)])->all(),
             'selection' => ['petId' => $selected?->id, 'kind' => $chosen === null ? null : $kind, 'partnerId' => $chosen?->id],
-            'ownPair' => $chosen !== null && $chosen->pet->user_id === $user->id,
-            'selectedPrice' => $chosen === null || $chosen->pet->user_id === $user->id ? 0 : $chosen->price,
+            'ownPair' => $ownPair,
+            'selectedPrice' => $chosen === null || $ownPair ? 0 : $chosen->price,
             'preview' => $preview, 'operationToken' => (string) Str::uuid(),
         ];
+    }
+
+    /** @return Builder<BreedingListing> */
+    private function activeListingsQuery(): Builder
+    {
+        return BreedingListing::query()->where('is_active', true)
+            ->whereHas('user', fn (Builder $query) => $query->where('status', PlayerStatus::Active))
+            ->with(['user', 'pet.dog', 'pet.titles'])->orderBy('id');
+    }
+
+    private function listingIsEligible(BreedingListing $listing): bool
+    {
+        return $listing->pet->user_id === $listing->user_id
+            && PlayerLevelRules::progress($listing->user->experience)['level'] >= config('doglive.breeding_minimum_level', 5);
     }
 
     /** @return array<string,mixed> */

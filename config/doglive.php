@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Pets\Calculators\GameplayTiming;
+
 return [
     'work_timezone' => 'Europe/Moscow',
     'disease_timezone' => 'Europe/Moscow',
@@ -7,8 +9,8 @@ return [
     'kennel_price' => 500,
     'breeding_minimum_level' => 5,
     'breeding_minimum_age_days' => 7,
-    'breeding_cooldown_days' => 7,
-    'breeding_birth_hours' => 24,
+    'breeding_cooldown_seconds' => GameplayTiming::BREEDING_COOLDOWN_SECONDS,
+    'breeding_birth_seconds' => GameplayTiming::BREEDING_BIRTH_SECONDS,
     'puppy_decision_days' => 7,
     'puppy_http_batch_size' => 20,
     'breeding_rare_colors' => ['liver', 'blue', 'cream'],

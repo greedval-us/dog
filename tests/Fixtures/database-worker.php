@@ -4,8 +4,12 @@ use App\Models\User;
 use App\Modules\Appearance\Actions\PurchasePetAsset;
 use App\Modules\Appearance\DTO\PurchaseAssetData;
 use App\Modules\Appearance\Enums\AssetCurrency;
+use App\Modules\Kennel\Actions\AdoptStarterPet;
 use App\Modules\Kennel\Actions\PurchaseKennelPet;
+use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
+use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
 use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\GenerateDogWorkBoard;
@@ -19,6 +23,7 @@ use App\Modules\Pets\DTO\PurchaseVeterinaryServiceData;
 use App\Modules\Pets\DTO\StartDogWorkData;
 use App\Modules\Pets\Enums\VeterinaryService;
 use App\Modules\Pets\Exceptions\PetUnavailable;
+use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Exceptions\InsufficientFunds;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Contracts\Console\Kernel;
@@ -54,11 +59,17 @@ try {
         'appearance' => app(PurchasePetAsset::class)->handle($user, $input['pet_id'], new PurchaseAssetData($input['asset_id'], 100, AssetCurrency::Coins)),
         'care-start' => app(StartPetCare::class)->handle($user, $input['pet_id'], $input['variant'], $input['items'], $input['token']),
         'care-complete' => app(CompletePetCare::class)->handle($user, $input['pet_id'], $input['token']),
+        'boarding-sync' => (function () use ($user): bool {
+            app(PetLifecycle::class)->synchronizeOwner($user);
+
+            return true;
+        })(),
         'retire' => app(RetirePet::class)->handle($user, $input['pet_id']),
         'dog-work-board' => app(GenerateDogWorkBoard::class)->handle(),
         'dog-work-start' => app(StartDogWork::class)->handle($user, $input['pet_id'], new StartDogWorkData($input['offer_id'], $input['token'])),
         'dog-work-complete' => app(CompleteDogWork::class)->handle($user, $input['token']),
         'kennel' => app(PurchaseKennelPet::class)->handle($user, new PurchaseKennelPetData($input['dog_id'], 'Luna', 500, $input['token'])),
+        'starter-adoption' => app(AdoptStarterPet::class)->handle($user, new AdoptStarterPetData($input['dog_id'], 'Luna')),
         'veterinarian' => app(PurchaseVeterinaryService::class)->handle($user, new PurchaseVeterinaryServiceData(
             $input['pet_id'], VeterinaryService::from($input['service']), $input['episode_id'] ?? null, $input['price'], $input['token'],
         )),
@@ -66,7 +77,7 @@ try {
     echo $input['action'] === 'care-complete' ? ($result ? 'applied' : 'replayed') : 'ok';
 } catch (InsufficientFunds) {
     echo 'insufficient';
-} catch (PetUnavailable) {
+} catch (PetUnavailable|AdoptionUnavailable|StarterPetAlreadyClaimed) {
     echo 'unavailable';
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception->getMessage());

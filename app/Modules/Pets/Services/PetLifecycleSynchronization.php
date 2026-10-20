@@ -21,6 +21,7 @@ final class PetLifecycleSynchronization
         private PetHistoryRecorder $history,
         private PetCareCompletion $careCompletion,
         private GetPendingEventRegistrations $registrations,
+        private PetBoarding $boarding,
     ) {}
 
     /** @return list<int> Care receipts settled before a possible lifecycle transition. */
@@ -30,23 +31,29 @@ final class PetLifecycleSynchronization
         $thresholds = [];
 
         return DB::transaction(function () use ($user, $at, &$thresholds): array {
-            $completedCareIds = [];
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $this->assertCanAdvance($owner, $at);
             $pets = $owner->pets()->whereNull('retired_at')->whereNull('died_at')->orderBy('id')->lockForUpdate()->get();
+            $completedCareIds = $this->boarding->cover($owner, $pets, $at, $thresholds);
             foreach ($pets as $pet) {
+                if (($pet->boarding_periods ?? []) !== []) {
+                    $completedCareId = $this->completeDueCare($owner, $pet, $at, $thresholds);
+                    if ($completedCareId !== null) {
+                        $completedCareIds[] = $completedCareId;
+                    }
+                    $pet->advanceTo($at, $this->decay);
+                    $this->persist($pet);
+
+                    continue;
+                }
                 $elapsed = clone $pet;
                 $elapsed->advanceTo($at, $this->decay);
                 if ($elapsed->archivedAt() === null) {
                     continue;
                 }
-                if ($owner->status === PlayerStatus::Active && $pet->activity_token !== null) {
-                    $care = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $pet->id)
-                        ->where('activity_token', $pet->activity_token)->where('ends_at', '<=', $at)
-                        ->whereNull('completed_at')->whereNull('cancelled_at')->lockForUpdate()->first();
-                    if ($care !== null && $this->careCompletion->complete($owner, $pet, $care, $at, $thresholds)) {
-                        $completedCareIds[] = $care->id;
-                    }
+                $completedCareId = $this->completeDueCare($owner, $pet, $at, $thresholds);
+                if ($completedCareId !== null) {
+                    $completedCareIds[] = $completedCareId;
                 }
                 $pet->advanceTo($at, $this->decay);
                 if ($pet->archivedAt() !== null && ($pet->isDirty() || $pet->isBusy())) {
@@ -56,6 +63,19 @@ final class PetLifecycleSynchronization
 
             return $completedCareIds;
         }, attempts: 3);
+    }
+
+    /** @param array<string, int> $thresholds */
+    private function completeDueCare(User $owner, Pet $pet, CarbonImmutable $at, array &$thresholds): ?int
+    {
+        if ($owner->status !== PlayerStatus::Active || $pet->activity_token === null) {
+            return null;
+        }
+        $care = PetCareAction::query()->where('user_id', $owner->id)->where('pet_id', $pet->id)
+            ->where('activity_token', $pet->activity_token)->where('ends_at', '<=', $at)
+            ->whereNull('completed_at')->whereNull('cancelled_at')->lockForUpdate()->first();
+
+        return $care !== null && $this->careCompletion->complete($owner, $pet, $care, $at, $thresholds) ? $care->id : null;
     }
 
     /** The caller holds the owner row lock in the transaction that will change gameplay state. */

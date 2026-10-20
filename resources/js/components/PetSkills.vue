@@ -1,22 +1,33 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import { Check, Clock, Coins, GraduationCap, Sparkles } from '@lucide/vue';
 import { computed, reactive, ref, useId } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { useDeadlineRefresh } from '@/composables/useDeadlineRefresh';
+import { careDuration } from '@/lib/petCarePresentation';
 import { statLabels } from '@/lib/petLabels';
 import { store } from '@/routes/pets/skills';
 import type { PlayerPet } from '@/types/pet';
 import type { PetSkill, PetSkills } from '@/types/pet-skill';
 
 const props = defineProps<{ pet: PlayerPet; data: PetSkills }>();
-const { t, number, locale } = useI18n();
+const { t, number } = useI18n();
 const id = useId();
 const selectedLevels = reactive<Record<number, number>>({});
 const pendingSkill = ref<number | null>(null);
 const form = useForm({ skill_id: 0, level: 1, expected_price: 0, token: '' });
+const { now } = useDeadlineRefresh(
+    () => props.data.serverNow,
+    () =>
+        props.data.skills.flatMap((skill) =>
+            skill.cooldownUntil ? [skill.cooldownUntil] : [],
+        ),
+    (options) => router.reload({ ...options, only: ['pet', 'skills', 'care'] }),
+    () => form.processing,
+);
 const error = computed(() => Object.values(form.errors).join(' '));
 let lastAttempt = '';
 
@@ -28,20 +39,8 @@ function nextLesson(skill: PetSkill) {
     return skill.level < 5 ? skill.levels[skill.level] : null;
 }
 
-function formatDate(value: string): string {
-    return new Intl.DateTimeFormat(locale.value, {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value));
-}
-
 function coolingDown(skill: PetSkill): boolean {
-    return (
-        !!skill.cooldownUntil &&
-        Date.parse(skill.cooldownUntil) > Date.parse(props.data.serverNow)
-    );
+    return !!skill.cooldownUntil && Date.parse(skill.cooldownUntil) > now.value;
 }
 
 function train(skill: PetSkill) {
@@ -80,7 +79,8 @@ function train(skill: PetSkill) {
             <p>
                 {{
                     t(
-                        'Pay an instructor in coins to teach your dog one skill level. Wait 24 hours before the next lesson for the same skill.',
+                        'Pay an instructor in coins to teach your dog one skill level. Wait {duration} before the next lesson for the same skill.',
+                        { duration: careDuration(data.cooldownSeconds, t) },
                     )
                 }}
             </p>
@@ -263,8 +263,18 @@ function train(skill: PetSkill) {
                         class="pet-skill-cooldown"
                     >
                         <Clock :size="15" aria-hidden="true" />{{
-                            t('Next lesson: {date}', {
-                                date: formatDate(skill.cooldownUntil),
+                            t('Next lesson in {duration}', {
+                                duration: careDuration(
+                                    Math.max(
+                                        0,
+                                        Math.ceil(
+                                            (Date.parse(skill.cooldownUntil) -
+                                                now) /
+                                                1000,
+                                        ),
+                                    ),
+                                    t,
+                                ),
                             })
                         }}
                     </p>

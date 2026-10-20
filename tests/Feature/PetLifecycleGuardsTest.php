@@ -14,8 +14,8 @@ use App\Modules\Appearance\Actions\SelectPetAsset;
 use App\Modules\Appearance\DTO\PurchaseAssetData;
 use App\Modules\Appearance\Enums\AssetCurrency;
 use App\Modules\Appearance\Exceptions\AppearanceUnavailable;
-use App\Modules\Kennel\Actions\PurchaseKennelPet;
-use App\Modules\Kennel\DTO\PurchaseKennelPetData;
+use App\Modules\Kennel\Actions\AdoptStarterPet;
+use App\Modules\Kennel\DTO\AdoptStarterPetData;
 use App\Modules\Pets\Actions\CompleteDogWork;
 use App\Modules\Pets\Actions\CompletePetCare;
 use App\Modules\Pets\Actions\PurchaseVeterinaryService;
@@ -147,19 +147,21 @@ test('replaying a completed veterinary receipt after death cannot revive the dog
     $this->assertDatabaseCount('currency_transactions', 1);
 });
 
-test('a six month old offline dog frees its slot before a kennel purchase and replaying that purchase remains safe', function () {
+test('a six month old offline dog frees its slot for one free replacement without losing the original claim date', function () {
+    $this->freezeTime();
     $owner = User::factory()->create(['coins' => 1000, 'pet_slots' => 1, 'starter_pet_claimed_at' => now()->subMonths(6)]);
+    $claimedAt = $owner->starter_pet_claimed_at;
     $oldPet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(6), 'health' => 100]);
     $breed = Dog::factory()->create(['is_starter' => true]);
-    $data = new PurchaseKennelPetData($breed->id, 'Новый друг', 500, (string) Str::uuid());
+    $data = new AdoptStarterPetData($breed->id, 'Новый друг');
 
-    $purchase = app(PurchaseKennelPet::class)->handle($owner, $data);
-    $replayed = app(PurchaseKennelPet::class)->handle($owner, $data);
+    $replacement = app(AdoptStarterPet::class)->handle($owner, $data);
 
     expect($oldPet->fresh()->retired_at)->toEqual(now());
-    expect($replayed->id)->toBe($purchase->id);
+    expect($replacement->user_id)->toBe($owner->id);
     expect($owner->pets()->active()->count())->toBe(1);
-    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 500]);
-    $this->assertDatabaseCount('kennel_purchases', 1);
-    $this->assertDatabaseCount('currency_transactions', 1);
+    expect($owner->fresh()->starter_pet_claimed_at)->toEqual($claimedAt);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 1000]);
+    $this->assertDatabaseCount('kennel_purchases', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
 });

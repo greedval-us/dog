@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
 import { useCareItems } from '@/composables/useCareItems';
-import { careOptionReason } from '@/lib/petCareAvailability';
+import { careGroupReason } from '@/lib/petCareAvailability';
 import { careModifiers } from '@/lib/petCarePreview';
 import {
     careActions,
@@ -86,32 +86,20 @@ const groupTone = computed(() => action.value?.tone ?? 'blue');
 const error = computed(() => Object.values(form.errors).join(' '));
 const startReason = computed(() => {
     if (!selected.value) return t('No options are available yet.');
-    if (props.care.blocked)
-        return t('Care is unavailable for this dog or account.');
-    if (props.care.working) return t('Your dog is working.');
-    if (props.care.busy) return t(props.busyMessage);
-    const remaining =
-        Math.max(
-            0,
-            Math.ceil(
-                (Date.parse(props.care.cooldowns[props.group] ?? '') -
-                    props.now) /
-                    1000,
-            ),
-        ) || 0;
-    if (remaining)
-        return t('Available in {time}', {
-            time:
-                Math.floor(remaining / 60) +
-                ':' +
-                String(remaining % 60).padStart(2, '0'),
-        });
-    const reason = careOptionReason(
-        selected.value,
-        props.pet.energy.value,
-        careModifiers(props.care, props.now).energy_cost_percent ?? 0,
+    const reason = careGroupReason(
+        {
+            care: props.care,
+            group: props.group,
+            now: props.now,
+            energy: props.pet.energy.value,
+            modifier:
+                careModifiers(props.care, props.now).energy_cost_percent ?? 0,
+            busyMessage: props.busyMessage,
+            option: selected.value,
+        },
+        t,
     );
-    if (reason) return t(reason);
+    if (reason) return reason;
     if (itemsLoading.value) return t('Loading supplies...');
     if (itemsError.value) return t('Could not load data. Please retry.');
     if (missingItems.value)

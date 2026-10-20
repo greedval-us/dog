@@ -1,12 +1,29 @@
-import { App } from '@inertiajs/vue3';
+import { App, router } from '@inertiajs/vue3';
 import { renderToString } from '@vue/server-renderer';
 import { createSSRApp, defineComponent, h } from 'vue';
 import type { Component, DefineComponent } from 'vue';
-import { expect, it } from 'vite-plus/test';
+import { afterEach, expect, it, vi } from 'vite-plus/test';
 import Breeding from './Index.vue';
 import PuppyMarket from '../puppies/Market.vue';
 import MyPuppies from '../puppies/Index.vue';
 import type { BreedingParent, Puppy } from '@/types/breeding';
+
+const deadlineEvents = vi.hoisted(() => ({ refresh: () => {} }));
+vi.mock('@/composables/useDeadlineRefresh', async () => {
+    const actual = await vi.importActual<
+        typeof import('@/composables/useDeadlineRefresh')
+    >('@/composables/useDeadlineRefresh');
+    return {
+        useDeadlineRefresh: (
+            ...args: Parameters<typeof actual.useDeadlineRefresh>
+        ) => {
+            deadlineEvents.refresh = () =>
+                args[2]({ headers: { 'X-DogLive-Background': '1' } });
+            return actual.useDeadlineRefresh(...args);
+        },
+    };
+});
+afterEach(() => vi.restoreAllMocks());
 
 function parentFixture(): BreedingParent {
     return {
@@ -94,6 +111,9 @@ function breedingFixture() {
         sex: 'male' as const,
     };
     return {
+        serverNow: '2026-10-20T12:00:00Z',
+        pregnancySeconds: 15,
+        cooldownSeconds: 15,
         access: { level: 5, requiredLevel: 5, allowed: true },
         dogs: [mother],
         ownListings: [],
@@ -113,8 +133,67 @@ function breedingFixture() {
             reason: null,
         },
         operationToken: '00000000-0000-4000-8000-000000000001',
+        selectedPrice: 100,
+        ownPair: false,
+        listingPagination: { previousCursor: null, nextCursor: null },
     };
 }
+
+it('refreshes the displayed charge with the current offer when a deadline expires', async () => {
+    const props: Record<string, unknown> = breedingFixture();
+    const fresh = {
+        ...breedingFixture(),
+        listings: [{ ...breedingFixture().listings[0], price: 200 }],
+        selectedPrice: 200,
+        operationToken: '00000000-0000-4000-8000-000000000002',
+    };
+    vi.spyOn(router, 'reload').mockImplementation((options) => {
+        for (const key of options?.only ?? Object.keys(fresh)) {
+            if (key in fresh) props[key] = fresh[key as keyof typeof fresh];
+        }
+    });
+    await renderPage(Breeding, props, 'en', 150);
+
+    deadlineEvents.refresh();
+    const html = await renderPage(Breeding, props, 'en', 150);
+    const beginPosition = html.indexOf('Begin breeding');
+    const button = html.slice(
+        html.lastIndexOf('<button', beginPosition),
+        beginPosition,
+    );
+
+    expect(html).toContain('You need 50 more coins.');
+    expect(button).toContain('disabled');
+});
+
+it('clears a withdrawn counterpart and refreshes own offers and pagination at a deadline', async () => {
+    const props: Record<string, unknown> = breedingFixture();
+    const fresh = {
+        ...breedingFixture(),
+        listings: [{ ...breedingFixture().listings[0], id: 2 }],
+        selection: { petId: 1, kind: null, partnerId: null },
+        preview: null,
+        selectedPrice: 0,
+        ownPair: false,
+        ownListings: [{ id: 7, petId: 1, price: 250, isActive: true }],
+        listingPagination: { previousCursor: null, nextCursor: 'fresh-offers' },
+        operationToken: '00000000-0000-4000-8000-000000000002',
+    };
+    vi.spyOn(router, 'reload').mockImplementation((options) => {
+        for (const key of options?.only ?? Object.keys(fresh)) {
+            if (key in fresh) props[key] = fresh[key as keyof typeof fresh];
+        }
+    });
+    await renderPage(Breeding, props, 'en', 150);
+
+    deadlineEvents.refresh();
+    const html = await renderPage(Breeding, props, 'en', 150);
+
+    expect(html).not.toContain('Begin breeding');
+    expect(html).toContain('cursor=fresh-offers');
+    expect(html).not.toContain('partner=1');
+    expect(html).toContain('Withdraw offer');
+});
 
 it.each([
     ['en', 'Breeding opens at level 5'],
@@ -138,6 +217,23 @@ it('shows genetic ranges and ancestry-aware coat chances before spending coins',
     expect(html).toContain('known ancestors across three generations');
     expect(html).toContain('You need 100 more coins.');
 });
+
+it.each([
+    ['en', 'arrives in 15 sec', 'breeding for 10 sec'],
+    ['ru', 'Через 15 сек', 'разведения 10 сек'],
+])(
+    'describes the configured birth and repeat breeding timers in %s',
+    async (locale, birth, rest) => {
+        const html = await renderPage(
+            Breeding,
+            { ...breedingFixture(), cooldownSeconds: 10 },
+            locale,
+        );
+
+        expect(html).toContain(birth);
+        expect(html).toContain(rest);
+    },
+);
 
 it('only offers publication for male dogs and retains withdrawal for existing offers', async () => {
     const props = {
@@ -245,6 +341,7 @@ it('shows the exact purchase shortfall and omits deadlines for kennel puppies', 
 
 it('preserves a parent filter in pagination and blocks keeping puppies with no free slot', async () => {
     const html = await renderPage(MyPuppies, {
+        serverNow: '2026-10-20T12:00:00Z',
         puppies: [puppyFixture()],
         pregnancies: [],
         freeSlots: 0,
@@ -256,4 +353,25 @@ it('preserves a parent filter in pagination and blocks keeping puppies with no f
     expect(html).toContain('parent=4');
     expect(html).toContain('A free dog slot is needed to keep a puppy.');
     expect(html).toMatch(/<button[^>]*disabled/);
+});
+
+it('shows a second-level countdown for a pending birth', async () => {
+    const html = await renderPage(MyPuppies, {
+        serverNow: '2026-10-20T12:00:00Z',
+        puppies: [],
+        pregnancies: [
+            {
+                id: 1,
+                fatherName: 'Leo',
+                motherName: 'Milo',
+                dueAt: '2026-10-20T12:00:15Z',
+            },
+        ],
+        freeSlots: 0,
+        blocked: false,
+        parentId: null,
+        pagination: { previousCursor: null, nextCursor: null },
+    });
+
+    expect(html).toContain('Puppies arrive in 15 sec');
 });

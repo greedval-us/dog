@@ -203,6 +203,37 @@ test('a viewers purchases do not unlock the artwork selected by a dogs owner', f
         );
 });
 
+test('player cards retain every dog and its matching artwork when breed and coat pairs repeat', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('appearance/test/portrait.png', 'portrait');
+    Storage::disk('local')->put('appearance/test/icon.png', 'icon');
+    $player = User::factory()->create();
+    $firstBreed = Dog::factory()->create();
+    $secondBreed = Dog::factory()->create();
+    $first = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'black']);
+    $duplicate = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'black']);
+    $differentCoat = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'brown']);
+    $differentBreed = Pet::factory()->for($player)->for($secondBreed)->create(['coat_color' => 'black']);
+    $firstPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'black']);
+    $selectedPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'black', 'pose' => 'sitting']);
+    $coatPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'brown']);
+    $breedPortrait = GameAsset::factory()->for($secondBreed)->create(['coat_color' => 'black']);
+    $background = GameAsset::factory()->background()->create();
+    $duplicate->forceFill(['portrait_asset_id' => $selectedPortrait->id])->save();
+
+    $this->actingAs($player)->get(route('players.show', $player->username))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('dogs', 4)
+            ->where('dogs.0.id', $first->id)->where('dogs.0.portraitId', $firstPortrait->id)
+            ->where('dogs.1.id', $duplicate->id)->where('dogs.1.portraitId', $selectedPortrait->id)
+            ->where('dogs.2.id', $differentCoat->id)->where('dogs.2.portraitId', $coatPortrait->id)
+            ->where('dogs.3.id', $differentBreed->id)->where('dogs.3.portraitId', $breedPortrait->id)
+            ->where('dogs.0.backgroundId', $background->id)
+            ->where('dogs.1.backgroundId', $background->id)
+            ->where('dogs.2.backgroundId', $background->id)
+            ->where('dogs.3.backgroundId', $background->id));
+});
+
 test('unavailable selected artwork falls back to usable free artwork on player cards', function (array $attributes) {
     Storage::fake('local');
     Storage::disk('local')->put('appearance/test/portrait.png', 'portrait');

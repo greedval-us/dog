@@ -6,15 +6,17 @@ use App\Models\BreedingLitter;
 use App\Models\GameEvent;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Enums\PetBoardingPlan;
 use App\Modules\Pets\Queries\GetPendingEventRegistrations;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 final class GameEventProcessor
 {
-    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement, private GetPendingEventRegistrations $registrations) {}
+    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement, private GetPendingEventRegistrations $registrations, private PetBoarding $boarding) {}
 
     public function processDue(?CarbonImmutable $at = null, ?User $owner = null, ?int $limit = null): int
     {
@@ -79,15 +81,33 @@ final class GameEventProcessor
                 $ownerIds = $ownerIds->merge($breeders);
             }
             $owners = User::query()->whereIn('id', $ownerIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $pets = Pet::query()->whereIn('id', $entries->pluck('pet_id')->filter())->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $boardingOwners = $owners->only($entries->pluck('user_id')->filter()->all())
+                ->filter(fn (User $owner): bool => $owner->boarding_plan !== PetBoardingPlan::Off);
+            $pets = Pet::query()->where(fn (Builder $query) => $query->whereIn('id', $entries->pluck('pet_id')->filter())
+                ->orWhere(fn (Builder $boardingPets) => $boardingPets->whereIn('user_id', $boardingOwners->keys())
+                    ->whereNull('retired_at')->whereNull('died_at')))
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($event->status === 'registration') {
+                $this->coverBoardingOwners($boardingOwners, $pets, $event->closes_at, $thresholds);
                 $this->freezing->freeze($event, $entries, $owners, $pets, $at, $thresholds);
             }
             if ($event->status === 'frozen' && $at->greaterThanOrEqualTo($event->ends_at)) {
+                $this->coverBoardingOwners($boardingOwners, $pets, $event->ends_at, $thresholds);
                 $this->settlement->settle($event, $owners, $pets, $at);
             }
 
             return true;
         }, attempts: 3);
+    }
+
+    /** @param Collection<int, User> $owners
+     * @param  Collection<int, Pet>  $pets
+     * @param  array<string, int>  $thresholds
+     */
+    private function coverBoardingOwners(Collection $owners, Collection $pets, CarbonImmutable $at, array &$thresholds): void
+    {
+        foreach ($owners as $owner) {
+            $this->boarding->cover($owner, $pets->filter(fn (Pet $pet): bool => $pet->user_id === $owner->id && $pet->archivedAt() === null), $at, $thresholds);
+        }
     }
 }

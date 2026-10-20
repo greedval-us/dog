@@ -46,11 +46,11 @@ test('training consumes equipment and energy once and applies saved capped gains
     $this->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
     $care = app(GetPetCare::class)->handle($pet->user, $pet->id, 'ru');
     expect($care['active']['label'])->toBe('Бег');
-    $this->travel(120)->seconds();
+    $this->travel(10)->seconds();
     $this->post(route('pets.care.complete', $pet), ['token' => $payload['token']])->assertSessionHasNoErrors();
     $this->post(route('pets.care.complete', $pet), ['token' => $payload['token']])->assertSessionHasNoErrors();
     $this->assertDatabaseHas('pets', ['id' => $pet->id, 'speed' => 16, 'endurance' => 100, 'activity' => null,
-        'satiety' => 94.8333, 'hydration' => 91.8333]);
+        'satiety' => 94.9861, 'hydration' => 91.9861]);
     $this->assertDatabaseCount('pet_care_actions', 1);
 });
 
@@ -118,10 +118,10 @@ test('all trainings share a cooldown which ends at the exact recorded time', fun
     $item = trainingEquipment($pet->user);
     $payload = ['variant' => 'training:'.$first->id, 'items' => ['sports' => $item->id], 'token' => (string) Str::uuid()];
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), $payload)->assertSessionHasNoErrors();
-    $this->travel(120)->seconds();
+    $this->travel(10)->seconds();
     $this->post(route('pets.care.complete', $pet), ['token' => $payload['token']])->assertSessionHasNoErrors();
     $next = [...$payload, 'variant' => 'training:'.$second->id, 'token' => (string) Str::uuid()];
-    $this->travel(599)->seconds();
+    $this->travel(9)->seconds();
 
     $this->post(route('pets.care.store', $pet), $next)->assertSessionHasErrors(['care' => __('This action is cooling down. Wait before trying again.')]);
     $this->assertDatabaseCount('item_usages', 1);
@@ -146,7 +146,7 @@ test('training and equipment grant their saved injuries and buffs once', functio
         'variant' => 'training:'.$training->id, 'items' => ['sports' => $item->id], 'token' => $token,
     ])->assertSessionHasNoErrors();
     $injury->update(['is_active' => false, 'modifiers' => []]);
-    $this->travel(120)->seconds();
+    $this->travel(10)->seconds();
 
     $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
     $this->post(route('pets.care.complete', $pet), ['token' => $token])->assertSessionHasNoErrors();
@@ -194,7 +194,7 @@ test('failed training completion rolls back attribute gains and can be retried',
     $this->actingAs($pet->user)->post(route('pets.care.store', $pet), [
         'variant' => 'training:'.$training->id, 'items' => ['sports' => $item->id], 'token' => $token,
     ])->assertSessionHasNoErrors();
-    $this->travel(120)->seconds();
+    $this->travel(10)->seconds();
     $this->rejectCareWrites('reject_training_completion', 'UPDATE');
 
     expect(fn () => app(CompletePetCare::class)->handle($pet->user, $pet->id, $token))->toThrow(QueryException::class);

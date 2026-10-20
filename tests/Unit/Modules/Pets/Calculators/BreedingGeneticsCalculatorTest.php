@@ -29,3 +29,15 @@ test('parent genetics reject limits outside the positive database range', functi
 
     expect(fn () => $calculator->range(1, $potential))->toThrow(InvalidArgumentException::class);
 })->with([0, -1, 2147483648]);
+
+test('offspring potential averages the drawn parents with bounded litter spread and database limits', function (float $father, float $mother, int $spread, int $expected) {
+    $calculator = new BreedingGeneticsCalculator;
+
+    expect($calculator->offspringPotential($father, $mother, $spread))->toBe($expected);
+})->with([
+    'lower spread edge' => [100.0, 200.0, 9800, 147],
+    'upper spread edge' => [100.0, 200.0, 10200, 153],
+    'fractional parents round after averaging' => [92.5, 103.0, 10000, 98],
+    'minimum positive database value' => [0.85, 0.85, 9800, 1],
+    'maximum database value' => [2362232011.7, 2362232011.7, 10200, 2147483647],
+]);

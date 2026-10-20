@@ -190,6 +190,25 @@ function runDatabaseRace(User $user, array $operations): array
     }
 }
 
+test('simultaneous boarding synchronization buys the same offline hours only once', function (string $plan, int $balance) {
+    $this->freezeSecond();
+    $startedAt = now()->subMinutes(150);
+    $user = User::factory()->create([
+        'coins' => 10, 'boarding_plan' => $plan, 'boarding_enabled_at' => $startedAt, 'last_seen_at' => $startedAt,
+    ]);
+    $pet = Pet::factory()->create([
+        'user_id' => $user->id, 'born_at' => $startedAt,
+        'state_updated_at' => $startedAt, 'stats_updated_at' => $startedAt,
+    ]);
+
+    expect(runDatabaseRace($user, [['action' => 'boarding-sync'], ['action' => 'boarding-sync']]))->toBe(['ok', 'ok']);
+
+    expect($user->fresh()->coins)->toBe($balance);
+    expect($pet->fresh()->satiety)->toBe(100.0)->and($pet->fresh()->hydration)->toBe(100.0);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('currency_transactions', ['user_id' => $user->id, 'amount' => $balance - 10, 'reason' => 'pet_boarding']);
+})->with(['cheap' => ['cheap', 8], 'premium' => ['premium', 4]]);
+
 test('simultaneous retirement requests archive the dog once free its slot and preserve the frozen snapshot', function () {
     $this->freezeSecond();
     PetHistoryEvent::query()->firstOrCreate(['code' => 'life.retirement'], [
@@ -285,7 +304,7 @@ test('simultaneous care completions apply the saved result once', function () {
     $operation = ['action' => 'care-complete', 'pet_id' => $pet->id, 'token' => $care->token];
 
     expect(runDatabaseRace($pet->user, [$operation, $operation]))->toBe(['applied', 'replayed']);
-    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 29.9333, 'activity' => null]);
+    $this->assertDatabaseHas('pets', ['id' => $pet->id, 'mood' => 29.9944, 'activity' => null]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => now()->toDateTimeString()]);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'experience' => '10', 'active_days' => 1]);
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'experience_awarded' => 10]);
@@ -323,13 +342,32 @@ test('simultaneous care completions for different dogs preserve both player rewa
 test('simultaneous kennel retries return one durable purchase', function () {
     $dog = Dog::factory()->create(['is_starter' => true]);
     $user = User::factory()->create(['coins' => 1000, 'pet_slots' => 2, 'starter_pet_claimed_at' => now()]);
+    Pet::factory()->for($user)->create();
     $operation = ['action' => 'kennel', 'dog_id' => $dog->id, 'token' => (string) Str::uuid()];
 
     expect(runDatabaseRace($user, [$operation, $operation]))->toBe(['ok', 'ok']);
-    $this->assertDatabaseCount('pets', 1);
+    $this->assertDatabaseCount('pets', 2);
     $this->assertDatabaseCount('kennel_purchases', 1);
     $this->assertDatabaseCount('currency_transactions', 1);
     $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 500]);
+});
+
+test('simultaneous free replacements issue one active dog while preserving the archive and first claim date', function () {
+    $this->freezeSecond();
+    $claimedAt = now()->subDays(5);
+    $dog = Dog::factory()->create(['is_starter' => true]);
+    $user = User::factory()->create(['coins' => 1000, 'pet_slots' => 2, 'starter_pet_claimed_at' => $claimedAt]);
+    $archived = Pet::factory()->for($user)->retired()->create();
+    $operation = ['action' => 'starter-adoption', 'dog_id' => $dog->id];
+
+    expect(runDatabaseRace($user, [$operation, $operation]))->toBe(['ok', 'unavailable']);
+
+    expect($user->pets()->active()->count())->toBe(1);
+    expect($archived->fresh()->retired_at)->toEqual(now());
+    expect($user->fresh()->starter_pet_claimed_at)->toEqual($claimedAt);
+    $this->assertDatabaseCount('pets', 2);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 1000]);
 });
 
 test('simultaneous requests buy one slot and debit the player once', function () {

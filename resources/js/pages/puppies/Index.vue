@@ -23,14 +23,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { useBreedingMessages } from '@/composables/useBreedingMessages';
 import { useI18n } from '@/composables/useI18n';
+import { useDeadlineRefresh } from '@/composables/useDeadlineRefresh';
+import { careDuration } from '@/lib/petCarePresentation';
 import { dashboard } from '@/routes';
 import { index, keep, surrender } from '@/routes/puppies';
 import { store as list, destroy } from '@/routes/puppies/listing';
 import type { Puppy, PuppyPagination } from '@/types/breeding';
 
 const props = defineProps<{
+    serverNow: string;
     puppies: Puppy[];
     pregnancies: {
         id: number;
@@ -44,7 +46,6 @@ const props = defineProps<{
     parentId: number | null;
 }>();
 const { t, number } = useI18n();
-const { date } = useBreedingMessages();
 const selected = ref<Puppy | null>(null);
 const action = ref<'keep' | 'list' | 'surrender' | null>(null);
 const moving = ref(false);
@@ -60,6 +61,33 @@ const pending = computed(
         transferForm.processing ||
         withdrawForm.processing,
 );
+const { now } = useDeadlineRefresh(
+    () => props.serverNow,
+    () => props.pregnancies.map((litter) => litter.dueAt),
+    (options) =>
+        router.reload({
+            ...options,
+            only: [
+                'puppies',
+                'pregnancies',
+                'freeSlots',
+                'pagination',
+                'serverNow',
+            ],
+        }),
+    () => pending.value,
+);
+function arrivalLabel(dueAt: string): string {
+    const seconds = Math.max(
+        0,
+        Math.ceil((Date.parse(dueAt) - now.value) / 1000),
+    );
+    return seconds
+        ? t('Puppies arrive in {duration}', {
+              duration: careDuration(seconds, t),
+          })
+        : t('Puppies are arriving...');
+}
 const errors = computed(() =>
     [
         ...Object.values(keepForm.errors),
@@ -186,13 +214,7 @@ function submit() {
                         >{{ litter.motherName }} ×
                         {{ litter.fatherName }}</strong
                     >
-                    <p>
-                        {{
-                            t('Puppies arrive: {date}', {
-                                date: date(litter.dueAt),
-                            })
-                        }}
-                    </p>
+                    <p>{{ arrivalLabel(litter.dueAt) }}</p>
                 </div>
             </div></SurfaceCard
         >

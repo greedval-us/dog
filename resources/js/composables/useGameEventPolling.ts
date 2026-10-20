@@ -1,5 +1,6 @@
 import { router, usePoll } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import type { GameEventEntry, GameEventSummary } from '@/types/game-event';
 
 export function useGameEventPolling(
@@ -12,7 +13,10 @@ export function useGameEventPolling(
     );
     const poll = usePoll(
         30_000,
-        { only: ['event', 'entry', 'serverNow'] },
+        {
+            only: ['event', 'entry', 'serverNow'],
+            headers: backgroundRequestHeaders,
+        },
         { mode: 'rest', autoStart: active.value && !pending() },
     );
     watch([active, pending], ([isActive, isPending]) => {
@@ -24,7 +28,10 @@ export function useGameEventPolling(
             (previous === 'registered' || previous === 'frozen') &&
             (current === 'completed' || current === 'withdrawn')
         ) {
-            router.reload({ only: ['auth'] });
+            router.reload({
+                only: ['auth'],
+                headers: backgroundRequestHeaders,
+            });
         }
     });
 }

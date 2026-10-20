@@ -8,7 +8,7 @@ final class DogWorkRules
     {
         return $skillLevel >= 1 && $skillLevel <= SkillRules::MAX_LEVEL
             && $coins > 0 && $coins <= 1000000000 && $gems >= 0 && $gems <= 1000000000
-            && $duration > 0 && $duration <= 1000000000 && $energy >= 0 && $energy <= 1000000000
+            && $duration >= GameplayTiming::MIN_SECONDS && $duration <= GameplayTiming::MAX_SECONDS && $energy >= 0 && $energy <= 1000000000
             && $limit > 0 && $limit <= 1000000000;
     }
 }

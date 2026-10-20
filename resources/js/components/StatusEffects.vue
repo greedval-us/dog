@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
 import { useServerClock } from '@/composables/useServerClock';
+import { careDuration } from '@/lib/petCarePresentation';
 import type { StatusEffect } from '@/types/pet-care';
 
 const props = defineProps<{
@@ -40,14 +41,16 @@ const visible = computed(() =>
 const text = (value: Record<string, string>) =>
     value[locale.value] ?? value.en ?? '';
 const effectDuration = (effect: StatusEffect) => {
-    const minutes = Math.max(
-        1,
+    const seconds = Math.max(
+        0,
         Math.ceil(
-            (props.preview
+            props.preview
                 ? (effect.duration_seconds ?? 0)
-                : (effect.expires_at ?? 0) - now.value / 1000) / 60,
+                : (effect.expires_at ?? 0) - now.value / 1000,
         ),
     );
+    if (seconds < 60) return careDuration(seconds, t);
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
     if (minutes < 60) return t('{count} min', { count: number(minutes) });
     const hours = Math.floor(minutes / 60);
     const rest = minutes % 60;
