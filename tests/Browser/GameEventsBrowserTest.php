@@ -58,6 +58,7 @@ test('a v2 Eurasia show keeps its edition and sources while a young dog saves an
     ]);
 
     $page->assertSee('Немецкая овчарка')
+        ->assertSee('В игровой оценке показ даёт не более 20 баллов из 100.')
         ->assertSeeIn('.event-overview .event-regulation p.event-note', 'Евразия')
         ->assertSeeIn('.event-overview .event-regulation', 'чемпион РКФ с особым статусом')
         ->assertSeeIn('.event-overview .event-regulation', 'Игровой год: 2050')
@@ -168,6 +169,7 @@ test('nosework registration retains a selected program and a four stage preset a
     ]);
 
     $page->assertSelected('#event-entry-option', 'nw_0:pr1')
+        ->assertSee('Search time limit: 120 seconds per category.')
         ->assertCount('fieldset.event-stage', 4)
         ->assertEnabled('#event-entry-option option[value="nw_0:pr2"]')
         ->assertDisabled('#event-entry-option option[value="nw_1:pr2"]')

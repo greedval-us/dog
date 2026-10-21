@@ -63,7 +63,11 @@ export function useGameEventPresentation() {
                 : (gear.description?.[locale.value] ?? gear.description?.en),
         modifier: (value: number) =>
             `${value > 0 ? '+' : ''}${number(value * 100)}%`,
-        modifierEffect: (key: string, value: number) => {
+        modifierEffect: (
+            key: string,
+            value: number,
+            movementPresentation = false,
+        ) => {
             const signed = (value: number) =>
                 `${value > 0 ? '+' : ''}${decimalFormatter.value.format(value)}`;
             if (key === 'precision')
@@ -72,6 +76,10 @@ export function useGameEventPresentation() {
                 });
             if (key === 'focus')
                 return t('Focus: {value} points', {
+                    value: signed(value * 100),
+                });
+            if (key === 'pace' && movementPresentation)
+                return t('Movement presentation: {value}%', {
                     value: signed(value * 100),
                 });
             return `${t(`events.modifier.${key}`)} ${signed(value * 100)}%`;

@@ -100,6 +100,7 @@ return [
         'not_promising' => 'Not promising',
         'ungraded' => 'Ungraded',
         'eliminated' => 'Eliminated',
+        'finished' => 'Finished',
         'qualified' => 'Qualified',
         'not_qualified' => 'Not qualified',
     ],

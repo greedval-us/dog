@@ -170,6 +170,7 @@ export type EventEntryOption = {
     categoryLabel?: string;
     eligible?: boolean;
     reason?: string | null;
+    timeLimitSeconds?: number;
 };
 export type EventAssessment = {
     code: string;
@@ -224,6 +225,9 @@ export type GameEventEntry = {
             key: string;
             decision: EventDecision;
             time: number;
+            timeLimit?: number;
+            timedOut?: boolean;
+            conditionTiming?: 'before';
             penalties: number;
             score: number;
             fatigue: number;
@@ -239,6 +243,7 @@ export type GameEventEntry = {
                 exteriorContribution: number;
                 presentationContribution: number;
                 consistencyBonus?: number;
+                presentationMultiplier?: number;
             };
         }[];
     } | null;

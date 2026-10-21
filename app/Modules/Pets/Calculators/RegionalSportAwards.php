@@ -19,6 +19,12 @@ final class RegionalSportAwards
         }
         $entries = array_values(array_filter($entries, $this->started(...)));
         $awards = array_values(array_filter($this->base->calculate($discipline, $regulation, $entries), fn (array $award): bool => ! in_array($award['kind'], ['certificate', 'championship'], true)));
+        if ($discipline === 'canicross') {
+            $startersByDivision = array_count_values(array_column($entries, 'division'));
+            $entryDivisions = array_column($entries, 'division', 'id');
+            $awards = array_values(array_filter($awards, fn (array $award): bool => $award['code'] !== 'RACE_QUALIFICATION'
+                || ($startersByDivision[$entryDivisions[$award['entry_id']]] ?? 0) >= 3));
+        }
         if ($discipline === 'agility' && ($regulation['format'] ?? '') === 'agility_combined') {
             $awards = array_values(array_filter($awards, fn (array $award): bool => $award['code'] !== 'AGILITY_QUALIFICATION'));
             $agilityEntries = array_map(fn (array $entry): array => [...$entry, 'result' => $entry['result']['legs']['agility'] ?? ['eliminated' => true, 'qualified' => false]], $entries);

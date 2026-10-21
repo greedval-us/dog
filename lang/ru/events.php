@@ -100,6 +100,7 @@ return [
         'not_promising' => 'Неперспективный',
         'ungraded' => 'Без оценки',
         'eliminated' => 'Снят с выступления',
+        'finished' => 'Финишировал',
         'qualified' => 'Зачёт',
         'not_qualified' => 'Незачёт',
     ],

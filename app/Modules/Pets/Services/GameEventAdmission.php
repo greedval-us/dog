@@ -220,6 +220,8 @@ final class GameEventAdmission
             'gear' => $gear, 'modifiers' => $modifiers, 'offspring' => $offspring,
             ...(EventRegulationData::isRegulated($event) ? [
                 'profile' => $this->profiles->forPet($pet), 'regulation' => EventRegulationData::rules($event),
+                ...($event->discipline === 'nosework' ? ['nosework_time_limit' => $this->regulatedRules->noseworkTimeLimit(EventRegulationData::rules($event), $plan)] : []),
+                ...($event->discipline === 'conformation' ? ['show_presentation_multipliers' => $this->regulatedRules->showPresentationMultipliers()] : []),
             ] : []),
         ];
     }

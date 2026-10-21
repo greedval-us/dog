@@ -108,6 +108,39 @@ function entryFixture(): GameEventEntry {
         result: null,
     };
 }
+
+function showEffectsFixture() {
+    const event = eventFixture();
+    event.discipline = 'conformation';
+    event.calculationVersion = 3;
+    event.regulation = regulationFixture();
+    event.stages = ['type', 'structure', 'movement'].map((key) => ({
+        key,
+        label: key,
+        options: ['careful', 'balanced', 'bold'],
+    }));
+    const dog = dogFixture();
+    dog.entryOptions = [
+        { key: 'open', label: 'Open', plan: { exhibition_class: 'open' } },
+    ];
+    const equipment: EventEquipment[] = [
+        {
+            id: 10,
+            name: 'Fine show lead',
+            slot: 'line',
+            disciplines: ['conformation'],
+            phase: 'performance',
+            sizes: ['large'],
+            modifiers: { pace: 0.07, focus: -0.04 },
+            remainingUses: 3,
+        },
+    ];
+    const entry = entryFixture();
+    entry.plan.exhibition_class = 'open';
+    entry.gearIds = [10];
+
+    return { event, dog, entry, equipment };
+}
 async function renderEvent(
     event: GameEventDetail,
     entry: GameEventEntry | null,
@@ -160,6 +193,286 @@ async function renderEvent(
         }),
     );
 }
+
+it.each(['en', 'ru'])(
+    'explains the bounded movement benefit of current show equipment in %s',
+    async (locale) => {
+        const { event, dog, entry, equipment } = showEffectsFixture();
+
+        const html = await renderEvent(
+            event,
+            entry,
+            locale,
+            dog,
+            undefined,
+            equipment,
+        );
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Показ движений: +7%'
+                : 'Movement presentation: +7%',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'не более 20 баллов' : 'at most 20 points',
+        );
+        expect(html).not.toContain(
+            'Pace equipment does not increase the final score.',
+        );
+        expect(html).not.toContain('Темп амуниции не повышает итоговый балл.');
+    },
+);
+
+it('keeps legacy show equipment effects described as pace', async () => {
+    const { event, dog, entry, equipment } = showEffectsFixture();
+    event.calculationVersion = 2;
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        dog,
+        undefined,
+        equipment,
+    );
+
+    expect(html).toContain('Pace +7%');
+    expect(html).toContain('Pace equipment does not increase the final score.');
+    expect(html).not.toContain('Movement presentation:');
+});
+
+it.each([true, false])(
+    'uses recorded show factors to explain a replay with new presentation effects: %s',
+    async (hasPresentationMultiplier) => {
+        const { event, dog, entry } = showEffectsFixture();
+        event.status = 'completed';
+        event.canRegister = false;
+        entry.result = {
+            time: 50,
+            score: 88,
+            penalties: 0,
+            eliminated: false,
+            preparation: {
+                ...preparationFixture(),
+                modifiers: {
+                    pace: 0.07,
+                    precision: 0,
+                    focus: -0.04,
+                    stamina: 0,
+                },
+            },
+            stages: [
+                {
+                    key: 'movement',
+                    decision: 'bold',
+                    time: 50,
+                    score: 88,
+                    penalties: 0,
+                    fatigue: 10,
+                    focus: 75,
+                    reason: 'Clear stage.',
+                    factors: {
+                        quality: 60,
+                        careMultiplier: 1,
+                        mistakeChance: 0.1,
+                        startFatigue: 10,
+                        startFocus: 75,
+                        exterior: 90,
+                        exteriorContribution: 72,
+                        presentationContribution: 16,
+                        ...(hasPresentationMultiplier
+                            ? { presentationMultiplier: 1.15 }
+                            : {}),
+                    },
+                },
+            ],
+        };
+        event.entries = [entry];
+
+        const html = await renderEvent(event, entry, 'en', dog);
+
+        if (hasPresentationMultiplier) {
+            expect(html).toContain('Movement presentation: +7%');
+            expect(html).toMatch(
+                /Presentation multiplier<\/dt>\s*<dd>\s*×\s*1\.15\s*<\/dd>/,
+            );
+            expect(html).not.toContain(
+                'Pace equipment does not increase the final score.',
+            );
+        } else {
+            expect(html).toContain('Pace +7%');
+            expect(html).toContain(
+                'Pace equipment does not increase the final score.',
+            );
+            expect(html).not.toContain('Movement presentation:');
+            expect(html).not.toContain('Presentation multiplier');
+        }
+    },
+);
+
+it.each(['en', 'ru'])(
+    'shows the selected nosework class time limit before entering in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'nosework';
+        event.calculationVersion = 3;
+        event.regulation = { ...regulationFixture(), format: 'nosework' };
+        const dog = dogFixture();
+        dog.entryOptions = [
+            {
+                key: 'nw_0',
+                label: 'NW-0',
+                plan: { sport_class: 'nw_0', program: 'pr1' },
+                timeLimitSeconds: 120,
+            },
+            {
+                key: 'nw_3',
+                label: 'NW-3',
+                plan: { sport_class: 'nw_3', program: 'pr1' },
+                timeLimitSeconds: 480,
+            },
+        ];
+
+        const html = await renderEvent(
+            event,
+            null,
+            locale,
+            dog,
+            undefined,
+            [],
+            { selectedPetId: dog.id, selectedEntryOptionKey: 'nw_3' },
+        );
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Лимит поиска: 480 секунд на категорию.'
+                : 'Search time limit: 480 seconds per category.',
+        );
+        expect(html).not.toContain(
+            locale === 'ru'
+                ? 'Лимит поиска: 120 секунд'
+                : 'Search time limit: 120 seconds',
+        );
+    },
+);
+
+it('marks stamina as inactive in a single-stage odor test while keeping the item modifier visible', async () => {
+    const event = eventFixture();
+    event.discipline = 'nosework';
+    event.calculationVersion = 3;
+    event.regulation = { ...regulationFixture(), format: 'odor_test' };
+    event.stages = [
+        {
+            key: 'odor',
+            label: 'Odor test',
+            options: ['careful', 'balanced', 'bold'],
+        },
+    ];
+    const dog = dogFixture();
+    dog.entryOptions = [
+        {
+            key: 'test',
+            label: 'Odor test',
+            plan: {
+                sport_class: 'nw_test',
+                test_type: 'birch',
+                program: 'pr1',
+            },
+            timeLimitSeconds: 120,
+        },
+    ];
+    const entry = entryFixture();
+    entry.plan = {
+        ...entry.plan,
+        sport_class: 'nw_test',
+        test_type: 'birch',
+        program: 'pr1',
+        stages: ['balanced'],
+    };
+    entry.gearIds = [10];
+    const equipment: EventEquipment[] = [
+        {
+            id: 10,
+            name: 'Resting mat',
+            slot: 'preparation',
+            phase: 'preparation',
+            sizes: ['large'],
+            disciplines: ['nosework'],
+            modifiers: { stamina: 0.08, pace: -0.03 },
+            remainingUses: 3,
+        },
+    ];
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        dog,
+        undefined,
+        equipment,
+    );
+
+    expect(html).toContain('Stamina +8%');
+    expect(html).toContain(
+        'Stamina does not affect this one-stage odor test: there is no later stage for reduced fatigue to help.',
+    );
+    expect(html).toContain('Search time limit: 120 seconds.');
+    expect(html).not.toContain('120 seconds per category');
+});
+
+it.each(['en', 'ru'])(
+    'shows recorded search timeouts and the timing of recorded condition in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'nosework';
+        event.calculationVersion = 3;
+        event.regulation = { ...regulationFixture(), format: 'nosework' };
+        event.status = 'completed';
+        event.canRegister = false;
+        const entry = entryFixture();
+        entry.result = {
+            time: 120,
+            score: 0,
+            penalties: 0,
+            eliminated: false,
+            preparation: preparationFixture(),
+            stages: [
+                {
+                    key: 'interior',
+                    decision: 'bold',
+                    time: 120,
+                    timeLimit: 120,
+                    timedOut: true,
+                    conditionTiming: 'before',
+                    score: 0,
+                    penalties: 0,
+                    fatigue: 12,
+                    focus: 60,
+                    reason: 'Search limit expired.',
+                },
+            ],
+        };
+        event.entries = [entry];
+
+        const html = await renderEvent(event, entry, locale);
+
+        expect(html).toContain(
+            locale === 'ru' ? 'Лимит поиска исчерпан' : 'Search timed out',
+        );
+        expect(html).toMatch(
+            locale === 'ru'
+                ? /Лимит времени<\/dt>\s*<dd>120 секунд<\/dd>/
+                : /Time limit<\/dt>\s*<dd>120 seconds<\/dd>/,
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'Усталость до этапа' : 'Fatigue before stage',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'Концентрация до этапа' : 'Focus before stage',
+        );
+        expect(html).not.toContain('condition after every stage');
+    },
+);
 
 it('opens a career recommendation with its dog and class selected', async () => {
     const event = eventFixture();
@@ -742,6 +1055,7 @@ it('keeps documentary progeny evaluation free of experience risk claims', async 
             'Experience in this discipline lowers the base error risk',
         );
         expect(html).not.toContain('Error risk');
+        expect(html).toContain('game adaptation');
     }
 });
 

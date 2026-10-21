@@ -19,6 +19,7 @@ return [
         'agility' => ['national_months' => 18, 'international_months' => 24, 'height_boundaries' => ['S' => 35, 'M' => 43, 'I' => 48], 'fault_points' => 5, 'excellent_max_faults' => 5.99, 'very_good_max_faults' => 15.99, 'good_max_faults' => 25.99],
         'nosework' => [
             'minimum_months' => ['nw_0' => 6, 'nw_1' => 8, 'nw_2' => 12, 'nw_3' => 12, 'nw_v' => 96, 'nw_test' => 6],
+            'time_limits' => ['nw_test' => 120, 'nw_0' => 120, 'nw_1' => 240, 'nw_2' => 360, 'nw_3' => 480, 'nw_v' => 240],
             'odors' => ['pr1' => ['birch', 'lavender', 'anise'], 'pr2' => ['cinnamon', 'orange', 'clove']],
             'required_odors' => ['nw_0' => 1, 'nw_1' => 2, 'nw_2' => 3, 'nw_3' => 3, 'nw_v' => 3],
             'category_max_score' => 100, 'category_qualifying_score' => 80, 'false_alert_penalty' => 15, 'missed_hide_penalty' => 15,
@@ -36,6 +37,7 @@ return [
         'show_grades' => ['excellent' => 85, 'very_good' => 75, 'good' => 60, 'satisfactory' => 40],
         'young_show_grades' => ['very_promising' => 85, 'promising' => 65],
         'exterior_weight' => 0.8, 'presentation_weight' => 0.2,
+        'show_presentation' => ['careful' => 0.9, 'balanced' => 1.0, 'bold' => 1.15],
         'base_error_probability' => 0.42, 'quality_error_reduction' => 0.003, 'focus_error_reduction' => 0.001,
         'fatigue_error_increase' => 0.002, 'minimum_error_probability' => 0.02, 'maximum_error_probability' => 0.8,
         'base_stage_seconds' => 100, 'quality_time_reduction' => 0.55, 'fault_time_seconds' => 5,

@@ -13,7 +13,7 @@ final class RegulatedEventRules
     /**
      * @param  array<string, mixed>  $regulation
      * @param  array<string, mixed>  $profile
-     * @return list<array{key:string,labelKey:string,plan:array<string,mixed>,categoryKey:string,eligible:bool,reason:?string}>
+     * @return list<array{key:string,labelKey:string,plan:array<string,mixed>,categoryKey:string,eligible:bool,reason:?string,timeLimitSeconds?:int}>
      */
     public function entryOptions(string $discipline, array $regulation, array $profile, int $ageMonths): array
     {
@@ -34,10 +34,32 @@ final class RegulatedEventRules
             }
             $reason = $this->ineligibility($discipline, $regulation, $profile, $ageMonths, $plan);
             $options[] = ['key' => $key, 'labelKey' => 'events.regulations.classes.'.($plan['exhibition_class'] ?? $plan['sport_class'] ?? 'progeny'),
-                'plan' => $plan, 'categoryKey' => $this->division($discipline, $regulation, $profile, $plan), 'eligible' => $reason === null, 'reason' => $reason];
+                'plan' => $plan, 'categoryKey' => $this->division($discipline, $regulation, $profile, $plan), 'eligible' => $reason === null, 'reason' => $reason,
+                ...($discipline === 'nosework' ? ['timeLimitSeconds' => $this->noseworkTimeLimit($regulation, $plan)] : [])];
         }
 
         return $options;
+    }
+
+    /**
+     * @param  array<string,mixed>  $regulation
+     * @param  array<string,mixed>  $plan
+     */
+    public function noseworkTimeLimit(array $regulation, array $plan): int
+    {
+        $class = ($regulation['format'] ?? '') === 'odor_test' ? 'nw_test' : ($plan['sport_class'] ?? 'nw_0');
+        $limit = $this->balance['regulations']['nosework']['time_limits'][$class] ?? null;
+        if (! is_int($limit) || $limit < 1) {
+            throw new InvalidArgumentException('Unknown nosework search time limit.');
+        }
+
+        return $limit;
+    }
+
+    /** @return array{careful:float,balanced:float,bold:float} */
+    public function showPresentationMultipliers(): array
+    {
+        return $this->balance['simulation']['show_presentation'];
     }
 
     /**

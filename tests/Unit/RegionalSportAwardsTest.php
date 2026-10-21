@@ -142,6 +142,39 @@ test('canicross certificate fields and qualifying times stay within their speed 
     expect(regionalSportCertificates($short, 'CACT'))->toBe([]);
 });
 
+test('canicross qualification needs three actual starters in its category', function (int $entryCount, array $lastEntryChanges) {
+    $entries = array_map(fn (int $id): array => regionalSportEntry($id, 'canicross', ['division' => 'canicross_open:3:open']), range(1, $entryCount));
+    $entries[$entryCount - 1] = array_replace_recursive($entries[$entryCount - 1], $lastEntryChanges);
+
+    $awards = regionalSportAwards()->calculate('canicross', ['version' => 2, 'system' => 'rkf', 'rank' => 'qualifying', 'format' => 'canicross'], $entries);
+
+    expect(regionalSportCertificates($awards, 'RACE_QUALIFICATION'))->toBe([]);
+})->with([
+    'one starter' => [1, []],
+    'two starters' => [2, []],
+    'withdrawn third entry' => [3, ['status' => 'withdrawn']],
+    'third entry never started' => [3, ['result' => ['started' => false]]],
+    'third starter belongs to another category' => [3, ['division' => 'canicross_open:4:open', 'snapshot' => ['profile' => ['race_category' => '4']]]],
+]);
+
+test('three canicross starters may earn a qualification with only one finisher', function () {
+    $entries = [regionalSportEntry(1, 'canicross'),
+        regionalSportEntry(2, 'canicross', ['rank' => null, 'result' => ['eliminated' => true, 'qualified' => false]]),
+        regionalSportEntry(3, 'canicross', ['rank' => null, 'result' => ['eliminated' => true, 'qualified' => false]])];
+
+    $awards = regionalSportAwards()->calculate('canicross', ['version' => 2, 'system' => 'rkf', 'rank' => 'qualifying', 'format' => 'canicross'], $entries);
+
+    expect(regionalSportCertificates($awards, 'RACE_QUALIFICATION'))->toBe([1]);
+});
+
+test('historical canicross regulations retain their saved qualification policy', function () {
+    $entries = [regionalSportEntry(1, 'canicross')];
+
+    $awards = regionalSportAwards()->calculate('canicross', ['version' => 1, 'system' => 'rkf', 'rank' => 'qualifying', 'format' => 'canicross'], $entries);
+
+    expect(regionalSportCertificates($awards, 'RACE_QUALIFICATION'))->toBe([1]);
+});
+
 test('FCI agility keeps the individual clear round certificate and has no national certificates', function () {
     $entries = array_map(fn (int $id): array => regionalSportEntry($id), range(1, 15));
 

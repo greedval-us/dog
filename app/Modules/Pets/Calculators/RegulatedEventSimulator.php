@@ -12,8 +12,13 @@ final class RegulatedEventSimulator
 
     public const SNAPSHOT_VERSION = 1;
 
+    private RegulatedEventRules $regulations;
+
     /** @param array<string,mixed> $balance */
-    public function __construct(private array $balance, private GameEventPerformance $performance = new GameEventPerformance) {}
+    public function __construct(private array $balance, private GameEventPerformance $performance = new GameEventPerformance)
+    {
+        $this->regulations = new RegulatedEventRules($balance);
+    }
 
     /**
      * @param  array<string,mixed>  $first
@@ -74,6 +79,10 @@ final class RegulatedEventSimulator
         }
         $preparation = $this->performance->preparation($discipline, $snapshot);
         $simulation = $this->balance['simulation'];
+        $noseworkTimeLimit = $discipline === 'nosework'
+            ? $this->noseworkTimeLimit($snapshot, $rules, $plan) : null;
+        $showPresentation = $discipline === 'conformation'
+            ? ($snapshot['show_presentation_multipliers'] ?? $this->regulations->showPresentationMultipliers()) : [];
         $fatigue = $preparation['initialFatigue'];
         $focus = $preparation['initialFocus'];
         $stages = [];
@@ -106,6 +115,7 @@ final class RegulatedEventSimulator
             $exterior = null;
             $exteriorContribution = 0.0;
             $presentationContribution = 0.0;
+            $presentationMultiplier = null;
             $extra = [];
             if ($discipline === 'nosework') {
                 $nosework = $this->balance['regulations']['nosework'];
@@ -119,10 +129,15 @@ final class RegulatedEventSimulator
                 if (($advanced && $falseAlerts > 0) || $falseAlerts >= 2 || (! $advanced && $miss) || ($odorTest && ($falseAlerts > 0 || $miss))) {
                     $stageScore = 0.0;
                 }
+                $timedOut = round($duration, 2) > $noseworkTimeLimit;
+                if ($timedOut) {
+                    $stageScore = 0.0;
+                }
                 $stageQualified = $stageScore >= $nosework['category_qualifying_score'];
                 $foundAll = $foundAll && ! $miss;
-                $extra = ['qualified' => $stageQualified, 'max_score' => $nosework['category_max_score'], 'hides' => $hides, 'found' => $hides - (int) $miss, 'false_alerts' => $falseAlerts];
-                $note = $falseAlerts > 0 ? 'false_alert' : ($miss ? 'missed_hide' : 'clear');
+                $extra = ['qualified' => $stageQualified, 'max_score' => $nosework['category_max_score'], 'hides' => $hides, 'found' => $hides - (int) $miss, 'false_alerts' => $falseAlerts,
+                    'timeLimit' => $noseworkTimeLimit, 'timedOut' => $timedOut];
+                $note = $timedOut ? 'timeout' : ($falseAlerts > 0 ? 'false_alert' : ($miss ? 'missed_hide' : 'clear'));
             } elseif ($discipline === 'conformation') {
                 $value = $snapshot['exterior'][$key] ?? 65;
                 if (! is_numeric($value) || ! is_finite((float) $value)) {
@@ -130,7 +145,10 @@ final class RegulatedEventSimulator
                 }
                 $exterior = max(0.0, min(100.0, (float) $value));
                 $exteriorContribution = $exterior * $simulation['exterior_weight'];
-                $presentationContribution = ($preparation['states']['cleanliness'] + $preparation['states']['health'] + $focus) / 3 * $preparation['careMultiplier'] * $simulation['presentation_weight'];
+                $presentationMultiplier = $showPresentation[$decision] * (1 + ($key === 'movement' ? $preparation['modifiers']['pace'] : 0));
+                $presentationContribution = max(0.0, min(100 * $simulation['presentation_weight'],
+                    ($preparation['states']['cleanliness'] + $preparation['states']['health'] + $focus) / 3
+                    * $preparation['careMultiplier'] * $simulation['presentation_weight'] * $presentationMultiplier));
                 $stageScore = max(0.0, min(100.0, $exteriorContribution + $presentationContribution - $stagePenalties * 5));
             } elseif ($discipline === 'progeny') {
                 $children = $snapshot['offspring'] ?? [];
@@ -155,13 +173,15 @@ final class RegulatedEventSimulator
             }
             $stages[] = [
                 'key' => $key, 'decision' => $decision, 'time' => round($duration, 2), 'penalties' => $stagePenalties,
+                'conditionTiming' => 'before',
                 'score' => round($stageScore, 2), 'fatigue' => round($fatigue, 2), 'focus' => round($focus, 2), 'note' => $note,
                 'qualified' => $stageQualified,
                 'factors' => ['quality' => round($quality, 4), 'careMultiplier' => $preparation['careMultiplier'],
                     'consistencyBonus' => $preparation['consistencyBonus'],
                     'mistakeChance' => round(1 - (1 - $chance) * (1 - $chance * 0.4), 4),
                     'startFatigue' => round($fatigue, 4), 'startFocus' => round($focus, 4),
-                    'exterior' => $exterior, 'exteriorContribution' => round($exteriorContribution, 4), 'presentationContribution' => round($presentationContribution, 4)],
+                    'exterior' => $exterior, 'exteriorContribution' => round($exteriorContribution, 4), 'presentationContribution' => round($presentationContribution, 4),
+                    ...($presentationMultiplier !== null ? ['presentationMultiplier' => round($presentationMultiplier, 4)] : [])],
                 ...$extra,
             ];
             $score += $stageScore;
@@ -204,6 +224,21 @@ final class RegulatedEventSimulator
             'search_tiebreak_score' => ($scoresByKey['interior'] ?? 0) + ($scoresByKey[isset($scoresByKey['exterior']) ? 'exterior' : 'objects'] ?? 0),
             'stages' => $stages, 'preparation' => $preparation,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $snapshot
+     * @param  array<string,mixed>  $rules
+     * @param  array<string,mixed>  $plan
+     */
+    private function noseworkTimeLimit(array $snapshot, array $rules, array $plan): int
+    {
+        $timeLimit = $snapshot['nosework_time_limit'] ?? $this->regulations->noseworkTimeLimit($rules['regulation'] ?? [], $plan);
+        if (! is_int($timeLimit) || $timeLimit < 1) {
+            throw new InvalidArgumentException('Invalid saved nosework search time limit.');
+        }
+
+        return $timeLimit;
     }
 
     /** @param list<Gear> $gear

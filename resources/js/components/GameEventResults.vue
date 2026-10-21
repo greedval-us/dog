@@ -60,6 +60,21 @@ const replay = computed(
         props.event.entries.find((entry) => entry.id === replayId.value) ??
         (ownEntry.value?.id === replayId.value ? ownEntry.value : null),
 );
+const showPresentationEffects = computed(
+    () =>
+        props.event.discipline === 'conformation' &&
+        Boolean(props.event.regulation) &&
+        Boolean(
+            replay.value?.result?.stages.some(
+                (stage) => stage.factors?.presentationMultiplier !== undefined,
+            ),
+        ),
+);
+const oneStageOdorTest = computed(
+    () =>
+        props.event.regulation?.format === 'odor_test' &&
+        replay.value?.result?.stages.length === 1,
+);
 const replayWithdrawn = computed(() => entryWasWithdrawn(replay.value));
 const replayHeading = ref<HTMLElement | null>(null);
 const replayTitle = computed(() =>
@@ -357,11 +372,21 @@ watch(
                         t(
                             event.discipline === 'progeny'
                                 ? 'The evaluation shows how the selected offspring scored against each judging criterion.'
-                                : 'The replay shows your saved decisions, mistakes and condition after every stage.',
+                                : 'The replay shows your saved decisions, mistakes and recorded condition for each stage.',
                         )
                     "
                 />
             </div>
+            <p
+                v-if="event.discipline === 'progeny' && !replayWithdrawn"
+                class="event-note"
+            >
+                {{
+                    t(
+                        'This documentary evaluation is a game adaptation of progeny groups. Real RKF/FCI progeny competitions take place in the ring.',
+                    )
+                }}
+            </p>
             <div
                 v-if="
                     !replayWithdrawn &&
@@ -470,13 +495,21 @@ watch(
                             v-for="(value, key) in replay.result.preparation
                                 .modifiers"
                             :key="key"
-                            >{{ modifierEffect(key, value) }}</span
+                            >{{
+                                modifierEffect(
+                                    key,
+                                    value,
+                                    showPresentationEffects,
+                                )
+                            }}</span
                         >
                     </div>
                     <p class="event-note">
                         {{
                             t(
-                                'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                                showPresentationEffects
+                                    ? 'Precision lowers base error risk in percentage points; focus adds starting focus points. Stamina reduces fatigue gained at each stage. Movement equipment changes only movement presentation within the 20-point presentation limit.'
+                                    : 'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
                             )
                         }}
                     </p>
@@ -488,12 +521,22 @@ watch(
                         }}
                     </p>
                     <p
-                        v-if="event.discipline === 'conformation'"
+                        v-if="
+                            event.discipline === 'conformation' &&
+                            !showPresentationEffects
+                        "
                         class="event-note"
                     >
                         {{
                             t(
                                 'For conformation, focus and precision help judging; stamina limits fatigue. Pace equipment does not increase the final score.',
+                            )
+                        }}
+                    </p>
+                    <p v-if="oneStageOdorTest" class="event-note">
+                        {{
+                            t(
+                                'Stamina does not affect this one-stage odor test: there is no later stage for reduced fatigue to help.',
                             )
                         }}
                     </p>
@@ -528,6 +571,9 @@ watch(
                             )
                         }}</strong>
                         <p>{{ t(stage.reason) }}</p>
+                        <p v-if="stage.timedOut" class="event-note">
+                            {{ t('Search timed out') }}
+                        </p>
                         <details
                             v-if="
                                 stage.factors && event.discipline !== 'progeny'
@@ -619,6 +665,26 @@ watch(
                                             }}
                                         </dd>
                                     </div>
+                                    <div
+                                        v-if="
+                                            stage.factors
+                                                .presentationMultiplier !==
+                                            undefined
+                                        "
+                                    >
+                                        <dt>
+                                            {{ t('Presentation multiplier') }}
+                                        </dt>
+                                        <dd>
+                                            ×
+                                            {{
+                                                decimal(
+                                                    stage.factors
+                                                        .presentationMultiplier,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
                                 </template>
                             </dl>
                             <p class="event-note">
@@ -640,6 +706,16 @@ watch(
                                     }}
                                 </dd>
                             </div>
+                            <div v-if="stage.timeLimit !== undefined">
+                                <dt>{{ t('Time limit') }}</dt>
+                                <dd>
+                                    {{
+                                        t('{time} seconds', {
+                                            time: decimal(stage.timeLimit),
+                                        })
+                                    }}
+                                </dd>
+                            </div>
                             <div v-if="event.discipline !== 'progeny'">
                                 <dt>{{ t('Penalties') }}</dt>
                                 <dd>{{ number(stage.penalties) }}</dd>
@@ -649,11 +725,27 @@ watch(
                                 <dd>{{ decimal(stage.score) }}</dd>
                             </div>
                             <div v-if="event.discipline !== 'progeny'">
-                                <dt>{{ t('Fatigue') }}</dt>
+                                <dt>
+                                    {{
+                                        t(
+                                            stage.conditionTiming === 'before'
+                                                ? 'Fatigue before stage'
+                                                : 'Fatigue',
+                                        )
+                                    }}
+                                </dt>
                                 <dd>{{ decimal(stage.fatigue) }}</dd>
                             </div>
                             <div v-if="event.discipline !== 'progeny'">
-                                <dt>{{ t('Focus') }}</dt>
+                                <dt>
+                                    {{
+                                        t(
+                                            stage.conditionTiming === 'before'
+                                                ? 'Focus before stage'
+                                                : 'Focus',
+                                        )
+                                    }}
+                                </dt>
                                 <dd>{{ decimal(stage.focus) }}</dd>
                             </div>
                         </dl>

@@ -2,6 +2,7 @@
 
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\Calculators\RegulatedEventSimulator;
 use App\Modules\Pets\Generators\GameEventNpcGenerator;
 
 test('event receipt tokens keep their established deterministic format', function () {
@@ -40,6 +41,26 @@ test('club participants are reproducible and use the class rather than copying h
         expect($champion['stats'][$stat] - $value)->toBe(70);
     }
 });
+
+test('club participants use the same frozen event policy as the human reference after balance changes', function (string $discipline, array $policy, array $plan, string $stage) {
+    $reference = ['breed' => ['en' => 'Beagle'], 'breed_id' => 7, 'size' => 'medium', ...$policy];
+    $snapshot = (new GameEventNpcGenerator(new GameEventRandomness))->generate($reference, 'open:all', 'frozen-policy', 0);
+    $balance = require dirname(__DIR__, 2).'/config/event_regulations.php';
+    $balance['regulations']['nosework']['time_limits']['nw_0'] = 999;
+    $balance['simulation']['show_presentation'] = ['careful' => 0.5, 'balanced' => 0.5, 'bold' => 0.5];
+
+    $result = (new RegulatedEventSimulator($balance))->simulate($discipline, $snapshot,
+        [...$plan, 'stages' => ['balanced']], ['version' => 3, 'stages' => [$stage]], [0.99, 0.99]);
+
+    if ($discipline === 'nosework') {
+        expect($result['stages'][0]['timeLimit'])->toBe(120);
+    } else {
+        expect($result['stages'][0]['factors']['presentationMultiplier'])->toBe(1.0);
+    }
+})->with([
+    'nosework search deadline' => ['nosework', ['nosework_time_limit' => 120], ['sport_class' => 'nw_0'], 'interior'],
+    'show presentation' => ['conformation', ['show_presentation_multipliers' => ['careful' => 0.9, 'balanced' => 1.0, 'bold' => 1.15]], ['exhibition_class' => 'open'], 'movement'],
+]);
 
 test('club descendants have distinct bounded profiles and reproduce independently of generation order', function (string $division) {
     $generator = new GameEventNpcGenerator(new GameEventRandomness);

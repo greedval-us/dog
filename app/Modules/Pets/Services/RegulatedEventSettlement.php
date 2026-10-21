@@ -64,6 +64,12 @@ final class RegulatedEventSettlement
         $awards = $event->discipline === 'conformation'
             ? ($expanded ? $this->specialShows : $this->shows)->calculate($regulation, $protocol)
             : ($expanded ? $this->regionalSports : $this->sports)->calculate($event->discipline, $regulation, $protocol);
+        if ($event->discipline === 'canicross') {
+            $qualifiedEntries = array_fill_keys(array_column(array_filter($awards, static fn (array $award): bool => $award['code'] === 'RACE_QUALIFICATION'), 'entry_id'), true);
+            foreach ($entries as $entry) {
+                $entry->result = [...$entry->result, 'race_qualified' => isset($qualifiedEntries[$entry->id])];
+            }
+        }
         foreach ($awards as $award) {
             $entry = $entries->firstWhere('id', $award['entry_id']);
             if ($entry === null || $entry->is_npc || ! $pets->has($entry->pet_id)) {

@@ -7,6 +7,7 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Enums\DogSize;
 use App\Modules\Pets\Services\GameEventProcessor;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Vite;
 
 beforeEach(function () {
@@ -37,6 +38,7 @@ function playabilityBrowserEvent(string $discipline, array $stages, array $regul
 }
 
 test('a career recommendation registers the second dog in its overlapping open class and retains the saved entry over new hints', function (string $locale, int $width, string $colorScheme) {
+    $this->travelTo(CarbonImmutable::parse('2026-10-21 00:00:00', 'Europe/Moscow'));
     $owner = User::factory()->create(['locale' => $locale, 'coins' => 500]);
     $breed = Dog::factory()->create([
         'breed' => 'german_shepherd', 'size' => DogSize::Large,
@@ -121,6 +123,8 @@ test('an odor test saves one decision and unlocks its program after the real sch
     ]);
 
     $page->assertSelected('#event-entry-option', 'nw_test:pr2:clove')
+        ->assertSee('Search time limit: 120 seconds.')
+        ->assertSee('Stamina does not affect this one-stage odor test: there is no later stage for reduced fatigue to help.')
         ->assertSeeIn('.event-overview', 'Odor tests record a qualification without a placement or coin prize.')
         ->assertDontSee('Place 1:')
         ->assertMissing('.event-overview .event-prizes')

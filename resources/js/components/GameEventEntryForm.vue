@@ -55,6 +55,22 @@ const preparationUpdatedAt = ref(props.serverNow);
 const warmupEquipment = computed(
     () => regulated.value && props.event.discipline === 'agility',
 );
+const showPresentationEffects = computed(
+    () =>
+        regulated.value &&
+        props.event.discipline === 'conformation' &&
+        (ownEntry.value?.result
+            ? ownEntry.value.result.stages.some(
+                  (stage) =>
+                      stage.factors?.presentationMultiplier !== undefined,
+              )
+            : props.event.calculationVersion >= 3),
+);
+const oneStageOdorTest = computed(
+    () =>
+        props.event.regulation?.format === 'odor_test' &&
+        props.event.stages.length === 1,
+);
 function refreshPreparation() {
     if (refreshingPreparation.value || pending.value) return;
     router.reload({
@@ -189,6 +205,26 @@ function stageWeights(key: string): string {
                         form.errors['plan.handler_category']
                     "
                 />
+                <p
+                    v-if="
+                        event.discipline === 'nosework' &&
+                        selectedEntryOption?.timeLimitSeconds !== undefined
+                    "
+                    class="event-note"
+                >
+                    {{
+                        t(
+                            oneStageOdorTest
+                                ? 'Search time limit: {seconds} seconds.'
+                                : 'Search time limit: {seconds} seconds per category.',
+                            {
+                                seconds: number(
+                                    selectedEntryOption.timeLimitSeconds,
+                                ),
+                            },
+                        )
+                    }}
+                </p>
                 <template
                     v-if="
                         !regulated &&
@@ -278,7 +314,9 @@ function stageWeights(key: string): string {
                     <p class="event-note">
                         {{
                             t(
-                                'Exterior contributes 80%; presentation contributes 20%. Cleanliness, health and focus support presentation.',
+                                showPresentationEffects
+                                    ? 'Game judging keeps presentation to at most 20 points out of 100. Calm handling lowers risk; expressive handling strengthens presentation with more risk. Movement equipment affects only the movement stage’s presentation, never inherited exterior.'
+                                    : 'Exterior contributes 80%; presentation contributes 20%. Cleanliness, health and focus support presentation.',
                             )
                         }}
                     </p>
@@ -432,7 +470,9 @@ function stageWeights(key: string): string {
                         <p class="event-tactic-effect">
                             {{
                                 t(
-                                    `events.tactic.${event.discipline}.${form.plan.stages[stageIndex]}`,
+                                    showPresentationEffects
+                                        ? `events.showTactic.${form.plan.stages[stageIndex]}`
+                                        : `events.tactic.${event.discipline}.${form.plan.stages[stageIndex]}`,
                                 )
                             }}
                         </p>
@@ -440,6 +480,13 @@ function stageWeights(key: string): string {
                 </template>
                 <section v-else class="event-exterior">
                     <h3>{{ t('Judging criteria') }}</h3>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'This documentary evaluation is a game adaptation of progeny groups. Real RKF/FCI progeny competitions take place in the ring.',
+                            )
+                        }}
+                    </p>
                     <p class="event-note">
                         {{
                             t(
@@ -509,23 +556,41 @@ function stageWeights(key: string): string {
                         <span
                             v-for="[key, value] in selectedModifiers"
                             :key="key"
-                            >{{ modifierEffect(key, value) }}</span
+                            >{{
+                                modifierEffect(
+                                    key,
+                                    value,
+                                    showPresentationEffects,
+                                )
+                            }}</span
                         >
                         <HelpHint
                             :text="
                                 t(
-                                    'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                                    showPresentationEffects
+                                        ? 'Precision lowers base error risk in percentage points; focus adds starting focus points. Stamina reduces fatigue gained at each stage. Movement equipment changes only movement presentation within the 20-point presentation limit.'
+                                        : 'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
                                 )
                             "
                         />
                     </div>
                     <p
-                        v-if="event.discipline === 'conformation'"
+                        v-if="
+                            event.discipline === 'conformation' &&
+                            !showPresentationEffects
+                        "
                         class="event-note"
                     >
                         {{
                             t(
                                 'For conformation, focus and precision help judging; stamina limits fatigue. Pace equipment does not increase the final score.',
+                            )
+                        }}
+                    </p>
+                    <p v-if="oneStageOdorTest" class="event-note">
+                        {{
+                            t(
+                                'Stamina does not affect this one-stage odor test: there is no later stage for reduced fatigue to help.',
                             )
                         }}
                     </p>
@@ -574,7 +639,13 @@ function stageWeights(key: string): string {
                                 ><span
                                     v-for="(value, key) in gear.modifiers"
                                     :key="key"
-                                    >{{ modifierEffect(key, value) }}</span
+                                    >{{
+                                        modifierEffect(
+                                            key,
+                                            value,
+                                            showPresentationEffects,
+                                        )
+                                    }}</span
                                 ></span
                             >
                         </button>

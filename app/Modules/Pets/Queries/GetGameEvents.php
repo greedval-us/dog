@@ -7,6 +7,7 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\InventoryItem;
 use App\Models\Pet;
+use App\Models\PetTitle;
 use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\GameEventAdmissionRules;
@@ -97,14 +98,14 @@ final class GetGameEvents
         return [
             'event' => [
                 ...$this->summary($event, $user),
-                'entries' => array_values($entries->map(fn (GameEventEntry $entry): array => $this->entry($entry, $user, $locale, $breedFor($entry->division)))->all()),
+                'entries' => array_values($entries->map(fn (GameEventEntry $entry): array => $this->entry($entry, $user, $locale, $event->discipline, $breedFor($entry->division)))->all()),
                 'activeDivision' => $activeDivision,
                 'divisions' => $groups->map(fn (GameEventEntry $group): array => [
                     'key' => $group->division, 'label' => GameEventDivisionData::label($group->division, $locale, $breedFor($group->division)),
                     'humanCount' => (int) $group->getAttribute('human_count'), 'clubCount' => (int) $group->getAttribute('club_count'),
                 ])->all(),
             ],
-            'entry' => $own === null ? null : $this->entry($own, $user, $locale, $own->pet->dog ?? $breedFor($own->division)),
+            'entry' => $own === null ? null : $this->entry($own, $user, $locale, $event->discipline, $own->pet->dog ?? $breedFor($own->division)),
         ];
     }
 
@@ -153,14 +154,24 @@ final class GetGameEvents
     }
 
     /** @return array<string, mixed> */
-    private function entry(GameEventEntry $entry, User $user, string $locale, ?Dog $breed = null): array
+    private function entry(GameEventEntry $entry, User $user, string $locale, string $discipline, ?Dog $breed = null): array
     {
         $result = $entry->result;
         if ($result !== null && isset($result['stages'])) {
             $result['stages'] = array_map(fn (array $stage): array => [...$stage, 'reason' => __('events.notes.'.($stage['note'] ?? 'clean'), [], $locale)], $result['stages']);
             if (($result['version'] ?? null) === 3) {
                 $grade = (string) ($result['grade'] ?? (($result['qualified'] ?? false) ? 'qualified' : 'not_qualified'));
-                $result['assessment'] = ['code' => $grade, 'label' => __('events.grades.'.$grade, [], $locale), 'qualified' => (bool) ($result['qualified'] ?? false)];
+                $qualified = (bool) ($result['qualified'] ?? false);
+                if ($discipline === 'canicross' && ! ($result['eliminated'] ?? false)) {
+                    $raceQualified = $result['race_qualified'] ?? null;
+                    if ($raceQualified === null && $entry->titles->contains(static fn (PetTitle $title): bool => $title->code === 'RACE_QUALIFICATION'
+                        && $title->kind === 'qualification' && $title->discipline === 'canicross')) {
+                        $raceQualified = true;
+                    }
+                    $grade = $raceQualified === null ? 'finished' : ($raceQualified ? 'qualified' : 'not_qualified');
+                    $qualified = $raceQualified === true;
+                }
+                $result['assessment'] = ['code' => $grade, 'label' => __('events.grades.'.$grade, [], $locale), 'qualified' => $qualified];
                 $result['standings'] = array_map(fn (array $standing): array => [
                     ...$standing, 'label' => __('events.standings.'.(string) $standing['key'], [], $locale),
                 ], $result['standings'] ?? []);

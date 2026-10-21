@@ -33,6 +33,8 @@ final class GameEventNpcGenerator
             'version' => GameEventProtocol::SNAPSHOT_VERSION,
             'age_months' => $reference['age_months'] ?? null, 'sex' => $reference['sex'] ?? null,
             'exhibition_class' => $reference['exhibition_class'] ?? null,
+            ...(isset($reference['nosework_time_limit']) ? ['nosework_time_limit' => $reference['nosework_time_limit']] : []),
+            ...(isset($reference['show_presentation_multipliers']) ? ['show_presentation_multipliers' => $reference['show_presentation_multipliers']] : []),
             ...(isset($reference['profile']) ? [
                 'profile' => [...$reference['profile'], 'id' => null, 'name' => 'NPC #'.($index + 1), 'championships' => match ($exhibitionClass) {
                     ExhibitionClass::Champion => ['CH_RUS'], ExhibitionClass::ClubChampion => ['CH_CLUB'], default => [],

@@ -116,6 +116,80 @@ test('prohibited agility course equipment is rejected without charging or spendi
     $this->assertDatabaseCount('item_usages', 0);
 });
 
+test('nosework entry options and frozen result use the same class deadline after balance changes', function () {
+    $this->freezeSecond();
+    $event = regulatedIntegrationEvent('nosework', ['version' => 2, 'format' => 'odor_test']);
+    $event->update(['rules' => [...$event->rules, 'stages' => ['odor_test']]]);
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create([
+        'energy' => 50, 'energy_max' => 100, 'satiety' => 0, 'hydration' => 0,
+        'speed' => 0, 'strength' => 0, 'agility' => 0, 'endurance' => 0, 'obedience' => 0, 'intelligence' => 0,
+    ]);
+    $record = PetSportRecord::factory()->for($pet)->create(['discipline' => 'nosework', 'experience' => 40]);
+    $gear = InventoryItem::factory()->for($pet->user)->create(['characteristics' => [
+        'competition' => ['slot' => 'body', 'disciplines' => ['nosework'], 'phase' => 'performance',
+            'sizes' => ['small', 'medium', 'large'], 'modifiers' => ['stamina' => 0.05, 'precision' => -0.03],
+            'description' => ['ru' => 'Поисковая шлейка', 'en' => 'Search harness']],
+    ]]);
+    $dogs = app(GetGameEvents::class)->registrationDogs($pet->user, 'en', $event);
+    $option = collect($dogs[0]['entryOptions'])->firstWhere('key', 'nw_test:pr1:birch');
+    $entry = app(RegisterGameEvent::class)->handle($pet->user, $event->id, $pet->id,
+        ['sport_class' => 'nw_test', 'program' => 'pr1', 'test_type' => 'birch', 'stages' => ['careful']], [$gear->id], 25, (string) Str::uuid());
+    $this->travelTo($event->closes_at);
+    app(GameEventProcessor::class)->processDue();
+    $frozen = $entry->fresh()->snapshot;
+    config(['event_regulations.regulations.nosework.time_limits.nw_test' => 600]);
+    $record->update(['experience' => 900]);
+    $this->travelTo($event->ends_at);
+
+    app(GameEventProcessor::class)->processDue();
+    app(GameEventProcessor::class)->processDue();
+
+    expect($option['timeLimitSeconds'] ?? null)->toBe(120);
+    expect($frozen['nosework_time_limit'] ?? null)->toBe(120);
+    $result = $entry->fresh()->result;
+    expect($result['preparation']['careerExperience'])->toBe(40);
+    expect($result['preparation']['modifiers']['precision'])->toBe(-0.03);
+    expect($result['stages'][0])->toMatchArray(['timeLimit' => 120, 'timedOut' => true, 'qualified' => false, 'score' => 0, 'note' => 'timeout']);
+    expect($result['qualified'])->toBeFalse();
+    expect($entry->fresh()->rank)->toBeNull();
+    expect($entry->fresh()->prize)->toBe(0);
+    expect($entry->titles()->where('code', 'NW_ODOR_TEST')->exists())->toBeFalse();
+    expect($gear->fresh()->remaining_uses)->toBe(4);
+    $this->assertDatabaseCount('item_usages', 1);
+});
+
+test('a show freezes its presentation policy and records the actual handling contribution separately from exterior', function () {
+    $this->freezeSecond();
+    $event = regulatedIntegrationEvent('conformation', ['version' => 2]);
+    $breed = Dog::factory()->create(['breed' => 'german_shepherd']);
+    $pet = Pet::factory()->for($breed)->for(User::factory()->state(['coins' => 500]))->create();
+    PetSportRecord::factory()->for($pet)->create(['discipline' => 'conformation', 'experience' => 40]);
+    $gear = InventoryItem::factory()->for($pet->user)->create(['characteristics' => [
+        'competition' => ['slot' => 'line', 'disciplines' => ['conformation'], 'phase' => 'performance',
+            'sizes' => ['small', 'medium', 'large'], 'modifiers' => ['pace' => 0.07, 'focus' => -0.04],
+            'description' => ['ru' => 'Ринговка', 'en' => 'Show lead']],
+    ]]);
+    $entry = app(RegisterGameEvent::class)->handle($pet->user, $event->id, $pet->id,
+        ['exhibition_class' => 'open', 'stages' => array_fill(0, 3, 'balanced')], [$gear->id], 25, (string) Str::uuid());
+    $this->travelTo($event->closes_at);
+    app(GameEventProcessor::class)->processDue();
+    $frozen = $entry->fresh()->snapshot;
+    config(['event_regulations.simulation.show_presentation' => ['careful' => 0.5, 'balanced' => 0.5, 'bold' => 0.5]]);
+    $this->travelTo($event->ends_at);
+
+    app(GameEventProcessor::class)->processDue();
+    app(GameEventProcessor::class)->processDue();
+
+    expect($frozen['show_presentation_multipliers'] ?? null)->toMatchArray(['careful' => 0.9, 'balanced' => 1, 'bold' => 1.15]);
+    $result = $entry->fresh()->result;
+    expect($result['preparation']['careerExperience'])->toBe(40);
+    expect(array_column(array_column($result['stages'], 'factors'), 'presentationMultiplier'))->toBe([1, 1, 1.07]);
+    expect($result['stages'][2]['factors']['exterior'])->toBe($frozen['exterior']['movement']);
+    expect($result['stages'][2]['factors']['presentationContribution'])->toBeLessThanOrEqual(20);
+    expect($gear->fresh()->remaining_uses)->toBe(4);
+    $this->assertDatabaseCount('item_usages', 1);
+});
+
 test('a healthy ten year old dog sees real agility options and can enter its measured height category', function () {
     $this->freezeSecond();
     $event = regulatedIntegrationEvent('agility');
