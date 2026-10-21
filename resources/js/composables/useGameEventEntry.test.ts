@@ -37,7 +37,11 @@ function dog(id: number): EventDog {
     };
 }
 
-function mountEntry(discipline: EventDiscipline = 'conformation') {
+function mountEntry(
+    discipline: EventDiscipline = 'conformation',
+    initial: Partial<GameEventEntryProps> = {},
+    prepare?: (props: GameEventEntryProps) => void,
+) {
     const props = reactive<GameEventEntryProps>({
         event: {
             id: 1,
@@ -69,7 +73,9 @@ function mountEntry(discipline: EventDiscipline = 'conformation') {
         dogs: [dog(1), dog(2)],
         equipment: [],
         entry: null,
+        ...initial,
     });
+    prepare?.(props);
     let state!: ReturnType<typeof useGameEventEntry>;
     const renderer = createRenderer<object, object>({
         createComment: () => ({}),
@@ -125,6 +131,190 @@ it('preserves a chosen class across refreshed data and chooses a valid class for
     state.form.pet_id = 2;
     await nextTick();
     expect(state.form.plan.exhibition_class).toBe('veteran');
+});
+
+it('selects the dog from a career recommendation instead of the first owned dog', () => {
+    const { state } = mountEntry('conformation', { selectedPetId: 2 });
+
+    expect(state.form.pet_id).toBe(2);
+    expect(state.form.plan.exhibition_class).toBe('veteran');
+});
+
+it('ignores a dog hint that is outside the owned dog list', () => {
+    const { state } = mountEntry('conformation', { selectedPetId: 999 });
+
+    expect(state.form.pet_id).toBe(1);
+});
+
+it('defaults to a dog with an eligible class when the first owned dog has none', () => {
+    const { state } = mountEntry('agility', {}, (props) => {
+        props.event.regulation = {
+            version: 2,
+            system: 'rkf',
+            rank: 'national',
+            rankLabel: 'National agility trial',
+            country: 'RU',
+            region: 'Moscow',
+            judgeId: 'judge-1',
+            judgeName: 'Judge One',
+            format: 'agility_combined',
+        };
+        props.dogs[1].entryOptions = [
+            { key: 'a1', label: 'Agility 1', plan: { sport_class: 'a1' } },
+        ];
+    });
+
+    expect(state.form.pet_id).toBe(2);
+    expect(state.form.plan.sport_class).toBe('a1');
+});
+
+it.each([
+    ['birch', 'birch'],
+    ['anise', 'clove'],
+    ['unknown', 'clove'],
+])(
+    'uses an eligible recommended odor test and falls back from %s to %s',
+    async (recommended, expected) => {
+        const options = [
+            {
+                key: 'clove',
+                label: 'Clove odor test',
+                plan: {
+                    sport_class: 'nw_test',
+                    program: 'pr1',
+                    test_type: 'clove',
+                },
+            },
+            {
+                key: 'birch',
+                label: 'Birch odor test',
+                plan: {
+                    sport_class: 'nw_test',
+                    program: 'pr1',
+                    test_type: 'birch',
+                },
+            },
+            {
+                key: 'anise',
+                label: 'Anise odor test',
+                plan: {
+                    sport_class: 'nw_test',
+                    program: 'pr1',
+                    test_type: 'anise',
+                },
+                eligible: false,
+                reason: 'This test is not available.',
+            },
+        ];
+        const { props, state } = mountEntry(
+            'nosework',
+            {
+                selectedPetId: 2,
+                selectedEntryOptionKey: recommended,
+                dogs: [
+                    dog(1),
+                    {
+                        ...dog(2),
+                        entryOptions: options,
+                        defaultEntryOption: 'clove',
+                    },
+                ],
+            },
+            (props) => {
+                props.event.regulation = {
+                    version: 2,
+                    system: 'rkf',
+                    rank: 'qualification',
+                    rankLabel: 'Odor test',
+                    country: 'RU',
+                    region: 'Moscow',
+                    judgeId: 'judge-1',
+                    judgeName: 'Judge One',
+                    format: 'odor_test',
+                };
+            },
+        );
+
+        expect(state.form.pet_id).toBe(2);
+        expect(state.form.plan.test_type).toBe(expected);
+        state.selectedEntryOptionKey.value = 'clove';
+        props.dogs = [...props.dogs];
+        await nextTick();
+
+        expect(state.form.plan.test_type).toBe('clove');
+        expect(state.form.plan).not.toHaveProperty('exhibition_class');
+    },
+);
+
+it('keeps all six combined agility decisions when choosing a class and refreshing preparation', async () => {
+    const { props, state } = mountEntry('agility', {}, (props) => {
+        props.event.status = 'scheduled';
+        props.event.canRegister = true;
+        props.event.regulation = {
+            version: 2,
+            system: 'rkf',
+            rank: 'national',
+            rankLabel: 'National agility trial',
+            country: 'RU',
+            region: 'Moscow',
+            judgeId: 'judge-1',
+            judgeName: 'Judge One',
+            format: 'agility_combined',
+        };
+        props.event.stages = [
+            'agility_1',
+            'agility_2',
+            'agility_3',
+            'jumping_1',
+            'jumping_2',
+            'jumping_3',
+        ].map((key) => ({
+            key,
+            label: key,
+            options: ['careful', 'balanced', 'bold'],
+        }));
+        props.dogs[0].entryOptions = [
+            { key: 'a1', label: 'Agility 1', plan: { sport_class: 'a1' } },
+            { key: 'a2', label: 'Agility 2', plan: { sport_class: 'a2' } },
+        ];
+    });
+
+    state.applyStagePreset(['careful', 'balanced', 'bold']);
+    state.selectedEntryOptionKey.value = 'a2';
+    props.dogs = [...props.dogs];
+    await nextTick();
+
+    expect(state.form.plan).toEqual({
+        stages: ['careful', 'careful', 'balanced', 'balanced', 'bold', 'bold'],
+        sport_class: 'a2',
+    });
+});
+
+it('keeps the saved entry dog and class ahead of recommendation hints', () => {
+    const { state } = mountEntry('conformation', {
+        selectedPetId: 2,
+        selectedEntryOptionKey: 'veteran',
+        entry: {
+            id: 9,
+            petId: 1,
+            name: 'Dog 1',
+            ownerName: 'owner',
+            isNpc: false,
+            division: 'open:breed-1:male',
+            status: 'registered',
+            gearIds: [],
+            rank: null,
+            prize: 0,
+            result: null,
+            plan: {
+                stages: ['careful', 'balanced', 'bold'],
+                exhibition_class: 'open',
+            },
+        },
+    });
+
+    expect(state.form.pet_id).toBe(1);
+    expect(state.form.plan.exhibition_class).toBe('open');
 });
 
 it.each(['agility', 'progeny'] as const)(

@@ -23,7 +23,7 @@ class BreedingListingController extends Controller
             throw ValidationException::withMessages(['listing' => __(str_replace('breeding.errors.', 'breeding.', $exception->getMessage()))]);
         }
 
-        return to_route('breeding.index');
+        return to_route('breeding.index', ['pet' => (int) $request->validated('pet_id')]);
     }
 
     public function destroy(Request $request, BreedingListing $listing, PublishBreedingListing $publish): RedirectResponse
@@ -36,6 +36,6 @@ class BreedingListingController extends Controller
             throw ValidationException::withMessages(['listing' => __(str_replace('breeding.errors.', 'breeding.', $exception->getMessage()))]);
         }
 
-        return to_route('breeding.index');
+        return to_route('breeding.index', ['pet' => $listing->pet_id]);
     }
 }

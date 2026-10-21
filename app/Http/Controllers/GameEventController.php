@@ -41,8 +41,31 @@ class GameEventController extends Controller
     public function show(Request $request, GameEvent $gameEvent, GetGameEvents $events): Response
     {
         $user = $this->player($request);
-        $filters = $request->validate(['division' => ['nullable', 'string', 'max:120']]);
+        $filters = $request->validate([
+            'division' => ['nullable', 'string', 'max:120'],
+            'pet' => ['nullable', 'integer', 'min:1'], 'entry_option' => ['nullable', 'string', 'max:120'],
+        ]);
         $locale = app()->getLocale();
+        $dogs = null;
+        $registrationDogs = function () use ($events, $user, $locale, $gameEvent, &$dogs): array {
+            return $dogs ??= $events->registrationDogs($user, $locale, $gameEvent);
+        };
+        $selectionData = null;
+        $selection = function () use ($registrationDogs, $filters, &$selectionData): array {
+            if ($selectionData !== null) {
+                return $selectionData;
+            }
+            $dog = collect($registrationDogs())->firstWhere('id', (int) ($filters['pet'] ?? 0));
+            $optionKey = null;
+            foreach ($dog['entryOptions'] ?? [] as $option) {
+                if ($option['key'] === ($filters['entry_option'] ?? null) && $option['eligible']) {
+                    $optionKey = $option['key'];
+                    break;
+                }
+            }
+
+            return $selectionData = ['petId' => $dog['id'] ?? null, 'optionKey' => $optionKey];
+        };
         $state = null;
         $showState = function () use ($events, $user, $gameEvent, $locale, $filters, &$state): array {
             return $state ??= $events->showState($user, $gameEvent->refresh(), $locale, $filters['division'] ?? null);
@@ -51,7 +74,9 @@ class GameEventController extends Controller
         return Inertia::render('GameEventShow', [
             'event' => fn () => $showState()['event'],
             'entry' => fn () => $showState()['entry'],
-            'dogs' => fn () => $events->registrationDogs($user, $locale, $gameEvent),
+            'dogs' => $registrationDogs,
+            'selectedPetId' => fn () => $selection()['petId'],
+            'selectedEntryOptionKey' => fn () => $selection()['optionKey'],
             'equipment' => fn () => $events->registrationEquipment($user, $locale),
             'serverNow' => fn () => now()->toIso8601String(),
         ]);

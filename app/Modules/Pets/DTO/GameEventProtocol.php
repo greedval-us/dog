@@ -18,7 +18,7 @@ use InvalidArgumentException;
  * @phpstan-type Snapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree, gear:list<Gear>, modifiers:GearModifiers, offspring:list<Offspring>, age_months?:int,sex?:string,exhibition_class?:string|null,profile?:array<string,mixed>,regulation?:array<string,mixed>}
  * @phpstan-type Rules array{version:int, fee:int, prizes:list<int>, stages:list<string>, energy_cost:int, field_size:int, time_limit:int}
  * @phpstan-type Modifiers array{precision:float, stamina:float, pace:float, focus:float}
- * @phpstan-type Preparation array{careMultiplier:float, initialFatigue:float, initialFocus:float, states:array<string, float>, normalizedStats:array<string, float>, modifiers:Modifiers}
+ * @phpstan-type Preparation array{careMultiplier:float, initialFatigue:float, initialFocus:float, careerExperience:float, consistencyBonus:float, states:array<string, float>, normalizedStats:array<string, float>, modifiers:Modifiers}
  * @phpstan-type StageFactors array{quality:float, careMultiplier:float, mistakeChance:float, startFatigue:float, startFocus:float, exterior:float|null, exteriorContribution:float, presentationContribution:float}
  * @phpstan-type Stage array{key:string, decision:Decision, time:float, penalties:int, score:float, fatigue:float, focus:float, note:string, factors?:StageFactors}
  * @phpstan-type Result array{version:int, score:float, time:float, penalties:int, eliminated:bool, stages:list<Stage>, preparation?:Preparation}

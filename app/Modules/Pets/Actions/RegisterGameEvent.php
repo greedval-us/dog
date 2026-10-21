@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
+use App\Modules\Pets\Queries\GetGameEventParticipation;
 use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetLifecycle;
@@ -22,7 +23,7 @@ use Illuminate\Support\Str;
 
 final class RegisterGameEvent
 {
-    public function __construct(private GameEventAdmission $admission, private PetLifecycle $lifecycle, private PlayerWallet $wallet, private PetEventReservation $reservations) {}
+    public function __construct(private GameEventAdmission $admission, private PetLifecycle $lifecycle, private PlayerWallet $wallet, private PetEventReservation $reservations, private GetGameEventParticipation $participation) {}
 
     /**
      * @param  array<string, mixed>  $plan
@@ -72,11 +73,8 @@ final class RegisterGameEvent
             if (CurrencyTransaction::query()->where('user_id', $owner->id)->whereRaw('LOWER(operation_key) = ?', ['event-registration:'.$token])->exists()) {
                 throw new GameEventUnavailable('events.errors.token');
             }
-            $startOfDay = $event->starts_at->setTimezone(config('game-events.timezone'))->startOfDay()->utc();
-            $dailyCount = GameEventEntry::query()->where('user_id', $owner->id)->whereNotIn('status', ['cancelled', 'withdrawn'])
-                ->whereHas('event', fn ($query) => $query->where('starts_at', '>=', $startOfDay)->where('starts_at', '<', $startOfDay->addDay()))->count();
-            if ($dailyCount >= config('game-events.daily_limit', 3)) {
-                throw new GameEventUnavailable('events.errors.daily_limit');
+            if (($reason = $this->participation->playerReason($owner, $event)) !== null) {
+                throw new GameEventUnavailable($reason);
             }
             $pet = Pet::query()->where('user_id', $owner->id)->lockForUpdate()->findOrFail($petId);
             $this->lifecycle->assertCanAdvance($owner, $at);

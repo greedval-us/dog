@@ -4,16 +4,21 @@ namespace App\Modules\Pets\Queries;
 
 use App\Models\BreedingListing;
 use App\Models\BreedingPartner;
+use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Calculators\BreedingGeneticsCalculator;
+use App\Modules\Pets\Calculators\PetAgeRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\DTO\PetTitleData;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Calculators\PlayerLevelRules;
 use App\Modules\Players\Enums\PlayerStatus;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 
 final class GetBreedingBoard
@@ -23,14 +28,15 @@ final class GetBreedingBoard
     /** @return array<string,mixed> */
     public function handle(User $user, string $locale, ?int $petId = null, ?string $kind = null, ?int $partnerId = null): array
     {
+        $at = CarbonImmutable::now()->startOfSecond();
         $level = PlayerLevelRules::progress($user->experience)['level'];
-        $dogs = $user->pets()->active()->with(['dog', 'titles'])->orderBy('id')->get();
+        $dogs = $user->pets()->active()->with(['dog', 'titles'])->withExists('activeDiseaseEpisodes')->orderBy('id')->get();
         foreach ($dogs as $dog) {
-            $dog->advanceTo(now(), $this->states);
+            $dog->advanceTo($at, $this->states);
         }
         $selected = $dogs->firstWhere('id', $petId);
         $listingQuery = $this->activeListingsQuery();
-        $partnerQuery = BreedingPartner::query()->where('is_active', true)->with(['pet.dog', 'pet.titles'])->orderBy('id');
+        $partnerQuery = BreedingPartner::query()->where('is_active', true)->with(['pet' => fn (Relation $pets) => $pets->withExists('activeDiseaseEpisodes'), 'pet.dog', 'pet.titles'])->orderBy('id');
         if ($selected !== null) {
             $compatiblePartner = fn (Builder $query) => $query->where('dog_id', $selected->dog_id)->where('sex', '!=', $selected->sex->value);
             $listingQuery->whereHas('pet', $compatiblePartner);
@@ -45,15 +51,25 @@ final class GetBreedingBoard
             }
         }
         foreach ($listings as $listing) {
-            $listing->pet->advanceTo(now(), $this->states);
+            $listing->pet->advanceTo($at, $this->states);
         }
         $partners = $partnerQuery->get();
+        $parents = $dogs->concat($listings->pluck('pet'))->concat($partners->pluck('pet'));
+        $petIds = array_values($parents->filter(fn (Pet $pet): bool => $pet->user_id !== null)
+            ->map(fn (Pet $pet): int => $pet->id)->unique()->all());
+        $reservedPetIds = $this->reservedPetIds($petIds, $at);
+        $parentReasons = [];
+        foreach ($parents as $parent) {
+            $parentReasons[$parent->id] = $this->eligibility->reason($parent, $at, $parent->user_id === null)
+                ?? (isset($reservedPetIds[$parent->id]) ? 'breeding.errors.unavailable' : null);
+        }
+        $card = fn (Pet $pet): array => $this->parent($pet, $locale, $parentReasons[$pet->id] ?? null);
         $chosen = $kind === 'listing' ? $listings->firstWhere('id', $partnerId) : ($kind === 'partner' ? $partners->firstWhere('id', $partnerId) : null);
         $ownPair = $chosen !== null && $chosen->pet->user_id === $user->id;
         $preview = null;
         if ($selected !== null && $chosen !== null) {
             $other = $chosen->pet;
-            $reason = $this->eligibility->reason($selected, now()) ?? $this->eligibility->reason($other, now(), $kind === 'partner');
+            $reason = $parentReasons[$selected->id] ?? $parentReasons[$other->id] ?? null;
             if ($selected->dog_id !== $other->dog_id || $selected->sex === $other->sex || ! $selected->is_purebred || ! $other->is_purebred) {
                 $reason = 'breeding.errors.incompatible';
             } elseif ($this->eligibility->related($selected, $other)) {
@@ -80,19 +96,21 @@ final class GetBreedingBoard
             if ($colors === []) {
                 $reason = 'breeding.errors.unavailable';
             }
-            $preview = ['father' => $this->parent($father, $locale, $father->user_id === null), 'mother' => $this->parent($mother, $locale, $mother->user_id === null), 'ranges' => $ranges, 'colors' => $colors, 'reason' => $reason, 'ownPair' => $ownPair];
+            $preview = ['father' => $card($father), 'mother' => $card($mother), 'ranges' => $ranges, 'colors' => $colors, 'reason' => $reason, 'ownPair' => $ownPair];
         }
 
         return [
             'serverNow' => now()->toIso8601String(),
             'cooldownSeconds' => config('doglive.breeding_cooldown_seconds'),
             'pregnancySeconds' => config('doglive.breeding_birth_seconds'),
+            'breedingMinimumMonths' => PetAgeRules::BREEDING_MINIMUM_MONTHS,
+            'breedingMaximumMonths' => PetAgeRules::BREEDING_MAXIMUM_MONTHS,
             'access' => ['level' => $level, 'requiredLevel' => config('doglive.breeding_minimum_level', 5), 'allowed' => $level >= config('doglive.breeding_minimum_level', 5) && $user->status === PlayerStatus::Active],
-            'dogs' => $dogs->map(fn (Pet $pet): array => $this->parent($pet, $locale))->all(),
+            'dogs' => $dogs->map($card)->all(),
             'ownListings' => BreedingListing::query()->where('user_id', $user->id)->orderBy('id')->get()->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'petId' => $listing->pet_id, 'price' => $listing->price, 'isActive' => $listing->is_active])->all(),
             'listingPagination' => ['nextCursor' => $listingPage->nextCursor()?->encode(), 'previousCursor' => $listingPage->previousCursor()?->encode()],
-            'listings' => $listings->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'price' => $listing->price, 'owner' => ['username' => $listing->user->username], 'pet' => $this->parent($listing->pet, $locale)])->values()->all(),
-            'partners' => $partners->map(fn (BreedingPartner $partner): array => ['id' => $partner->id, 'price' => $partner->price, 'pet' => $this->parent($partner->pet, $locale, true)])->all(),
+            'listings' => $listings->map(fn (BreedingListing $listing): array => ['id' => $listing->id, 'price' => $listing->price, 'owner' => ['username' => $listing->user->username], 'pet' => $card($listing->pet)])->values()->all(),
+            'partners' => $partners->map(fn (BreedingPartner $partner): array => ['id' => $partner->id, 'price' => $partner->price, 'pet' => $card($partner->pet)])->all(),
             'selection' => ['petId' => $selected?->id, 'kind' => $chosen === null ? null : $kind, 'partnerId' => $chosen?->id],
             'ownPair' => $ownPair,
             'selectedPrice' => $chosen === null || $ownPair ? 0 : $chosen->price,
@@ -105,7 +123,7 @@ final class GetBreedingBoard
     {
         return BreedingListing::query()->where('is_active', true)
             ->whereHas('user', fn (Builder $query) => $query->where('status', PlayerStatus::Active))
-            ->with(['user', 'pet.dog', 'pet.titles'])->orderBy('id');
+            ->with(['user', 'pet' => fn (Relation $pets) => $pets->withExists('activeDiseaseEpisodes'), 'pet.dog', 'pet.titles'])->orderBy('id');
     }
 
     private function listingIsEligible(BreedingListing $listing): bool
@@ -115,13 +133,32 @@ final class GetBreedingBoard
     }
 
     /** @return array<string,mixed> */
-    private function parent(Pet $pet, string $locale, bool $system = false): array
+    private function parent(Pet $pet, string $locale, ?string $reason): array
     {
         $stats = [];
         foreach (PetStat::cases() as $stat) {
             $stats[$stat->value] = ['value' => (int) $pet->getAttribute($stat->value), 'potential' => (int) $pet->getAttribute($stat->potentialColumn())];
         }
 
-        return ['id' => $pet->id, 'name' => $pet->name, 'sex' => $pet->sex->value, 'breed' => $pet->dog->breed, 'breedName' => $pet->dog->localizedName($locale), 'coatColor' => $pet->coat_color, 'coatColorLabel' => $pet->dog->coat_colors[$pet->coat_color][$locale] ?? $pet->coat_color, 'generation' => $pet->generation, 'stats' => $stats, 'exterior' => $pet->exterior, 'titles' => PetTitleData::fromPet($pet, $locale), 'reason' => $this->eligibility->reason($pet, now(), $system), 'cooldownUntil' => $pet->breeding_available_at?->toIso8601String()];
+        return ['id' => $pet->id, 'name' => $pet->name, 'sex' => $pet->sex->value, 'breed' => $pet->dog->breed, 'breedName' => $pet->dog->localizedName($locale), 'coatColor' => $pet->coat_color, 'coatColorLabel' => $pet->dog->coat_colors[$pet->coat_color][$locale] ?? $pet->coat_color, 'generation' => $pet->generation, 'stats' => $stats, 'exterior' => $pet->exterior, 'titles' => PetTitleData::fromPet($pet, $locale), 'reason' => $reason, 'cooldownUntil' => $pet->breeding_available_at?->toIso8601String()];
+    }
+
+    /**
+     * @param  list<int>  $petIds
+     * @return array<int, true>
+     */
+    private function reservedPetIds(array $petIds, CarbonImmutable $at): array
+    {
+        if ($petIds === []) {
+            return [];
+        }
+
+        $reserved = GameEventEntry::query()->whereIn('pet_id', $petIds)->whereIn('status', ['registered', 'frozen'])
+            ->whereHas('event', fn (Builder $events) => $events->whereIn('status', ['registration', 'frozen'])
+                ->where('discipline', '!=', GameEventDiscipline::Progeny->value)
+                ->where('closes_at', '<=', $at->addSecond())->where('ends_at', '>', $at))
+            ->distinct()->pluck('pet_id')->all();
+
+        return array_fill_keys($reserved, true);
     }
 }

@@ -25,6 +25,7 @@ final class GetTitleProgressEvents
         private GameEventAdmissionRules $admission,
         private PetDecayCalculator $decay,
         private RegionalSportChampionships $championships,
+        private GetGameEventParticipation $participation,
     ) {}
 
     /**
@@ -41,6 +42,7 @@ final class GetTitleProgressEvents
         $dog->loadExists('activeDiseaseEpisodes');
         $dog->advanceTo($at, $this->decay);
         $states = $dog->statePercentages(null);
+        $participations = $this->participation->entries($owner->id, [$pet->id], array_values($events->all()));
         $candidates = [];
         foreach ($events as $event) {
             if ($event->discipline === 'progeny') {
@@ -64,6 +66,12 @@ final class GetTitleProgressEvents
                     'energyCost' => (float) ($event->rules['energy_cost'] ?? 0),
                     'minimumMonths' => $this->rules->minimumMonths($event->discipline, $regulation, $option['plan'])]);
                 $reason = isset($reasons[0]) ? __($reasons[0], [], $locale) : null;
+                $participationReason = $this->participation->reason($owner->id, $pet->id, $event, $participations);
+                if ($reason === null && $participationReason !== null) {
+                    $reason = __($participationReason, [
+                        'pet_daily_limit' => (int) config('game-events.pet_daily_limit'), 'pet_rest_hours' => (int) config('game-events.pet_rest_hours'),
+                    ], $locale);
+                }
                 if ($event->registration_opens_at->isAfter($at)) {
                     $reason = __('title_progress.reasons.not_open', [], $locale);
                 } elseif ($own !== null && ! $registered) {
@@ -75,6 +83,7 @@ final class GetTitleProgressEvents
                 $candidates[] = [
                     'event' => $event, 'regulation' => $regulation, 'plan' => $option['plan'],
                     'classLabel' => $labels['label'], 'registered' => $registered,
+                    'petId' => $pet->id, 'optionKey' => $option['key'],
                     'eligible' => $reason === null || $registered, 'reason' => $reason,
                     'codes' => $this->opportunities->codes($event->discipline, $regulation, $profile, $option['plan']),
                 ];
@@ -205,6 +214,7 @@ final class GetTitleProgressEvents
                         'closesAt' => $event->closes_at->toIso8601String(), 'classLabel' => $candidate['classLabel'],
                         'contribution' => $result, 'eligible' => $candidate['eligible'], 'reason' => $candidate['reason'],
                         'registered' => $candidate['registered'],
+                        'petId' => $candidate['petId'], 'optionKey' => $candidate['optionKey'],
                     ];
                     break;
                 }

@@ -140,7 +140,12 @@ test('career consistency is bounded even after thousands of wins', function () {
     $experienced = $simulator->simulate('agility', $snapshot, $plan, $rules, $draws);
     $snapshot['career_experience'] = 1000000;
 
-    expect($simulator->simulate('agility', $snapshot, $plan, $rules, $draws))->toBe($experienced);
+    $veteran = $simulator->simulate('agility', $snapshot, $plan, $rules, $draws);
+
+    expect($experienced['preparation']['careerExperience'])->toBe(80.0);
+    expect($veteran['preparation']['careerExperience'])->toBe(1000000.0);
+    unset($experienced['preparation']['careerExperience'], $veteran['preparation']['careerExperience']);
+    expect($veteran)->toBe($experienced);
 });
 
 test('a false scent indication eliminates a search while missing a hide only incurs a penalty', function () {

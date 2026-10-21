@@ -2,8 +2,10 @@
 
 namespace App\Modules\Pets\Calculators;
 
+use App\Modules\Pets\DTO\GameEventProtocol;
 use InvalidArgumentException;
 
+/** @phpstan-import-type Gear from GameEventProtocol */
 final class RegulatedEventSimulator
 {
     public const VERSION = 3;
@@ -68,7 +70,7 @@ final class RegulatedEventSimulator
             }
         }
         if ($discipline === 'agility') {
-            $snapshot['modifiers'] = [];
+            $snapshot['modifiers'] = $this->agilityWarmupModifiers($snapshot['gear'] ?? []);
         }
         $preparation = $this->performance->preparation($discipline, $snapshot);
         $simulation = $this->balance['simulation'];
@@ -91,7 +93,8 @@ final class RegulatedEventSimulator
             $chance = max($simulation['minimum_error_probability'], min($simulation['maximum_error_probability'],
                 $simulation['base_error_probability'] + $simulation['stage_difficulty'][$index]
                 - $quality * $simulation['quality_error_reduction'] - $focus * $simulation['focus_error_reduction']
-                + $fatigue * $simulation['fatigue_error_increase'] + $tactic['risk'] - $preparation['modifiers']['precision']));
+                + $fatigue * $simulation['fatigue_error_increase'] + $tactic['risk']
+                - $preparation['consistencyBonus'] - $preparation['modifiers']['precision']));
             $firstError = $draws[$index * 2] < $chance;
             $secondError = $draws[$index * 2 + 1] < $chance * 0.4;
             $stagePenalties = (int) $firstError + (int) $secondError;
@@ -155,6 +158,7 @@ final class RegulatedEventSimulator
                 'score' => round($stageScore, 2), 'fatigue' => round($fatigue, 2), 'focus' => round($focus, 2), 'note' => $note,
                 'qualified' => $stageQualified,
                 'factors' => ['quality' => round($quality, 4), 'careMultiplier' => $preparation['careMultiplier'],
+                    'consistencyBonus' => $preparation['consistencyBonus'],
                     'mistakeChance' => round(1 - (1 - $chance) * (1 - $chance * 0.4), 4),
                     'startFatigue' => round($fatigue, 4), 'startFocus' => round($focus, 4),
                     'exterior' => $exterior, 'exteriorContribution' => round($exteriorContribution, 4), 'presentationContribution' => round($presentationContribution, 4)],
@@ -200,6 +204,24 @@ final class RegulatedEventSimulator
             'search_tiebreak_score' => ($scoresByKey['interior'] ?? 0) + ($scoresByKey[isset($scoresByKey['exterior']) ? 'exterior' : 'objects'] ?? 0),
             'stages' => $stages, 'preparation' => $preparation,
         ];
+    }
+
+    /** @param list<Gear> $gear
+     * @return array{precision:float,stamina:float,pace:float,focus:float}
+     */
+    private function agilityWarmupModifiers(array $gear): array
+    {
+        $modifiers = ['precision' => 0.0, 'stamina' => 0.0, 'pace' => 0.0, 'focus' => 0.0];
+        foreach ($gear as $item) {
+            if ($item['phase'] !== 'preparation') {
+                continue;
+            }
+            foreach ($modifiers as $metric => $value) {
+                $modifiers[$metric] += $item['modifiers'][$metric] ?? 0;
+            }
+        }
+
+        return $this->performance->modifiers($modifiers);
     }
 
     /**

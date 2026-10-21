@@ -1,14 +1,17 @@
 import { App, router } from '@inertiajs/vue3';
 import { renderToString } from '@vue/server-renderer';
-import { createSSRApp, defineComponent, h } from 'vue';
-import type { Component, DefineComponent } from 'vue';
+import { createSSRApp, defineComponent, h, reactive } from 'vue';
+import type { Component, DefineComponent, Ref } from 'vue';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 import Breeding from './Index.vue';
 import PuppyMarket from '../puppies/Market.vue';
 import MyPuppies from '../puppies/Index.vue';
 import type { BreedingParent, Puppy } from '@/types/breeding';
 
-const deadlineEvents = vi.hoisted(() => ({ refresh: () => {} }));
+const deadlineEvents = vi.hoisted(() => ({
+    refresh: () => {},
+    dates: [] as string[],
+}));
 vi.mock('@/composables/useDeadlineRefresh', async () => {
     const actual = await vi.importActual<
         typeof import('@/composables/useDeadlineRefresh')
@@ -17,13 +20,18 @@ vi.mock('@/composables/useDeadlineRefresh', async () => {
         useDeadlineRefresh: (
             ...args: Parameters<typeof actual.useDeadlineRefresh>
         ) => {
+            deadlineEvents.dates = args[1]();
             deadlineEvents.refresh = () =>
                 args[2]({ headers: { 'X-DogLive-Background': '1' } });
             return actual.useDeadlineRefresh(...args);
         },
     };
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+    vi.restoreAllMocks();
+    deadlineEvents.dates = [];
+    deadlineEvents.refresh = () => {};
+});
 
 function parentFixture(): BreedingParent {
     return {
@@ -114,6 +122,8 @@ function breedingFixture() {
         serverNow: '2026-10-20T12:00:00Z',
         pregnancySeconds: 15,
         cooldownSeconds: 15,
+        breedingMinimumMonths: 18,
+        breedingMaximumMonths: 120,
         access: { level: 5, requiredLevel: 5, allowed: true },
         dogs: [mother],
         ownListings: [],
@@ -130,7 +140,7 @@ function breedingFixture() {
                 { code: 'blue', label: 'Blue', chance: 2, rare: true },
                 { code: 'black', label: 'Black', chance: 98, rare: false },
             ],
-            reason: null,
+            reason: null as string | null,
         },
         operationToken: '00000000-0000-4000-8000-000000000001',
         selectedPrice: 100,
@@ -259,6 +269,48 @@ it('only offers publication for male dogs and retains withdrawal for existing of
     expect(maleHtml).toContain('Publish or update offer');
 });
 
+it('loads the saved fee when editing a male dog’s breeding offer', async () => {
+    const father = { ...parentFixture(), sex: 'male' as const };
+
+    const html = await renderPage(Breeding, {
+        ...breedingFixture(),
+        dogs: [father],
+        ownListings: [{ id: 9, petId: 1, price: 725, isActive: true }],
+    });
+
+    expect(html).toMatch(/<input[^>]*id="breeding-price"[^>]*value="725"/);
+});
+
+it.each(['listing', 'partner'] as const)(
+    'allows viewing a %s forecast while a parent is resting but blocks breeding',
+    async (kind) => {
+        const props = breedingFixture();
+        props.dogs[0].reason = 'breeding.errors.cooldown';
+        props.preview.reason = 'breeding.errors.cooldown';
+
+        const html = await renderPage(Breeding, {
+            ...props,
+            partners: kind === 'partner' ? [props.listings[0]] : [],
+            listings: kind === 'listing' ? props.listings : [],
+            selection: { petId: 1, kind, partnerId: 1 },
+        });
+        const selectionPosition = html.indexOf('Selected partner');
+        const selectionButton = html.slice(
+            html.lastIndexOf('<button', selectionPosition),
+            selectionPosition,
+        );
+        const beginPosition = html.indexOf('Begin breeding');
+        const beginButton = html.slice(
+            html.lastIndexOf('<button', beginPosition),
+            beginPosition,
+        );
+
+        expect(selectionButton).not.toContain('disabled');
+        expect(beginButton).toContain('disabled');
+        expect(html).toContain('This dog is resting from breeding.');
+    },
+);
+
 it('preserves the selected pair while moving between breeding offer pages', async () => {
     const html = await renderPage(Breeding, {
         ...breedingFixture(),
@@ -298,6 +350,7 @@ it('blocks buying one’s own puppy and links to its management page', async () 
     const html = await renderPage(
         PuppyMarket,
         {
+            serverNow: '2026-10-20T12:00:00Z',
             puppies: [puppy],
             source: 'players',
             freeSlots: 1,
@@ -323,6 +376,7 @@ it('shows the exact purchase shortfall and omits deadlines for kennel puppies', 
     const html = await renderPage(
         PuppyMarket,
         {
+            serverNow: '2026-10-20T12:00:00Z',
             puppies: [puppy],
             source: 'kennel',
             freeSlots: 1,
@@ -374,4 +428,137 @@ it('shows a second-level countdown for a pending birth', async () => {
     });
 
     expect(html).toContain('Puppies arrive in 15 sec');
+});
+
+it('refreshes waiting puppies at their decision deadlines as well as pending births', async () => {
+    const puppy = puppyFixture();
+    await renderPage(MyPuppies, {
+        serverNow: '2026-10-20T12:00:00Z',
+        puppies: [puppy],
+        pregnancies: [
+            {
+                id: 1,
+                fatherName: 'Leo',
+                motherName: 'Milo',
+                dueAt: '2026-10-20T12:00:15Z',
+            },
+        ],
+        freeSlots: 1,
+        blocked: false,
+        parentId: null,
+        pagination: { previousCursor: null, nextCursor: null },
+    });
+
+    expect(deadlineEvents.dates).toContain(puppy.expiresAt);
+    expect(deadlineEvents.dates).toContain('2026-10-20T12:00:15Z');
+});
+
+it('refreshes player puppy offers at the decision deadline', async () => {
+    const puppy = puppyFixture();
+    const reload = vi.spyOn(router, 'reload').mockImplementation(() => {});
+    await renderPage(PuppyMarket, {
+        serverNow: '2026-10-20T12:00:00Z',
+        puppies: [puppy],
+        source: 'players',
+        freeSlots: 1,
+        blocked: false,
+        kennelPrice: 500,
+        pagination: { previousCursor: null, nextCursor: null },
+    });
+
+    expect(deadlineEvents.dates).toContain(puppy.expiresAt);
+    deadlineEvents.refresh();
+
+    expect(reload).toHaveBeenCalledWith({
+        headers: { 'X-DogLive-Background': '1' },
+        only: ['puppies', 'freeSlots', 'blocked', 'pagination', 'serverNow'],
+    });
+});
+
+it('keeps kennel puppy offers available without a player decision deadline', async () => {
+    const puppy = { ...puppyFixture(), status: 'kennel' as const };
+    await renderPage(PuppyMarket, {
+        serverNow: '2026-10-20T12:00:00Z',
+        puppies: [puppy],
+        source: 'kennel',
+        freeSlots: 1,
+        blocked: false,
+        kennelPrice: 500,
+        pagination: { previousCursor: null, nextCursor: null },
+    });
+
+    expect(deadlineEvents.dates).toEqual([]);
+});
+
+it('removes the selected market puppy when its offer disappears during a refresh', async () => {
+    const puppy = puppyFixture();
+    const puppies = reactive([puppy]);
+    const post = vi.spyOn(router, 'post').mockImplementation(() => {});
+    let selection!: {
+        choose: (puppy: Puppy) => void;
+        buy: () => void;
+        selected: Ref<Puppy | null | undefined>;
+    };
+    const setup = PuppyMarket.setup!;
+    vi.spyOn(PuppyMarket, 'setup').mockImplementation((props, context) => {
+        const state = setup(props, context);
+        selection = state as unknown as typeof selection;
+        return state;
+    });
+    await renderPage(
+        PuppyMarket,
+        {
+            serverNow: '2026-10-20T12:00:00Z',
+            puppies,
+            source: 'players',
+            freeSlots: 1,
+            blocked: false,
+            kennelPrice: 500,
+            pagination: { previousCursor: null, nextCursor: null },
+        },
+        'en',
+        1000,
+    );
+    selection.choose(puppy);
+    expect(selection.selected.value?.id).toBe(puppy.id);
+
+    puppies.splice(0);
+    selection.buy();
+
+    expect(selection.selected.value).toBeFalsy();
+    expect(post).not.toHaveBeenCalled();
+});
+
+it('removes a puppy selected for keeping when the decision deadline refresh removes it', async () => {
+    const puppy = puppyFixture();
+    const puppies = reactive([puppy]);
+    const post = vi.spyOn(router, 'post').mockImplementation(() => {});
+    let selection!: {
+        open: (puppy: Puppy, action: 'keep') => void;
+        submit: () => void;
+        selected: Ref<Puppy | null | undefined>;
+    };
+    const setup = MyPuppies.setup!;
+    vi.spyOn(MyPuppies, 'setup').mockImplementation((props, context) => {
+        const state = setup(props, context);
+        selection = state as unknown as typeof selection;
+        return state;
+    });
+    await renderPage(MyPuppies, {
+        serverNow: '2026-10-20T12:00:00Z',
+        puppies,
+        pregnancies: [],
+        freeSlots: 1,
+        blocked: false,
+        parentId: null,
+        pagination: { previousCursor: null, nextCursor: null },
+    });
+    selection.open(puppy, 'keep');
+    expect(selection.selected.value?.id).toBe(puppy.id);
+
+    puppies.splice(0);
+    selection.submit();
+
+    expect(selection.selected.value).toBeFalsy();
+    expect(post).not.toHaveBeenCalled();
 });

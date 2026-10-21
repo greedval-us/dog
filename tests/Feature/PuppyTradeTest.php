@@ -101,6 +101,7 @@ test('the puppy market separates active player listings from kennel puppies', fu
 
     $this->actingAs($viewer)->get(route('puppies.market'))->assertInertia(fn (Assert $page) => $page
         ->component('puppies/Market')->where('source', 'players')->has('puppies', 1)
+        ->where('serverNow', now()->toIso8601String())
         ->where('puppies.0.id', $listed->id)->where('puppies.0.price', 137)
         ->where('puppies.0.seller.username', $listed->user->username));
     $this->get(route('puppies.market', ['source' => 'kennel']))->assertInertia(fn (Assert $page) => $page

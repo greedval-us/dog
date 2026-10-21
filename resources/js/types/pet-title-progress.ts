@@ -27,6 +27,8 @@ export type PetTitleEvent = {
     eligible: boolean;
     reason: string | null;
     registered: boolean;
+    petId?: number;
+    optionKey?: string;
 };
 
 export type PetTitlePath = {

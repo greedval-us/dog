@@ -12,6 +12,8 @@ final class PetAgeRules
 
     public const int SPORT_MINIMUM_MONTHS = 18;
 
+    public const int BREEDING_MINIMUM_MONTHS = 18;
+
     public const int SENIOR_AGE_MONTHS = 96;
 
     public const int BREEDING_MAXIMUM_MONTHS = 120;

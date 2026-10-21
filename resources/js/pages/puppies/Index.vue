@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { Clock, House, PawPrint, RefreshCw, Tag, X } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -46,7 +46,10 @@ const props = defineProps<{
     parentId: number | null;
 }>();
 const { t, number } = useI18n();
-const selected = ref<Puppy | null>(null);
+const selectedId = shallowRef<number | null>(null);
+const selected = computed(() =>
+    props.puppies.find((puppy) => puppy.id === selectedId.value),
+);
 const action = ref<'keep' | 'list' | 'surrender' | null>(null);
 const moving = ref(false);
 const keepForm = useForm({ name: '', operation_token: '' });
@@ -63,7 +66,10 @@ const pending = computed(
 );
 const { now } = useDeadlineRefresh(
     () => props.serverNow,
-    () => props.pregnancies.map((litter) => litter.dueAt),
+    () => [
+        ...props.pregnancies.map((litter) => litter.dueAt),
+        ...props.puppies.map((puppy) => puppy.expiresAt),
+    ],
     (options) =>
         router.reload({
             ...options,
@@ -71,6 +77,7 @@ const { now } = useDeadlineRefresh(
                 'puppies',
                 'pregnancies',
                 'freeSlots',
+                'blocked',
                 'pagination',
                 'serverNow',
             ],
@@ -113,7 +120,7 @@ const pageLink = (cursor: string) =>
     index.url({ query: { parent: props.parentId, cursor } });
 function open(puppy: Puppy, nextAction: 'keep' | 'list' | 'surrender') {
     if (pending.value || props.blocked) return;
-    selected.value = puppy;
+    selectedId.value = puppy.id;
     action.value = nextAction;
     keepForm.clearErrors();
     listForm.clearErrors();
@@ -174,7 +181,7 @@ function submit() {
                     :label="t('Manage dog places')"
                     :text="
                         t(
-                            'Puppies do not age while waiting. Taking one home uses a free dog slot.',
+                            'Puppies keep their birth date while waiting. One real day equals one game month. Taking one home uses a free dog slot.',
                         )
                     "
                 />
@@ -301,7 +308,7 @@ function submit() {
             @finish="moving = false"
         />
         <Dialog
-            :open="action !== null"
+            :open="action !== null && Boolean(selected)"
             @update:open="!pending && !$event && (action = null)"
             ><DialogContent
                 ><DialogHeader

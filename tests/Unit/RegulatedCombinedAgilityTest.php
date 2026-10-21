@@ -44,3 +44,16 @@ test('a clean agility course cannot cancel elimination in the jumping course', f
     expect($result['qualified'])->toBeFalse();
     expect($result['eliminated'])->toBeTrue();
 });
+
+test('both combined courses use the same recorded career and warm up preparation without stacking it', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = [...combinedAgilitySnapshot(), 'career_experience' => 40,
+        'gear' => [['phase' => 'preparation', 'modifiers' => ['focus' => 0.05, 'precision' => 0.03]]]];
+
+    $result = $simulator->simulate('agility', $snapshot, ['sport_class' => 'agility_3', 'stages' => array_fill(0, 6, 'careful')], combinedAgilityRules(), array_fill(0, 12, 0.99));
+
+    expect($result['preparation']['consistencyBonus'] ?? null)->toBe(0.04);
+    expect($result['legs']['agility']['preparation'])->toBe($result['legs']['jumping']['preparation']);
+    expect($result['legs']['jumping']['preparation']['modifiers']['precision'])->toBe(0.03);
+    expect($result['stages'][3]['factors']['consistencyBonus'] ?? null)->toBe(0.04);
+});

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Modules\Pets\Calculators\EventChampionshipRules;
 use App\Modules\Pets\Calculators\GameEventCalendar;
+use App\Modules\Pets\Calculators\GameEventParticipationRules;
 use App\Modules\Pets\Calculators\GameEventTitleOpportunities;
 use App\Modules\Pets\Calculators\PetBoardingRules;
 use App\Modules\Pets\Calculators\PetCareRules;
@@ -43,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(Randomizer::class, fn (): Randomizer => new Randomizer(new Secure));
         $this->app->bind(RegulatedEventRules::class, fn (): RegulatedEventRules => new RegulatedEventRules(Config::array('event_regulations')));
         $this->app->bind(GameEventCalendar::class, fn (): GameEventCalendar => new GameEventCalendar(Config::array('game-events.special_calendar'), Config::string('game-events.timezone')));
+        $this->app->bind(GameEventParticipationRules::class, fn (): GameEventParticipationRules => new GameEventParticipationRules([
+            'daily_limit' => Config::integer('game-events.daily_limit'), 'pet_daily_limit' => Config::integer('game-events.pet_daily_limit'),
+            'pet_rest_hours' => Config::integer('game-events.pet_rest_hours'),
+        ], Config::string('game-events.timezone')));
         $this->app->bind(GameEventTitleOpportunities::class, fn (): GameEventTitleOpportunities => new GameEventTitleOpportunities(
             $this->app->make(RegulatedExhibitionAwards::class), $this->app->make(SpecialExhibitionAwards::class),
             $this->app->make(RegulatedSportAwards::class), $this->app->make(RegionalSportAwards::class),

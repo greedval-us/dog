@@ -10,6 +10,7 @@ use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Inventory\Calculators\CompetitionAmmunitionRules;
 use App\Modules\Pets\Calculators\GameEventAdmissionRules;
+use App\Modules\Pets\Calculators\GameEventParticipationRules;
 use App\Modules\Pets\Calculators\GameEventPerformance;
 use App\Modules\Pets\Calculators\GameEventSimulator;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
@@ -24,6 +25,7 @@ use App\Modules\Pets\Enums\GameEventDiscipline;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
+/** @phpstan-import-type Participation from GameEventParticipationRules */
 final class GetGameEvents
 {
     public function __construct(
@@ -34,6 +36,7 @@ final class GetGameEvents
         private GameEventAdmissionRules $admissionRules,
         private RegulatedEventRules $regulatedRules,
         private GetPetEventProfile $profiles,
+        private GetGameEventParticipation $participation,
     ) {}
 
     /**
@@ -184,11 +187,12 @@ final class GetGameEvents
     public function registrationDogs(User $user, string $locale, ?GameEvent $event = null): array
     {
         $pets = $user->pets()->with(['dog', 'titles', 'skills', 'sportRecords'])->withExists('activeDiseaseEpisodes')->orderBy('id')->get();
-        $ids = $pets->modelKeys();
+        $ids = array_values($pets->map(fn (Pet $pet): int => $pet->id)->all());
+        $participations = $event === null ? [] : $this->participation->entries($user->id, $ids, [$event]);
         $children = Pet::query()->where(fn (Builder $query) => $query->whereIn('father_id', $ids)->orWhereIn('mother_id', $ids))
             ->withCount('titles')->orderBy('id')->get(['id', 'dog_id', 'father_id', 'mother_id', 'name', 'exterior']);
 
-        return array_values($pets->map(function (Pet $pet) use ($children, $locale, $event): array {
+        return array_values($pets->map(function (Pet $pet) use ($children, $locale, $event, $user, $participations): array {
             $pet->advanceTo(now(), $this->decay);
             $ageMonths = $pet->ageMonthsAt($event->starts_at ?? now());
             $classes = $event?->discipline === GameEventDiscipline::Conformation->value ? ExhibitionClass::availableAt($ageMonths) : [];
@@ -207,7 +211,7 @@ final class GetGameEvents
                 'entryOptions' => array_map(fn (array $option): array => EventRegulationData::option($option, $locale, $pet->dog), $entryOptions),
                 'defaultEntryOption' => $eligibleOptions[0]['key'] ?? null,
                 'profile' => ['heightCm' => $profile['height_cm'], 'heightCategory' => $profile['height_category']],
-                'preparation' => $event === null ? null : $this->preparation($pet, $event, $locale),
+                'preparation' => $event === null ? null : $this->preparation($pet, $event, $locale, $user->id, $participations),
                 'offspring' => array_values($children->filter(fn (Pet $child): bool => $child->dog_id === $pet->dog_id && ($child->father_id === $pet->id || $child->mother_id === $pet->id))->map(fn (Pet $child): array => [
                     'id' => $child->id, 'name' => $child->name, 'exterior' => $child->exterior, 'titlesCount' => (int) $child->getAttribute('titles_count'),
                 ])->all()),
@@ -215,8 +219,10 @@ final class GetGameEvents
         })->all());
     }
 
-    /** @return array<string, mixed> */
-    private function preparation(Pet $pet, GameEvent $event, string $locale): array
+    /** @param list<Participation> $participations
+     * @return array<string, mixed>
+     */
+    private function preparation(Pet $pet, GameEvent $event, string $locale, int $ownerId, array $participations): array
     {
         $snapshot = PetCompetitionSnapshot::fromPet($pet, $this->skills, $event->discipline);
         $preparation = $this->performance->preparation($event->discipline, $snapshot);
@@ -249,12 +255,18 @@ final class GetGameEvents
             }
         }
         $stageKeys = array_values($event->rules['stages']);
+        $participationReason = $this->participation->reason($ownerId, $pet->id, $event, $participations);
+        if ($participationReason !== null) {
+            $reasons[] = $participationReason;
+        }
 
         return [
             ...$preparation,
             'stats' => $snapshot['stats'], 'potentials' => $snapshot['potentials'], 'skills' => $snapshot['skills'],
             'pedigree' => $snapshot['pedigree'], 'divisionLabel' => GameEventDivisionData::label($division, $locale, $pet->dog),
-            'blockingReasons' => array_map(fn (string $reason): string => __($reason, [], $locale), $reasons),
+            'blockingReasons' => array_map(fn (string $reason): string => __($reason, [
+                'pet_daily_limit' => (int) config('game-events.pet_daily_limit'), 'pet_rest_hours' => (int) config('game-events.pet_rest_hours'),
+            ], $locale), $reasons),
             'stages' => array_map(fn (int $index, string $key): array => [
                 'key' => $key,
                 'weights' => $this->performance->stageWeights($event->discipline, $event->discipline === 'agility' ? $index % 3 : min(2, $index)),

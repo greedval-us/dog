@@ -152,7 +152,33 @@ const careToRestore = computed(() =>
                     <dt>{{ t('Starting fatigue') }}</dt>
                     <dd>{{ decimal(preparation.initialFatigue) }} / 100</dd>
                 </div>
+                <div v-if="preparation.careerExperience !== undefined">
+                    <dt>{{ t('Discipline experience') }}</dt>
+                    <dd>{{ number(preparation.careerExperience) }}</dd>
+                </div>
+                <div v-if="preparation.consistencyBonus !== undefined">
+                    <dt>{{ t('Experience risk reduction') }}</dt>
+                    <dd>
+                        {{
+                            t('{value} pp', {
+                                value: decimal(
+                                    preparation.consistencyBonus * 100,
+                                ),
+                            })
+                        }}
+                    </dd>
+                </div>
             </dl>
+            <p
+                v-if="preparation.consistencyBonus !== undefined"
+                class="event-note"
+            >
+                {{
+                    t(
+                        'Experience in this discipline lowers the base error risk by up to 8 percentage points.',
+                    )
+                }}
+            </p>
             <p class="event-note">{{ t('Before equipment and tactics') }}</p>
             <div class="event-state-chips">
                 <span

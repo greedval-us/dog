@@ -26,6 +26,10 @@ const { t, number } = useI18n();
 const { decimal, stageLabel, optionLabel, modifierEffect } =
     useGameEventPresentation();
 const ownEntry = computed(() => props.entry);
+const warmupEquipment = computed(
+    () =>
+        Boolean(props.event.regulation) && props.event.discipline === 'agility',
+);
 const isShow = computed(() => isExhibition(props.event.discipline));
 const scoredResult = computed(
     () =>
@@ -176,7 +180,9 @@ watch(
             <p v-if="!event.entries.length" class="event-note">
                 {{
                     t(
-                        'Be the first to enter. Club dogs will join before the start if places remain.',
+                        event.regulation?.format === 'odor_test'
+                            ? 'No entries yet.'
+                            : 'Be the first to enter. Club dogs will join before the start if places remain.',
                     )
                 }}
             </p>
@@ -403,10 +409,60 @@ watch(
                             / 100
                         </dd>
                     </div>
+                    <div
+                        v-if="
+                            replay.result.preparation.careerExperience !==
+                            undefined
+                        "
+                    >
+                        <dt>{{ t('Discipline experience') }}</dt>
+                        <dd>
+                            {{
+                                number(
+                                    replay.result.preparation.careerExperience,
+                                )
+                            }}
+                        </dd>
+                    </div>
+                    <div
+                        v-if="
+                            replay.result.preparation.consistencyBonus !==
+                            undefined
+                        "
+                    >
+                        <dt>{{ t('Experience risk reduction') }}</dt>
+                        <dd>
+                            {{
+                                t('{value} pp', {
+                                    value: decimal(
+                                        replay.result.preparation
+                                            .consistencyBonus * 100,
+                                    ),
+                                })
+                            }}
+                        </dd>
+                    </div>
                 </dl>
+                <p
+                    v-if="
+                        replay.result.preparation.consistencyBonus !== undefined
+                    "
+                    class="event-note"
+                >
+                    {{
+                        t(
+                            'Experience in this discipline lowers the base error risk by up to 8 percentage points.',
+                        )
+                    }}
+                </p>
                 <details class="event-explanation">
                     <summary>
-                        {{ t('Recorded equipment effect')
+                        {{
+                            t(
+                                warmupEquipment
+                                    ? 'Recorded warm-up effect'
+                                    : 'Recorded equipment effect',
+                            )
                         }}<ChevronDown :size="16" aria-hidden="true" />
                     </summary>
                     <div class="event-gear-modifiers">
@@ -421,6 +477,13 @@ watch(
                         {{
                             t(
                                 'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                            )
+                        }}
+                    </p>
+                    <p v-if="warmupEquipment" class="event-note">
+                        {{
+                            t(
+                                'Equipment is removed before the agility course. The warm-up effect supports precision, pace, fatigue control and starting focus.',
                             )
                         }}
                     </p>
@@ -491,6 +554,26 @@ watch(
                                                     100,
                                             )
                                         }}%
+                                    </dd>
+                                </div>
+                                <div
+                                    v-if="
+                                        stage.factors.consistencyBonus !==
+                                        undefined
+                                    "
+                                >
+                                    <dt>
+                                        {{ t('Experience risk reduction') }}
+                                    </dt>
+                                    <dd>
+                                        {{
+                                            t('{value} pp', {
+                                                value: decimal(
+                                                    stage.factors
+                                                        .consistencyBonus * 100,
+                                                ),
+                                            })
+                                        }}
                                     </dd>
                                 </div>
                                 <div>

@@ -227,16 +227,23 @@ function filter() {
                             <div>
                                 <dt>
                                     <Trophy :size="16" aria-hidden="true" />{{
-                                        t('First prize')
+                                        t(
+                                            event.regulation?.format ===
+                                                'odor_test'
+                                                ? 'Result'
+                                                : 'First prize',
+                                        )
                                     }}
                                 </dt>
                                 <dd>
                                     {{
-                                        t('{amount} coins', {
-                                            amount: number(
-                                                event.prizes[0] ?? 0,
-                                            ),
-                                        })
+                                        event.regulation?.format === 'odor_test'
+                                            ? t('Qualification')
+                                            : t('{amount} coins', {
+                                                  amount: number(
+                                                      event.prizes[0] ?? 0,
+                                                  ),
+                                              })
                                     }}
                                 </dd>
                             </div>
@@ -266,7 +273,10 @@ function filter() {
                                 </dd>
                             </div>
                         </dl>
-                        <p class="event-note">
+                        <p
+                            v-if="event.regulation?.format !== 'odor_test'"
+                            class="event-note"
+                        >
                             {{
                                 event.regulation
                                     ? t(

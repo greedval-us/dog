@@ -3,6 +3,7 @@
 use App\Models\Dog;
 use App\Models\GameEvent;
 use App\Models\GameEventEntry;
+use App\Models\InventoryItem;
 use App\Models\Pet;
 use App\Models\PetSportRecord;
 use App\Models\PetTitle;
@@ -57,6 +58,63 @@ function regulatedClearFrozenEntry(GameEvent $event, Pet $pet, array $classifica
         'division' => app(GameEventAdmission::class)->division($event, $pet, $plan),
     ]);
 }
+
+test('agility freezes discipline experience and effective warm up gear once and settles from that saved preparation', function () {
+    $this->freezeSecond();
+    $event = regulatedIntegrationEvent('agility');
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $record = PetSportRecord::factory()->for($pet)->create(['discipline' => 'agility', 'experience' => 40]);
+    PetSportRecord::factory()->for($pet)->create(['discipline' => 'nosework', 'experience' => 500]);
+    $gear = InventoryItem::factory()->for($pet->user)->create(['remaining_uses' => 3, 'characteristics' => [
+        'competition' => ['slot' => 'preparation', 'disciplines' => ['agility'], 'phase' => 'preparation',
+            'sizes' => ['small', 'medium', 'large'], 'modifiers' => ['focus' => 0.05, 'precision' => 0.03],
+            'description' => ['ru' => 'Разминка', 'en' => 'Warm-up']],
+    ]]);
+    $dogs = app(GetGameEvents::class)->registrationDogs($pet->user, 'en', $event);
+    $entry = app(RegisterGameEvent::class)->handle($pet->user, $event->id, $pet->id,
+        ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')], [$gear->id], 25, (string) Str::uuid());
+    $this->travelTo($event->closes_at);
+    app(GameEventProcessor::class)->processDue();
+    $frozen = $entry->fresh()->snapshot;
+    $record->update(['experience' => 900]);
+    $gear->refresh()->update(['characteristics' => []]);
+    $this->travelTo($event->ends_at);
+
+    app(GameEventProcessor::class)->processDue();
+    app(GameEventProcessor::class)->processDue();
+
+    expect($dogs[0]['preparation']['careerExperience'] ?? null)->toBe(40.0);
+    expect($dogs[0]['preparation']['consistencyBonus'] ?? null)->toBe(0.04);
+    expect($frozen['career_experience'])->toBe(40);
+    expect($entry->fresh()->result['preparation']['careerExperience'] ?? null)->toBe(40);
+    expect($entry->fresh()->result['preparation']['consistencyBonus'] ?? null)->toBe(0.04);
+    expect($entry->fresh()->result['preparation']['modifiers']['precision'])->toBe(0.03);
+    expect($entry->fresh()->status)->toBe('completed');
+    expect($gear->fresh()->remaining_uses)->toBe(2);
+    $this->assertDatabaseCount('item_usages', 1);
+    expect($entry->fresh()->snapshot)->toBe($frozen);
+});
+
+test('prohibited agility course equipment is rejected without charging or spending an item use', function () {
+    $this->freezeSecond();
+    $event = regulatedIntegrationEvent('agility');
+    $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
+    $gear = InventoryItem::factory()->for($pet->user)->create(['characteristics' => [
+        'competition' => ['slot' => 'body', 'disciplines' => ['agility'], 'phase' => 'performance',
+            'sizes' => ['small', 'medium', 'large'], 'modifiers' => ['pace' => 0.1],
+            'description' => ['ru' => 'Ошейник', 'en' => 'Collar']],
+    ]]);
+
+    expect(fn () => app(RegisterGameEvent::class)->handle($pet->user, $event->id, $pet->id,
+        ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')], [$gear->id], 25, (string) Str::uuid()))
+        ->toThrow(GameEventUnavailable::class, 'events.errors.agility_gear');
+
+    expect($pet->user->fresh()->coins)->toBe(500);
+    expect($gear->fresh()->remaining_uses)->toBe(5);
+    $this->assertDatabaseCount('game_event_entries', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseCount('item_usages', 0);
+});
 
 test('a healthy ten year old dog sees real agility options and can enter its measured height category', function () {
     $this->freezeSecond();

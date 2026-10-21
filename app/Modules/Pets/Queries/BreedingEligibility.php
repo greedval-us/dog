@@ -14,6 +14,14 @@ final class BreedingEligibility
             return 'breeding.errors.unhealthy';
         }
 
+        if (! $pet->is_purebred) {
+            return 'breeding.errors.incompatible';
+        }
+
+        if ($pet->getAttribute('active_disease_episodes_exists') ?? $pet->activeDiseaseEpisodes()->exists()) {
+            return 'breeding.errors.unhealthy';
+        }
+
         if (! $system && $pet->archivedAt() !== null) {
             return 'breeding.errors.archived';
         }
@@ -26,7 +34,7 @@ final class BreedingEligibility
             return 'breeding.errors.busy';
         }
 
-        if (! $system && $pet->ageMonthsAt($at) < PetAgeRules::SPORT_MINIMUM_MONTHS) {
+        if (! $system && $pet->ageMonthsAt($at) < PetAgeRules::BREEDING_MINIMUM_MONTHS) {
             return 'breeding.errors.young';
         }
 

@@ -89,6 +89,36 @@ it('keeps plain dog names and allows selection when status labels are not reques
     expect(html).not.toMatch(/<select[^>]*disabled/);
 });
 
+it.each(['en', 'ru'])(
+    'offers a selectable first dog when no dog has been chosen in %s',
+    async (locale) => {
+        const html = await renderSelector(locale, {
+            dogs: [{ id: 1, name: 'Rey' }],
+            selectedPetId: null,
+        });
+
+        expect(html).toMatch(/<option[^>]*value=""[^>]*disabled[^>]*selected/);
+        expect(html).toContain(
+            locale === 'ru' ? 'Выбери собаку' : 'Choose a dog',
+        );
+        expect(html).toContain('<option value="1">Rey</option>');
+    },
+);
+
+it('uses an optional placeholder only before a dog is selected', async () => {
+    const unselected = await renderSelector('en', {
+        selectedPetId: null,
+        placeholder: 'Choose a parent',
+    });
+    const selected = await renderSelector('en', {
+        selectedPetId: 1,
+        placeholder: 'Choose a parent',
+    });
+
+    expect(unselected).toContain('Choose a parent');
+    expect(selected).not.toContain('Choose a parent');
+});
+
 it('escapes dog names in selector options', async () => {
     const name = '<img src=x onerror=alert(1)>';
 

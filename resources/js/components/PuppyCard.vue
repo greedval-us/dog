@@ -69,7 +69,7 @@ const { date } = useBreedingMessages();
             <p class="field-hint">
                 {{
                     t(
-                        'Starting characteristics are 20% of genetic potential. Your puppy’s active life begins when it goes home.',
+                        'Starting characteristics are 20% of genetic potential. Age is counted from birth; care begins when the puppy comes home.',
                     )
                 }}
             </p>

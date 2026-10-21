@@ -52,6 +52,9 @@ const {
 } = useGameEventEntry(props);
 const refreshingPreparation = ref(false);
 const preparationUpdatedAt = ref(props.serverNow);
+const warmupEquipment = computed(
+    () => regulated.value && props.event.discipline === 'agility',
+);
 function refreshPreparation() {
     if (refreshingPreparation.value || pending.value) return;
     router.reload({
@@ -234,6 +237,17 @@ function stageWeights(key: string): string {
                 </template>
                 <p v-if="!dogs.length" class="event-note">
                     {{ t('You need a dog to enter this event.') }}
+                </p>
+                <p
+                    v-if="editable && missingKit"
+                    class="event-note"
+                    role="status"
+                >
+                    {{
+                        t(
+                            'Canicross requires a pulling harness, tugline and handler belt. Select all three before entering.',
+                        )
+                    }}
                 </p>
                 <GameEventPreparation
                     v-if="selectedDog && editable"
@@ -460,9 +474,6 @@ function stageWeights(key: string): string {
                                             'Choose one item per slot. The best fit depends on your dog and your plan.',
                                         ),
                                         t(
-                                            `events.equipmentRule.${event.discipline}`,
-                                        ),
-                                        t(
                                             'One use is spent when registration closes. Each combined modifier is capped at 20%.',
                                         ),
                                     ].join(' ')
@@ -475,10 +486,25 @@ function stageWeights(key: string): string {
                             }}</Link></Button
                         >
                     </div>
+                    <p class="event-note">
+                        {{
+                            t(
+                                warmupEquipment
+                                    ? 'Equipment is removed before the agility course. The warm-up effect supports precision, pace, fatigue control and starting focus.'
+                                    : `events.equipmentRule.${event.discipline}`,
+                            )
+                        }}
+                    </p>
                     <div
                         v-if="selectedModifiers.length"
                         class="event-gear-modifiers"
-                        :aria-label="t('Combined equipment effect')"
+                        :aria-label="
+                            t(
+                                warmupEquipment
+                                    ? 'Warm-up effect'
+                                    : 'Combined equipment effect',
+                            )
+                        "
                     >
                         <span
                             v-for="[key, value] in selectedModifiers"
@@ -561,13 +587,6 @@ function stageWeights(key: string): string {
                         }}
                     </p>
                 </template>
-                <p v-if="editable && missingKit" class="event-note">
-                    {{
-                        t(
-                            'Canicross requires a pulling harness, tugline and handler belt. Select all three before entering.',
-                        )
-                    }}
-                </p>
                 <p v-if="editable && missingOffspring" class="event-note">
                     {{
                         t(
@@ -732,6 +751,13 @@ function stageWeights(key: string): string {
                                 )
                             }}
                         </p>
+                        <p v-else-if="event.regulation?.format === 'odor_test'">
+                            {{
+                                t(
+                                    'Each dog is assessed individually on the selected odor. Passing the test records a qualification.',
+                                )
+                            }}
+                        </p>
                         <p v-else>
                             {{
                                 t(
@@ -763,7 +789,7 @@ function stageWeights(key: string): string {
                             }}
                         </p>
                     </template>
-                    <p>
+                    <p v-if="event.regulation?.format !== 'odor_test'">
                         {{
                             t(
                                 'Compete within your division. Club dogs fill empty places and follow the same rules.',

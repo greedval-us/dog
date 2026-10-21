@@ -13,8 +13,8 @@ return [
     'busy' => 'Wait until the dog finishes its current activity.',
     'young' => 'Dogs must be at least 18 game months old to breed.',
     'retired' => 'This dog has retired from breeding. Breeding is available before 10 game years.',
-    'cooldown' => 'Wait 7 days after the previous breeding.',
-    'incompatible' => 'Choose dogs of the same breed and opposite sexes.',
+    'cooldown' => 'Wait for the breeding cooldown to finish.',
+    'incompatible' => 'Choose purebred dogs of the same breed and opposite sexes.',
     'related' => 'Breeding close relatives is not allowed.',
-    'started' => 'Breeding completed! The litter arrives in 24 hours.',
+    'started' => 'Breeding confirmed! The birth countdown is in My puppies.',
 ];

@@ -16,6 +16,7 @@ import { useI18n } from '@/composables/useI18n';
 import { show } from '@/routes/game-events';
 import type {
     PetTitleCredential,
+    PetTitleEvent,
     PetTitleGoal,
 } from '@/types/pet-title-progress';
 
@@ -72,6 +73,10 @@ const credentialStatus = (status: PetTitleCredential['status']) =>
         expired: 'Expired',
         ineligible: 'Does not meet this path',
     })[status];
+const eventLink = (event: PetTitleEvent) =>
+    show(event.id, {
+        query: { pet: event.petId, entry_option: event.optionKey },
+    });
 </script>
 
 <template>
@@ -265,7 +270,7 @@ const credentialStatus = (status: PetTitleCredential['status']) =>
                             as-child
                             variant="secondary"
                             size="sm"
-                            ><Link :href="show(event.id)"
+                            ><Link :href="eventLink(event)"
                                 >{{
                                     t(
                                         event.registered
@@ -276,7 +281,7 @@ const credentialStatus = (status: PetTitleCredential['status']) =>
                                     :size="15"
                                     aria-hidden="true" /></Link
                         ></Button>
-                        <Link v-else :href="show(event.id)" class="text-link"
+                        <Link v-else :href="eventLink(event)" class="text-link"
                             >{{ t('View requirements')
                             }}<ArrowRight :size="14" aria-hidden="true"
                         /></Link>

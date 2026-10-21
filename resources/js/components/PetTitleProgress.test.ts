@@ -92,6 +92,8 @@ function goalFixture(): PetTitleGoal {
                         eligible: true,
                         reason: null,
                         registered: false,
+                        petId: 7,
+                        optionKey: 'agility:a3:M',
                     },
                     {
                         id: 43,
@@ -163,7 +165,9 @@ it.each(['en', 'ru'])(
             locale === 'ru' ? 'Срок действия истёк' : 'Expired',
         );
         expect(html).toContain('Used for an earlier regional diploma.');
-        expect(html).toContain('href="/game-events/42"');
+        expect(html).toContain(
+            'href="/game-events/42?pet=7&amp;entry_option=agility%3Aa3%3AM"',
+        );
         expect(html).toContain('href="/game-events/43"');
         expect(html).toContain('href="/game-events/30"');
         expect(html).toContain(

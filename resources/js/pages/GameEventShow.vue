@@ -129,7 +129,10 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     </dd>
                 </div>
             </dl>
-            <div class="event-prizes">
+            <div
+                v-if="event.regulation?.format !== 'odor_test'"
+                class="event-prizes"
+            >
                 <span v-for="(prize, position) in event.prizes" :key="position"
                     ><Trophy :size="16" aria-hidden="true" />{{
                         t('Place {rank}: {amount} coins', {
@@ -139,6 +142,13 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     }}</span
                 >
             </div>
+            <p v-else class="event-note">
+                {{
+                    t(
+                        'Odor tests record a qualification without a placement or coin prize.',
+                    )
+                }}
+            </p>
         </SurfaceCard>
 
         <template v-if="event.status !== 'scheduled'">
@@ -154,6 +164,8 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     :dogs="dogs"
                     :equipment="equipment"
                     :entry="ownEntry"
+                    :selected-pet-id="selectedPetId"
+                    :selected-entry-option-key="selectedEntryOptionKey"
                 />
             </details>
         </template>
@@ -164,6 +176,8 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                 :dogs="dogs"
                 :equipment="equipment"
                 :entry="ownEntry"
+                :selected-pet-id="selectedPetId"
+                :selected-entry-option-key="selectedEntryOptionKey"
             />
             <GameEventResults :event="event" :entry="ownEntry" />
         </template>

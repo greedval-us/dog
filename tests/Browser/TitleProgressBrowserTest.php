@@ -82,6 +82,9 @@ test('title progress supports choosing a route and opening its real upcoming sho
     $upcoming = titleProgressBrowserShow([...$regulation, ...$special,
         'showLeg' => 'cis', 'judgeId' => 'progress-next-judge', 'judgeName' => 'Judge Four']);
     $upcomingPath = route('game-events.show', $upcoming, absolute: false);
+    $upcomingRecommendation = route('game-events.show', [
+        'gameEvent' => $upcoming, 'pet' => $pet->id, 'entry_option' => 'open',
+    ], absolute: false);
     $historyPath = route('game-events.show', $history[2], absolute: false);
     $goal = '.pet-title-goal[aria-label="'.$goalName.'"]';
     $select = $goal.' select';
@@ -105,15 +108,15 @@ test('title progress supports choosing a route and opening its real upcoming sho
         ->keys($goal.' .pet-title-documents summary', 'Enter')
         ->assertVisible($goal.' .pet-title-documents ul')
         ->assertAttribute($goal.' .pet-title-documents a[href="'.$historyPath.'"]', 'href', $historyPath)
-        ->assertSeeIn($goal.' .pet-title-events li:has(a[href="'.$upcomingPath.'"]) .pet-title-event-contribution', 'CAC')
-        ->assertAttribute($goal.' .pet-title-events a[href="'.$upcomingPath.'"]', 'href', $upcomingPath)
+        ->assertSeeIn($goal.' .pet-title-events li:has(a[href="'.$upcomingRecommendation.'"]) .pet-title-event-contribution', 'CAC')
+        ->assertAttribute($goal.' .pet-title-events a[href="'.$upcomingRecommendation.'"]', 'href', $upcomingRecommendation)
         ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true);
     $page->script('window.scrollBy({ top: document.querySelector('.json_encode($goal).').getBoundingClientRect().top - 150, behavior: "instant" })');
     $page->screenshot(fullPage: false, filename: 'title-progress-goal-'.$locale.'-'.$width);
     $page->script('document.querySelector('.json_encode($goal.' .pet-title-event-section').').scrollIntoView({ block: "center", behavior: "instant" })');
     $page->screenshot(fullPage: false, filename: 'title-progress-events-'.$locale.'-'.$width)
         ->assertNoJavaScriptErrors()
-        ->click($goal.' .pet-title-events a[href="'.$upcomingPath.'"]')
+        ->click($goal.' .pet-title-events a[href="'.$upcomingRecommendation.'"]')
         ->assertPathIs($upcomingPath)
         ->assertSelected('#event-dog', $pet->id)
         ->assertSeeIn('.event-overview .event-regulation p.event-note', $locale === 'ru' ? 'Евразия' : 'Eurasia')

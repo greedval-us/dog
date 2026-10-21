@@ -15,6 +15,7 @@ const props = withDefaults(
         selectClass: string;
         disabled?: boolean;
         showStatus?: boolean;
+        placeholder?: string;
     }>(),
     { disabled: false, showStatus: false },
 );
@@ -32,10 +33,13 @@ function selectDog(event: Event) {
         <select
             v-bind="field"
             :class="selectClass"
-            :value="selectedPetId"
+            :value="selectedPetId ?? ''"
             :disabled="disabled"
             @change="selectDog"
         >
+            <option v-if="selectedPetId === null" value="" disabled selected>
+                {{ placeholder ?? t('Choose a dog') }}
+            </option>
             <option v-for="dog in dogs" :key="dog.id" :value="dog.id">
                 {{ dog.name
                 }}{{

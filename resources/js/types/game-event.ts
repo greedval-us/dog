@@ -83,6 +83,8 @@ export type EventPreparationSnapshot = {
     careMultiplier: number;
     initialFatigue: number;
     initialFocus: number;
+    careerExperience?: number;
+    consistencyBonus?: number;
     states: Record<string, number>;
     normalizedStats: Record<string, number>;
     modifiers: Record<EventModifier, number>;
@@ -190,6 +192,8 @@ export type GameEventEntryProps = {
     dogs: EventDog[];
     equipment: EventEquipment[];
     entry: GameEventEntry | null;
+    selectedPetId?: number | null;
+    selectedEntryOptionKey?: string | null;
 };
 
 export type GameEventEntry = {
@@ -234,6 +238,7 @@ export type GameEventEntry = {
                 exterior: number | null;
                 exteriorContribution: number;
                 presentationContribution: number;
+                consistencyBonus?: number;
             };
         }[];
     } | null;

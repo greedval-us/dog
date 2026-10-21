@@ -40,41 +40,63 @@ export function useGameEventEntry(props: GameEventEntryProps) {
                 return [];
         }
     }
+    const requestedDog = props.dogs.find(
+        (dog) => dog.id === props.selectedPetId && dog.isActive,
+    );
     const firstDogId =
+        requestedDog?.id ??
         props.dogs.find(
-            (dog) => dog.isActive && !dog.preparation?.blockingReasons.length,
+            (dog) =>
+                dog.isActive &&
+                !dog.preparation?.blockingReasons.length &&
+                (!props.event.regulation ||
+                    props.event.discipline === 'progeny' ||
+                    dog.entryOptions?.some(
+                        (option) => option.eligible !== false,
+                    )),
         )?.id ??
         props.dogs.find((dog) => dog.isActive)?.id ??
         null;
-    const entryPlan = (entry: GameEventEntry | null): GameEventPlan => ({
-        stages: [
+    const requestedOption = requestedDog?.entryOptions?.find(
+        (option) =>
+            option.key === props.selectedEntryOptionKey &&
+            option.eligible !== false,
+    );
+    const entryPlan = (entry: GameEventEntry | null): GameEventPlan => {
+        const classificationPlan = entry?.plan ?? requestedOption?.plan;
+        return {
+            stages: [
+                ...(props.event.discipline === 'progeny'
+                    ? balancedStages
+                    : (entry?.plan.stages ??
+                      (props.event.regulation
+                          ? props.event.stages.map(() => 'balanced' as const)
+                          : balancedStages))),
+            ],
             ...(props.event.discipline === 'progeny'
-                ? balancedStages
-                : (entry?.plan.stages ??
-                  (props.event.regulation
-                      ? props.event.stages.map(() => 'balanced' as const)
-                      : balancedStages))),
-        ],
-        ...(props.event.discipline === 'progeny'
-            ? { offspring_ids: [...(entry?.plan.offspring_ids ?? [])] }
-            : {}),
-        ...(props.event.regulation
-            ? Object.fromEntries(
-                  eventClassificationKeys().flatMap((key) =>
-                      entry?.plan[key] ? [[key, entry.plan[key]]] : [],
-                  ),
-              )
-            : props.event.discipline === 'conformation'
-              ? {
-                    exhibition_class:
-                        entry?.plan.exhibition_class ??
-                        props.dogs.find(
-                            (dog) => dog.id === (entry?.petId ?? firstDogId),
-                        )?.defaultClass ??
-                        undefined,
-                }
-              : {}),
-    });
+                ? { offspring_ids: [...(entry?.plan.offspring_ids ?? [])] }
+                : {}),
+            ...(props.event.regulation
+                ? Object.fromEntries(
+                      eventClassificationKeys().flatMap((key) =>
+                          classificationPlan?.[key]
+                              ? [[key, classificationPlan[key]]]
+                              : [],
+                      ),
+                  )
+                : props.event.discipline === 'conformation'
+                  ? {
+                        exhibition_class:
+                            entry?.plan.exhibition_class ??
+                            props.dogs.find(
+                                (dog) =>
+                                    dog.id === (entry?.petId ?? firstDogId),
+                            )?.defaultClass ??
+                            undefined,
+                    }
+                  : {}),
+        };
+    };
     const entryGearIds = (entry: GameEventEntry | null) =>
         props.event.discipline === 'progeny' ? [] : [...(entry?.gearIds ?? [])];
     const ownEntry = computed(() => props.entry);

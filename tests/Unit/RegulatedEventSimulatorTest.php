@@ -68,3 +68,106 @@ test('agility records five fault obstacles and ignores prohibited run equipment'
     expect($result['grade'])->toBe('excellent');
     expect($simulator->simulate('agility', $snapshot, $plan, $rules, $draws))->toBe($result);
 });
+
+test('discipline career experience reduces regulated mistakes without changing inherited quality', function (string $discipline, array $classification, array $stages) {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = regulatedSimulationSnapshot();
+    $plan = [...$classification, 'stages' => array_fill(0, count($stages), 'balanced')];
+    $rules = ['version' => 3, 'regulation' => ['format' => $discipline], 'stages' => $stages];
+    $draws = array_fill(0, count($stages) * 2, 0.99);
+    $draws[0] = 0.16;
+
+    $novice = $simulator->simulate($discipline, $snapshot, $plan, $rules, $draws);
+    $experienced = $simulator->simulate($discipline, [...$snapshot, 'career_experience' => 80], $plan, $rules, $draws);
+
+    expect($novice['stages'][0]['penalties'])->toBe(1);
+    expect($experienced['stages'][0]['penalties'])->toBe(0);
+    expect($experienced['stages'][0]['factors']['mistakeChance'])->toBeLessThan($novice['stages'][0]['factors']['mistakeChance']);
+    expect($experienced['stages'][0]['factors']['quality'])->toBe($novice['stages'][0]['factors']['quality']);
+    expect($experienced['preparation']['consistencyBonus'] ?? null)->toBe(0.08);
+})->with([
+    'agility' => ['agility', ['sport_class' => 'agility_1'], ['opening', 'technical', 'finish']],
+    'nosework' => ['nosework', ['sport_class' => 'nw_0', 'program' => 'pr1'], ['interior', 'exterior', 'objects', 'transport']],
+    'canicross' => ['canicross', ['sport_class' => 'canicross_open'], ['start', 'distance', 'finish']],
+    'conformation' => ['conformation', ['exhibition_class' => 'open'], ['type', 'structure', 'movement']],
+]);
+
+test('regulated career consistency has a bounded effect and defaults safely for old snapshots', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = regulatedSimulationSnapshot();
+    $rules = ['version' => 3, 'stages' => ['opening', 'technical', 'finish']];
+    $plan = ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')];
+    $run = fn (array $changes): array => $simulator->simulate('agility', [...$snapshot, ...$changes], $plan, $rules, array_fill(0, 6, 0.99));
+
+    $old = $run([]);
+    $capped = $run(['career_experience' => 80]);
+
+    expect($old['preparation']['consistencyBonus'] ?? null)->toBe(0.0);
+    expect($run(['career_experience' => -10]))->toBe($run(['career_experience' => 0]));
+    expect($run(['career_experience' => 1000000])['stages'])->toBe($capped['stages']);
+    expect($run(['career_experience' => 40])['preparation']['consistencyBonus'] ?? null)->toBe(0.04);
+    expect($capped['time'])->toBe($old['time']);
+    expect($run(['career_experience' => 80]))->toBe($capped);
+});
+
+test('agility uses saved warm up effects and ignores performance gear and unverified aggregate modifiers', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = regulatedSimulationSnapshot();
+    $snapshot['states']['bond'] = 50;
+    $snapshot['states']['mood'] = 50;
+    $rules = ['version' => 3, 'stages' => ['opening', 'technical', 'finish']];
+    $plan = ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')];
+    $draws = array_fill(0, 6, 0.99);
+    $bare = $simulator->simulate('agility', $snapshot, $plan, $rules, $draws);
+    $gear = [
+        ['phase' => 'preparation', 'modifiers' => ['focus' => 0.1, 'precision' => 0.05]],
+        ['phase' => 'preparation', 'modifiers' => ['pace' => 0.04, 'stamina' => -0.02]],
+        ['phase' => 'performance', 'modifiers' => ['focus' => 0.2, 'precision' => 0.2, 'pace' => 0.2]],
+    ];
+
+    $equipped = $simulator->simulate('agility', [...$snapshot, 'gear' => $gear, 'modifiers' => ['focus' => -0.2]], $plan, $rules, $draws);
+
+    expect($equipped['preparation']['modifiers'])->toBe(['precision' => 0.05, 'stamina' => -0.02, 'pace' => 0.04, 'focus' => 0.1]);
+    expect($equipped['preparation']['initialFocus'])->toBeGreaterThan($bare['preparation']['initialFocus']);
+    expect($equipped['stages'][0]['factors']['mistakeChance'])->toBeLessThan($bare['stages'][0]['factors']['mistakeChance']);
+    expect($equipped['stages'][0]['time'])->toBeLessThan($bare['stages'][0]['time']);
+    expect($equipped['stages'][1]['fatigue'])->toBeGreaterThan($bare['stages'][1]['fatigue']);
+    expect($simulator->simulate('agility', [...$snapshot, 'gear' => array_slice($gear, 0, 2)], $plan, $rules, $draws))->toBe($equipped);
+});
+
+test('agility caps the sum of warm up effects after combining positive and negative items', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = [...regulatedSimulationSnapshot(), 'gear' => array_fill(0, 4,
+        ['phase' => 'preparation', 'modifiers' => ['focus' => 0.08, 'precision' => -0.06]])];
+
+    $result = $simulator->simulate('agility', $snapshot, ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')],
+        ['version' => 3, 'stages' => ['opening', 'technical', 'finish']], array_fill(0, 6, 0.99));
+
+    expect($result['preparation']['modifiers'])->toBe(['precision' => -0.2, 'stamina' => 0.0, 'pace' => 0.0, 'focus' => 0.2]);
+});
+
+test('career consistency cannot remove the minimum chance of a mistake', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = [...regulatedSimulationSnapshot(), 'career_experience' => 80,
+        'stats' => array_fill_keys(['speed', 'strength', 'agility', 'endurance', 'obedience', 'intelligence'], 1000000000)];
+
+    $result = $simulator->simulate('agility', $snapshot, ['sport_class' => 'agility_1', 'stages' => array_fill(0, 3, 'balanced')],
+        ['version' => 3, 'stages' => ['opening', 'technical', 'finish']], array_fill(0, 6, 0.99));
+
+    expect($result['stages'][0]['factors']['mistakeChance'])->toBe(0.0278);
+});
+
+test('documentary progeny judging does not gain a handling bonus from the parents career experience', function () {
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $snapshot = [...regulatedSimulationSnapshot(), 'career_experience' => 80, 'offspring' => array_fill(0, 3,
+        ['exterior' => ['type' => 85], 'titles' => []])];
+    $plan = ['stages' => array_fill(0, 3, 'balanced')];
+    $rules = ['version' => 3, 'stages' => ['type', 'uniformity', 'achievements']];
+
+    $result = $simulator->simulate('progeny', $snapshot, $plan, $rules, array_fill(0, 6, 0.1));
+    $novice = $simulator->simulate('progeny', [...$snapshot, 'career_experience' => 0], $plan, $rules, array_fill(0, 6, 0.1));
+
+    expect($result['preparation']['consistencyBonus'])->toBe(0.0);
+    expect($result['stages'])->toBe($novice['stages']);
+    expect($result['score'])->toBe($novice['score']);
+});

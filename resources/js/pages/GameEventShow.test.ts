@@ -9,6 +9,7 @@ import type {
     EventEquipment,
     GameEventDetail,
     GameEventEntry,
+    GameEventEntryProps,
 } from '@/types/game-event';
 
 function eventFixture(): GameEventDetail {
@@ -60,6 +61,24 @@ function dogFixture(): EventDog {
     };
 }
 
+function preparationFixture(): NonNullable<EventDog['preparation']> {
+    return {
+        careMultiplier: 1,
+        initialFocus: 70,
+        initialFatigue: 0,
+        states: { health: 100, energy: 100, hydration: 100, satiety: 100 },
+        normalizedStats: { speed: 60, agility: 50 },
+        stats: { speed: 105, agility: 70 },
+        potentials: { speed: 220, agility: 200 },
+        skills: {},
+        modifiers: { precision: 0, focus: 0, stamina: 0, pace: 0 },
+        stages: [],
+        pedigree: { generation: 1, knownParents: 0 },
+        divisionLabel: 'Agility 1 · large',
+        blockingReasons: [],
+    };
+}
+
 function regulationFixture() {
     return {
         version: 1,
@@ -93,11 +112,22 @@ async function renderEvent(
     event: GameEventDetail,
     entry: GameEventEntry | null,
     locale = 'en',
-    dog = dogFixture(),
+    dog: EventDog | EventDog[] = dogFixture(),
     serverNow = '2026-10-04T12:00:00Z',
     equipment: EventEquipment[] = [],
+    selection: Pick<
+        GameEventEntryProps,
+        'selectedPetId' | 'selectedEntryOptionKey'
+    > = {},
 ): Promise<string> {
-    const props = { event, entry, dogs: [dog], equipment, serverNow };
+    const props = {
+        event,
+        entry,
+        dogs: Array.isArray(dog) ? dog : [dog],
+        equipment,
+        serverNow,
+        ...selection,
+    };
     const panel = defineComponent({
         setup: () => () => h(GameEventShow, props),
     });
@@ -130,6 +160,113 @@ async function renderEvent(
         }),
     );
 }
+
+it('opens a career recommendation with its dog and class selected', async () => {
+    const event = eventFixture();
+    event.discipline = 'conformation';
+    event.regulation = regulationFixture();
+    const firstDog = dogFixture();
+    firstDog.entryOptions = [
+        { key: 'open', label: 'Open', plan: { exhibition_class: 'open' } },
+    ];
+    const recommendedDog = {
+        ...dogFixture(),
+        id: 2,
+        name: 'Luna',
+        entryOptions: [
+            { key: 'open', label: 'Open', plan: { exhibition_class: 'open' } },
+            {
+                key: 'working',
+                label: 'Working',
+                plan: { exhibition_class: 'working' },
+            },
+        ],
+    };
+
+    const html = await renderEvent(
+        event,
+        null,
+        'en',
+        [firstDog, recommendedDog],
+        undefined,
+        [],
+        { selectedPetId: 2, selectedEntryOptionKey: 'working' },
+    );
+
+    expect(html).toMatch(/<option(?=[^>]*value="2")(?=[^>]*selected)[^>]*>/);
+    expect(html).toMatch(
+        /<option(?=[^>]*value="working")(?=[^>]*selected)[^>]*>/,
+    );
+});
+
+it.each(['en', 'ru'])(
+    'explains that odor recognition tests award a qualification without podium prizes in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'nosework';
+        event.regulation = { ...regulationFixture(), format: 'odor_test' };
+
+        const html = await renderEvent(event, null, locale);
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Тест распознавания запаха даёт квалификацию без призового места и денежной награды.'
+                : 'Odor tests record a qualification without a placement or coin prize.',
+        );
+        expect(html).not.toContain('class="event-prizes"');
+        expect(html).toContain(
+            locale === 'ru' ? 'Заявок пока нет.' : 'No entries yet.',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Собаку оценивают отдельно по выбранному запаху.'
+                : 'Each dog is assessed individually on the selected odor.',
+        );
+        expect(html).not.toContain(
+            locale === 'ru'
+                ? 'В каждом классе и категории — единый зачёт.'
+                : 'Each class and category has one shared standing.',
+        );
+        expect(html).not.toContain(
+            locale === 'ru'
+                ? 'Собаки клуба занимают свободные места'
+                : 'Club dogs fill empty places',
+        );
+        expect(html).not.toContain(
+            locale === 'ru'
+                ? 'Перед стартом свободные места займут собаки клуба.'
+                : 'Club dogs will join before the start',
+        );
+    },
+);
+
+it.each(['en', 'ru'])(
+    'retains shared standings and club participation for nosework searches in %s',
+    async (locale) => {
+        const event = eventFixture();
+        event.discipline = 'nosework';
+        event.regulation = { ...regulationFixture(), format: 'nosework' };
+
+        const html = await renderEvent(event, null, locale);
+
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'В каждом классе и категории — единый зачёт.'
+                : 'Each class and category has one shared standing.',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Собаки клуба занимают свободные места'
+                : 'Club dogs fill empty places',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Перед стартом свободные места займут собаки клуба.'
+                : 'Club dogs will join before the start',
+        );
+        expect(html).toContain('class="event-prizes"');
+    },
+);
 
 it.each(['en', 'ru'])(
     'shows the regulation, derived height and eligible performance choices in %s',
@@ -415,6 +552,199 @@ it('shows server preparation and blockers while allowing a busy dog to be select
     );
 });
 
+it.each([
+    ['en', 'Discipline experience', 'Experience risk reduction', '8 pp'],
+    ['ru', 'Опыт в дисциплине', 'Снижение риска за счёт опыта', '8 п. п.'],
+])(
+    'shows the server discipline experience and bounded risk reduction in %s',
+    async (locale, experienceLabel, reductionLabel, reduction) => {
+        const dog = dogFixture();
+        dog.preparation = {
+            ...preparationFixture(),
+            careerExperience: 140,
+            consistencyBonus: 0.08,
+        };
+
+        const html = await renderEvent(eventFixture(), null, locale, dog);
+
+        expect(html).toMatch(
+            new RegExp(`${experienceLabel}</dt>\\s*<dd>140</dd>`),
+        );
+        expect(html).toContain(reductionLabel);
+        expect(html).toContain(reduction);
+    },
+);
+
+it.each([
+    ['en', 'Warm-up effect', 'Equipment is removed before the agility course.'],
+    ['ru', 'Эффект разминки', 'Перед трассой аджилити амуницию снимают.'],
+])(
+    'keeps selected regulated agility equipment effects as warm-up effects in %s',
+    async (locale, effectLabel, explanation) => {
+        const event = eventFixture();
+        event.regulation = { ...regulationFixture(), format: 'agility' };
+        const entry = entryFixture();
+        entry.gearIds = [10];
+        const equipment: EventEquipment[] = [
+            {
+                id: 10,
+                name: 'Warm-up collar',
+                slot: 'neck',
+                disciplines: ['agility'],
+                phase: 'preparation',
+                sizes: [],
+                modifiers: { precision: 0.06, focus: 0.04 },
+                remainingUses: 3,
+            },
+            {
+                id: 11,
+                name: 'Performance collar',
+                slot: 'neck',
+                disciplines: ['agility'],
+                phase: 'performance',
+                sizes: [],
+                modifiers: { precision: 0.2 },
+                remainingUses: 3,
+            },
+        ];
+
+        const html = await renderEvent(
+            event,
+            entry,
+            locale,
+            dogFixture(),
+            undefined,
+            equipment,
+        );
+
+        expect(html).toContain(`aria-label="${effectLabel}"`);
+        expect(html).toContain(explanation);
+        expect(html).toContain('Warm-up collar');
+        expect(html).not.toContain('Performance collar');
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'Базовый риск ошибки: -6 п. п.'
+                : 'Base error risk: -6 pp',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'Концентрация: +4 ед.' : 'Focus: +4 points',
+        );
+    },
+);
+
+it('shows recorded experience and warm-up effects in a regulated agility replay', async () => {
+    const event = eventFixture();
+    event.status = 'completed';
+    event.canRegister = false;
+    event.regulation = { ...regulationFixture(), format: 'agility' };
+    const entry = entryFixture();
+    entry.result = {
+        time: 24,
+        score: -24,
+        penalties: 0,
+        eliminated: false,
+        preparation: {
+            ...preparationFixture(),
+            careerExperience: 45,
+            consistencyBonus: 0.045,
+            modifiers: { precision: 0.06, focus: 0.04, stamina: 0, pace: 0 },
+        },
+        stages: [
+            {
+                key: 'approach',
+                decision: 'careful',
+                time: 24,
+                score: -24,
+                penalties: 0,
+                fatigue: 0,
+                focus: 70,
+                reason: 'Clear stage.',
+                factors: {
+                    quality: 50,
+                    careMultiplier: 1,
+                    mistakeChance: 0.18,
+                    startFatigue: 0,
+                    startFocus: 70,
+                    exterior: null,
+                    exteriorContribution: 0,
+                    presentationContribution: 0,
+                    consistencyBonus: 0.045,
+                },
+            },
+        ],
+    };
+    event.entries = [entry];
+    const dog = dogFixture();
+    dog.preparation = {
+        ...preparationFixture(),
+        careerExperience: 140,
+        consistencyBonus: 0.08,
+    };
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toMatch(/Discipline experience<\/dt>\s*<dd>45<\/dd>/);
+    expect(html.match(/4\.5 pp/g)).toHaveLength(2);
+    expect(html).toContain('Recorded warm-up effect');
+    expect(html).toContain('Base error risk: -6 pp');
+    expect(html).not.toContain('<dd>140</dd>');
+});
+
+it('keeps documentary progeny evaluation free of experience risk claims', async () => {
+    const event = eventFixture();
+    event.discipline = 'progeny';
+    const dog = dogFixture();
+    dog.preparation = {
+        ...preparationFixture(),
+        careerExperience: 80,
+        consistencyBonus: 0,
+    };
+    const liveHtml = await renderEvent(event, null, 'en', dog);
+    event.status = 'completed';
+    event.canRegister = false;
+    const entry = entryFixture();
+    entry.result = {
+        time: 0,
+        score: 80,
+        penalties: 0,
+        eliminated: false,
+        preparation: dog.preparation,
+        stages: [
+            {
+                key: 'type',
+                decision: 'balanced',
+                time: 0,
+                score: 80,
+                penalties: 0,
+                fatigue: 0,
+                focus: 100,
+                reason: 'Documentary evaluation.',
+                factors: {
+                    quality: 80,
+                    careMultiplier: 1,
+                    mistakeChance: 0,
+                    startFatigue: 0,
+                    startFocus: 100,
+                    exterior: null,
+                    exteriorContribution: 0,
+                    presentationContribution: 0,
+                    consistencyBonus: 0,
+                },
+            },
+        ],
+    };
+    event.entries = [entry];
+    const recordedHtml = await renderEvent(event, entry, 'en', dog);
+
+    for (const html of [liveHtml, recordedHtml]) {
+        expect(html).not.toContain('Experience risk reduction');
+        expect(html).not.toContain(
+            'Experience in this discipline lowers the base error risk',
+        );
+        expect(html).not.toContain('Error risk');
+    }
+});
+
 it('keeps recorded condition separate from current care in completed results', async () => {
     const event = eventFixture();
     event.status = 'completed';
@@ -466,6 +796,8 @@ it('keeps recorded condition separate from current care in completed results', a
     expect(html).toContain('40.5');
     expect(html).toContain('Recorded equipment effect');
     expect(html).toContain('Base error risk: -10 pp');
+    expect(html).not.toContain('Discipline experience');
+    expect(html).not.toContain('Experience risk reduction');
     expect(html).not.toContain('Preparation at a glance');
     expect(html.indexOf('Your result')).toBeLessThan(
         html.indexOf('Saved entry and rules'),
