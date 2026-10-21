@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Modules\Pets\Enums\PetBoardingPlan;
 use App\Modules\Players\Enums\PlayerStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
@@ -16,6 +17,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 /**
+ * @phpstan-import-type BoardingPeriod from \App\Modules\Pets\Calculators\PetBoardingRules
+ *
  * @property int $id
  * @property string $name
  * @property string $username
@@ -39,6 +42,9 @@ use Illuminate\Notifications\Notifiable;
  * @property string $timezone
  * @property CarbonImmutable|null $last_login_at
  * @property CarbonImmutable|null $last_seen_at
+ * @property PetBoardingPlan $boarding_plan
+ * @property CarbonImmutable|null $boarding_enabled_at
+ * @property list<BoardingPeriod>|null $boarding_absences
  * @property CarbonImmutable|null $tutorial_completed_at
  * @property CarbonImmutable|null $starter_pet_claimed_at
  * @property string $email
@@ -107,7 +113,7 @@ class User extends Authenticatable implements HasLocalePreference
     #[Scope]
     protected function eligibleForStarterPet(Builder $query): void
     {
-        $query->whereNull('starter_pet_claimed_at')->whereDoesntHave('pets');
+        $query->whereDoesntHave('pets', fn (Builder $pets) => $pets->active());
     }
 
     /**
@@ -135,6 +141,9 @@ class User extends Authenticatable implements HasLocalePreference
             'last_pet_action_at' => 'immutable_datetime',
             'last_login_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'boarding_plan' => PetBoardingPlan::class,
+            'boarding_enabled_at' => 'immutable_datetime',
+            'boarding_absences' => 'array',
             'tutorial_completed_at' => 'datetime',
             'starter_pet_claimed_at' => 'datetime',
         ];

@@ -90,15 +90,15 @@ test('failed completion rolls back decay together with the care effect', functio
     $this->assertDatabaseHas('pet_care_actions', ['id' => $care->id, 'completed_at' => null]);
 });
 
-test('retired pets and future snapshots do not accumulate elapsed state changes', function (bool $retired) {
+test('living retirees accumulate elapsed need changes while future snapshots remain unchanged', function (bool $retired) {
     $pet = Pet::factory()->create([
         'satiety' => 80, 'satiety_max' => 100,
         'retired_at' => $retired ? now()->subDay() : null,
-        'state_updated_at' => $retired ? now()->subDays(2) : now()->addHour(),
+        'state_updated_at' => $retired ? now()->subHours(2) : now()->addHour(),
     ]);
 
-    $url = $retired ? route('players.memorial.show', ['user' => $pet->user->username, 'pet' => $pet->id]) : route('dashboard', ['pet' => $pet->id]);
-    $this->actingAs($pet->user)->get($url)->assertInertia(fn (Assert $page) => $page->where('pet.states.satiety', 80));
+    $this->actingAs($pet->user)->get(route('dashboard', ['pet' => $pet->id]))
+        ->assertInertia(fn (Assert $page) => $page->where('pet.states.satiety', $retired ? 70 : 80));
 })->with([true, false]);
 
 test('configured rates and thresholds control health loss and energy recovery', function () {

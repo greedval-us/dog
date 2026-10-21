@@ -46,7 +46,7 @@ test('other players can view the card by username without receiving private acco
                 'name' => 'Анна', 'username' => 'anna_dogs', 'bio' => 'Люблю собак.',
                 'avatarVersion' => null,
                 'joinedAt' => '2026-09-01',
-                'level' => 6, 'experience' => '4200', 'dogsCount' => 1,
+                'level' => 6, 'experience' => '4200', 'dogsCount' => 2,
                 'exhibitionWins' => 3, 'competitionWins' => 4, 'walksCount' => 31, 'trainingsCount' => 12,
                 'progress' => ['levelExperience' => '1100', 'requiredExperience' => '3200',
                     'remainingExperience' => '2100', 'percent' => 34.37, 'nextLevel' => 7],
@@ -57,7 +57,8 @@ test('other players can view the card by username without receiving private acco
                     'competitionStarts' => 0, 'competitionPodiums' => 0, 'competitionWins' => 4,
                     'exhibitionStarts' => 0, 'exhibitionPodiums' => 0, 'exhibitionWins' => 3,
                     'agilityWins' => 0, 'noseworkWins' => 0, 'canicrossWins' => 0, 'conformationWins' => 0,
-                    'progenyStarts' => 0, 'progenyWins' => 0, 'weeklyEventWins' => 0, 'monthlyEventWins' => 0,
+                    'progenyStarts' => 0, 'progenyWins' => 0, 'coupleWins' => 0, 'breedersWins' => 0,
+                    'weeklyEventWins' => 0, 'monthlyEventWins' => 0,
                     'titlesCount' => 0, 'titledDogsCount' => 0, 'eventPrizeCoins' => 0, 'eventFeesCoins' => 0,
                     'littersStarted' => 0, 'littersBorn' => 0, 'puppiesBorn' => 0, 'puppiesKept' => 0,
                     'puppiesPurchased' => 0, 'puppiesSold' => 0, 'puppySalesCoins' => 0,
@@ -124,12 +125,14 @@ test('player dogs show only current active ownership and localized public fields
         'breed' => 'german_shepherd', 'name' => ['ru' => 'Немецкая овчарка', 'en' => 'German Shepherd'],
     ]);
     $pet = Pet::factory()->for($player)->for($dog)->create(['name' => 'Рэй']);
-    Pet::factory()->for($player)->retired()->create();
+    $retired = Pet::factory()->for($player)->for($dog)->retired()->create(['name' => 'Старший друг']);
     Pet::factory()->for($viewer)->create();
 
     $this->actingAs($viewer)->get(route('players.show', $player->username))
         ->assertInertia(fn (Assert $page) => $page->where('dogs', [[
             'id' => $pet->id, 'name' => 'Рэй', 'breed' => $breedName, 'portraitId' => null, 'backgroundId' => null,
+        ], [
+            'id' => $retired->id, 'name' => 'Старший друг', 'breed' => $breedName, 'portraitId' => null, 'backgroundId' => null,
         ]]));
 })->with([['ru', 'Немецкая овчарка'], ['en', 'German Shepherd']]);
 
@@ -201,6 +204,37 @@ test('a viewers purchases do not unlock the artwork selected by a dogs owner', f
             ->where('dogs.0.portraitId', $freePortrait->id)
             ->where('dogs.0.backgroundId', $freeBackground->id)
         );
+});
+
+test('player cards retain every dog and its matching artwork when breed and coat pairs repeat', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('appearance/test/portrait.png', 'portrait');
+    Storage::disk('local')->put('appearance/test/icon.png', 'icon');
+    $player = User::factory()->create();
+    $firstBreed = Dog::factory()->create();
+    $secondBreed = Dog::factory()->create();
+    $first = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'black']);
+    $duplicate = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'black']);
+    $differentCoat = Pet::factory()->for($player)->for($firstBreed)->create(['coat_color' => 'brown']);
+    $differentBreed = Pet::factory()->for($player)->for($secondBreed)->create(['coat_color' => 'black']);
+    $firstPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'black']);
+    $selectedPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'black', 'pose' => 'sitting']);
+    $coatPortrait = GameAsset::factory()->for($firstBreed)->create(['coat_color' => 'brown']);
+    $breedPortrait = GameAsset::factory()->for($secondBreed)->create(['coat_color' => 'black']);
+    $background = GameAsset::factory()->background()->create();
+    $duplicate->forceFill(['portrait_asset_id' => $selectedPortrait->id])->save();
+
+    $this->actingAs($player)->get(route('players.show', $player->username))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('dogs', 4)
+            ->where('dogs.0.id', $first->id)->where('dogs.0.portraitId', $firstPortrait->id)
+            ->where('dogs.1.id', $duplicate->id)->where('dogs.1.portraitId', $selectedPortrait->id)
+            ->where('dogs.2.id', $differentCoat->id)->where('dogs.2.portraitId', $coatPortrait->id)
+            ->where('dogs.3.id', $differentBreed->id)->where('dogs.3.portraitId', $breedPortrait->id)
+            ->where('dogs.0.backgroundId', $background->id)
+            ->where('dogs.1.backgroundId', $background->id)
+            ->where('dogs.2.backgroundId', $background->id)
+            ->where('dogs.3.backgroundId', $background->id));
 });
 
 test('unavailable selected artwork falls back to usable free artwork on player cards', function (array $attributes) {

@@ -10,12 +10,15 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
+import PetCareerAwards from '@/components/PetCareerAwards.vue';
+import PetTitleProgress from '@/components/PetTitleProgress.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { usePetCareer } from '@/composables/usePetCareer';
 import { index, show } from '@/routes/game-events';
 import type { PetCareer } from '@/types/pet-career';
+import { groupEventAwards } from '@/lib/eventAwards';
 
 const props = defineProps<{ petId: number; career?: PetCareer | null }>();
 const { t, number, locale } = useI18n();
@@ -33,6 +36,7 @@ const dateFormatter = computed(
         }),
 );
 const date = (value: string) => dateFormatter.value.format(new Date(value));
+const awardGroups = computed(() => groupEventAwards(data.value?.titles ?? []));
 const summaries = computed(() =>
     data.value
         ? [
@@ -97,65 +101,26 @@ const summaries = computed(() =>
                     }}</Button
                 >
             </div>
-            <section
-                v-if="data.titles.length"
-                class="pet-career-awards"
-                :aria-label="t('Earned dog titles')"
-            >
-                <h3>
-                    <Award :size="21" aria-hidden="true" />{{
-                        t('Earned dog titles')
-                    }}
-                </h3>
-                <ul class="pet-career-title-list">
-                    <li
-                        v-for="title in data.titles"
-                        :key="title.discipline + ':' + title.frequency"
-                    >
-                        <Trophy :size="22" aria-hidden="true" />
-                        <div>
-                            <h4>
-                                {{ title.name
-                                }}<span>{{
-                                    t('Awarded {count} times', {
-                                        count: number(title.count),
-                                    })
-                                }}</span>
-                            </h4>
-                            <p>
-                                {{ t(`events.discipline.${title.discipline}`) }}
-                                · {{ t(`events.frequency.${title.frequency}`) }}
-                            </p>
-                            <p>
-                                {{
-                                    t('Last awarded: {date}', {
-                                        date: date(title.awardedAt),
-                                    })
-                                }}
-                            </p>
-                        </div>
-                        <Button
-                            v-if="title.eventId !== null"
-                            as-child
-                            size="sm"
-                            variant="outline"
-                            ><Link :href="show(title.eventId)"
-                                >{{ t('View result')
-                                }}<ArrowRight
-                                    :size="15"
-                                    aria-hidden="true" /></Link
-                        ></Button>
-                    </li>
-                </ul>
-            </section>
+            <PetTitleProgress
+                v-if="data.titleProgress"
+                :progress="data.titleProgress"
+            />
+            <PetCareerAwards
+                v-for="group in awardGroups"
+                :key="group.kind"
+                :label="group.label"
+                :titles="group.entries"
+            />
             <div
-                v-else-if="data.results.entries.length"
+                v-if="!data.titles.length && data.results.entries.length"
                 class="pet-career-notice"
             >
                 <Award :size="21" aria-hidden="true" />
                 <p>
                     {{
-                        t('No titles yet. A first-place finish earns a title.')
+                        t(
+                            'No awards yet. Certificates and titles require the result and qualifications specified by the event regulation.',
+                        )
                     }}
                 </p>
             </div>
@@ -172,7 +137,7 @@ const summaries = computed(() =>
                 <p class="pet-career-hint">
                     {{
                         t(
-                            'Places are awarded within each event division. Cups count weekly first-place finishes; podiums count the top three. Eliminated results do not count as wins or podiums.',
+                            'Places follow each event’s class and category rules. Assessments, certificates and titles are separate achievements; a first-place finish alone does not guarantee a title.',
                         )
                     }}
                 </p>
@@ -193,9 +158,11 @@ const summaries = computed(() =>
                             />{{
                                 result.eliminated
                                     ? t('Eliminated')
-                                    : t('Place {place}', {
-                                          place: number(result.rank),
-                                      })
+                                    : result.rank == null
+                                      ? t('Not placed')
+                                      : t('Place {place}', {
+                                            place: number(result.rank),
+                                        })
                             }}</span
                         >
                         <div class="pet-career-result-copy">

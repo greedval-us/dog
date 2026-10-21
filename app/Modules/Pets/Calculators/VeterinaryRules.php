@@ -8,12 +8,12 @@ use App\Modules\Players\Enums\PlayerStatus;
 
 final class VeterinaryRules
 {
-    public function petUnavailableReason(?PlayerStatus $status, bool $hasPet, bool $retired, bool $busy): ?string
+    public function petUnavailableReason(?PlayerStatus $status, bool $hasPet, bool $inactive, bool $busy): ?string
     {
         return match (true) {
             $status !== PlayerStatus::Active => 'Your account is blocked.',
             ! $hasPet => 'Choose a dog to visit the veterinarian.',
-            $retired => 'Retired dogs cannot visit the veterinarian.',
+            $inactive => 'This dog is no longer active.',
             $busy => 'Finish your dog’s current activity before visiting the veterinarian.',
             default => null,
         };

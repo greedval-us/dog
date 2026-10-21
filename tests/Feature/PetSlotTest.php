@@ -2,11 +2,33 @@
 
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\Queries\GetPetSlots;
 use App\Modules\Players\Enums\PlayerStatus;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutVite();
+});
+
+test('restored living retirees remain selectable beyond nine slots without granting permanent capacity', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->create(['pet_slots' => 1]);
+    $pets = Pet::factory()->for($owner)->retired()->count(12)->create(['born_at' => now()->subDays(120)]);
+
+    $slots = app(GetPetSlots::class)->handle($owner);
+
+    expect($slots)->toHaveCount(12);
+    expect(array_column(array_column($slots, 'pet'), 'id'))->toBe($pets->modelKeys());
+    expect(array_column($slots, 'unlocked'))->toBe(array_fill(0, 12, true));
+    expect(array_column($slots, 'purchasable'))->toBe(array_fill(0, 12, false));
+    expect($owner->fresh()->pet_slots)->toBe(1);
+
+    Pet::query()->whereIn('id', $pets->skip(1)->modelKeys())->update(['surrendered_at' => now()]);
+    $remaining = app(GetPetSlots::class)->handle($owner);
+
+    expect($remaining)->toHaveCount(9);
+    expect($remaining[1])->toMatchArray(['unlocked' => false, 'purchasable' => true, 'pet' => null]);
+    expect($owner->fresh()->pet_slots)->toBe(1);
 });
 
 test('a new player sees nine slots with only the first unlocked and increasing prices', function () {
@@ -98,15 +120,14 @@ test('players can switch between their own dogs but cannot select another player
     $this->get(route('dashboard', ['pet' => $other->id]))->assertNotFound();
 });
 
-test('retired dogs leave active slots and the default selection but remain viewable', function () {
+test('living retired dogs remain in slots and can be selected for care', function () {
     $user = User::factory()->create();
     $retired = Pet::factory()->for($user)->retired()->create();
     $active = Pet::factory()->for($user)->create();
 
     $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-        ->where('pet.id', $active->id)->where('slots.0.pet.id', $active->id)->where('slots.1.pet', null));
+        ->where('pet.id', $retired->id)->where('slots.0.pet.id', $retired->id)->where('slots.1.pet.id', $active->id));
     $this->get(route('dashboard', ['pet' => $retired->id]))
-        ->assertRedirect(route('players.memorial.show', ['user' => $user->username, 'pet' => $retired->id]));
-    $this->get(route('players.memorial.show', ['user' => $user->username, 'pet' => $retired->id]))->assertInertia(fn (Assert $page) => $page
-        ->where('pet.id', $retired->id));
+        ->assertInertia(fn (Assert $page) => $page->where('pet.id', $retired->id)->where('pet.lifecycle.status', 'retired'));
+    $this->get(route('players.memorial.show', ['user' => $user->username, 'pet' => $retired->id]))->assertNotFound();
 });

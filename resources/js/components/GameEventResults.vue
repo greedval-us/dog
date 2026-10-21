@@ -3,6 +3,8 @@ import { Link } from '@inertiajs/vue3';
 import { ChevronDown, PawPrint, Trophy } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import HelpHint from '@/components/HelpHint.vue';
+import EventAwardList from '@/components/EventAwardList.vue';
+import EventResultAssessment from '@/components/EventResultAssessment.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
@@ -11,6 +13,7 @@ import {
     entryWasWithdrawn,
     groupEventEntries,
     isExhibition,
+    isGroupRing,
 } from '@/lib/gameEventEntries';
 import { show as dogProfile } from '@/routes/pets';
 import { show as eventShow } from '@/routes/game-events';
@@ -24,7 +27,18 @@ const { t, number } = useI18n();
 const { decimal, stageLabel, optionLabel, modifierEffect } =
     useGameEventPresentation();
 const ownEntry = computed(() => props.entry);
+const groupRing = computed(() => isGroupRing(props.event.regulation?.format));
+const warmupEquipment = computed(
+    () =>
+        Boolean(props.event.regulation) && props.event.discipline === 'agility',
+);
 const isShow = computed(() => isExhibition(props.event.discipline));
+const scoredResult = computed(
+    () =>
+        isShow.value ||
+        (Boolean(props.event.regulation) &&
+            props.event.discipline === 'nosework'),
+);
 const entriesByDivision = computed(() =>
     groupEventEntries(props.event.entries),
 );
@@ -48,6 +62,21 @@ const replay = computed(
         props.event.entries.find((entry) => entry.id === replayId.value) ??
         (ownEntry.value?.id === replayId.value ? ownEntry.value : null),
 );
+const showPresentationEffects = computed(
+    () =>
+        props.event.discipline === 'conformation' &&
+        Boolean(props.event.regulation) &&
+        Boolean(
+            replay.value?.result?.stages.some(
+                (stage) => stage.factors?.presentationMultiplier !== undefined,
+            ),
+        ),
+);
+const oneStageOdorTest = computed(
+    () =>
+        props.event.regulation?.format === 'odor_test' &&
+        replay.value?.result?.stages.length === 1,
+);
 const replayWithdrawn = computed(() => entryWasWithdrawn(replay.value));
 const replayHeading = ref<HTMLElement | null>(null);
 const replayTitle = computed(() =>
@@ -55,9 +84,11 @@ const replayTitle = computed(() =>
         ? t(
               replayWithdrawn.value
                   ? 'Entry withdrawn — {name}'
-                  : props.event.discipline === 'progeny'
-                    ? 'Progeny evaluation — {name}'
-                    : 'Performance replay — {name}',
+                  : groupRing.value
+                    ? 'Group ring — {name}'
+                    : props.event.discipline === 'progeny'
+                      ? 'Progeny evaluation — {name}'
+                      : 'Performance replay — {name}',
               { name: replay.value.name },
           )
         : '',
@@ -67,9 +98,11 @@ function replayActionLabel(participant: GameEventEntry): string {
     return t(
         entryWasWithdrawn(participant)
             ? 'View withdrawal reason'
-            : props.event.discipline === 'progeny'
-              ? 'View evaluation'
-              : 'View replay',
+            : groupRing.value
+              ? 'View group ring'
+              : props.event.discipline === 'progeny'
+                ? 'View evaluation'
+                : 'View replay',
     );
 }
 
@@ -119,6 +152,13 @@ watch(
             <p v-if="ownEntry.divisionLabel" class="event-note">
                 {{ ownEntry.divisionLabel }}
             </p>
+            <EventResultAssessment
+                v-if="!entryWasWithdrawn(ownEntry)"
+                :assessment="ownEntry.result.assessment"
+                :standings="ownEntry.result.standings"
+                :ring="groupRing"
+            />
+            <EventAwardList :awards="ownEntry.awards" />
         </SurfaceCard>
         <SurfaceCard
             :title="
@@ -136,10 +176,17 @@ watch(
                     :key="division.key"
                     :href="
                         eventShow(event.id, {
-                            query: { division: division.key },
+                            query: {
+                                division: division.key,
+                                ...((event.discipline === 'conformation' ||
+                                    groupRing) &&
+                                ownEntry?.petId
+                                    ? { pet: ownEntry.petId }
+                                    : {}),
+                            },
                         })
                     "
-                    :only="['event', 'entry', 'serverNow']"
+                    :only="['event', 'entry', 'ownEntries', 'serverNow']"
                     preserve-scroll
                     preserve-state
                     :aria-current="
@@ -152,17 +199,26 @@ watch(
                     }"
                     >{{ division.label
                     }}<small>{{
-                        t('{humans} players · {clubs} club dogs', {
-                            humans: number(division.humanCount),
-                            clubs: number(division.clubCount),
-                        })
+                        t(
+                            groupRing
+                                ? '{humans} entered groups'
+                                : event.discipline === 'conformation'
+                                  ? '{humans} entered dogs · {clubs} club dogs'
+                                  : '{humans} players · {clubs} club dogs',
+                            {
+                                humans: number(division.humanCount),
+                                clubs: number(division.clubCount),
+                            },
+                        )
                     }}</small></Link
                 >
             </nav>
             <p v-if="!event.entries.length" class="event-note">
                 {{
                     t(
-                        'Be the first to enter. Club dogs will join before the start if places remain.',
+                        groupRing || event.regulation?.format === 'odor_test'
+                            ? 'No entries yet.'
+                            : 'Be the first to enter. Club dogs will join before the start if places remain.',
                     )
                 }}
             </p>
@@ -226,6 +282,9 @@ watch(
                                                 : ''
                                         }}</small
                                     >
+                                    <EventAwardList
+                                        :awards="participant.awards"
+                                    />
                                 </td>
                                 <td>
                                     <template v-if="participant.result"
@@ -240,7 +299,16 @@ watch(
                                             "
                                             >{{ t('Eliminated') }}</span
                                         ><template v-else
-                                            ><span v-if="isShow">{{
+                                            ><span
+                                                v-if="
+                                                    participant.result
+                                                        .assessment
+                                                "
+                                                >{{
+                                                    participant.result
+                                                        .assessment.label
+                                                }}</span
+                                            ><span v-if="scoredResult">{{
                                                 t('Score: {score}', {
                                                     score: decimal(
                                                         participant.result
@@ -310,6 +378,12 @@ watch(
             >
                 {{ replay.result.reason }}
             </p>
+            <EventResultAssessment
+                v-if="!replayWithdrawn && replay.id !== ownEntry?.id"
+                :assessment="replay.result.assessment"
+                :standings="replay.result.standings"
+                :ring="groupRing"
+            />
             <div
                 v-else-if="!replayWithdrawn"
                 class="surface-heading-help event-replay-intro"
@@ -318,18 +392,61 @@ watch(
                 <HelpHint
                     :text="
                         t(
-                            event.discipline === 'progeny'
-                                ? 'The evaluation shows how the selected offspring scored against each judging criterion.'
-                                : 'The replay shows your saved decisions, mistakes and condition after every stage.',
+                            groupRing
+                                ? 'The saved protocol shows the members, breed selection and final ring result.'
+                                : event.discipline === 'progeny'
+                                  ? 'The evaluation shows how the selected offspring scored against each judging criterion.'
+                                  : 'The replay shows your saved decisions, mistakes and recorded condition for each stage.',
                         )
                     "
                 />
             </div>
+            <p
+                v-if="
+                    event.discipline === 'progeny' &&
+                    !groupRing &&
+                    !replayWithdrawn
+                "
+                class="event-note"
+            >
+                {{
+                    t(
+                        'This documentary evaluation is a game adaptation of progeny groups. Real RKF/FCI progeny competitions take place in the ring.',
+                    )
+                }}
+            </p>
+            <section
+                v-if="groupRing && !replayWithdrawn"
+                class="event-exterior"
+            >
+                <h3>{{ t('Members in the ring') }}</h3>
+                <ul class="event-title-list">
+                    <li
+                        v-for="member in replay.result.members ?? []"
+                        :key="member.id"
+                    >
+                        <span
+                            ><strong>{{ member.name }}</strong
+                            ><small>{{
+                                member.gradeLabel ?? member.grade
+                            }}</small></span
+                        >
+                    </li>
+                </ul>
+                <p class="event-note">
+                    {{
+                        t(
+                            'The best group of each breed reaches the final. Places 1–3 and coin prizes are awarded in the final only; this contest does not award CAC or CACIB.',
+                        )
+                    }}
+                </p>
+            </section>
             <div
                 v-if="
                     !replayWithdrawn &&
                     replay.result.preparation &&
-                    event.discipline !== 'progeny'
+                    event.discipline !== 'progeny' &&
+                    !groupRing
                 "
                 class="event-result-preparation"
             >
@@ -372,10 +489,60 @@ watch(
                             / 100
                         </dd>
                     </div>
+                    <div
+                        v-if="
+                            replay.result.preparation.careerExperience !==
+                            undefined
+                        "
+                    >
+                        <dt>{{ t('Discipline experience') }}</dt>
+                        <dd>
+                            {{
+                                number(
+                                    replay.result.preparation.careerExperience,
+                                )
+                            }}
+                        </dd>
+                    </div>
+                    <div
+                        v-if="
+                            replay.result.preparation.consistencyBonus !==
+                            undefined
+                        "
+                    >
+                        <dt>{{ t('Experience risk reduction') }}</dt>
+                        <dd>
+                            {{
+                                t('{value} pp', {
+                                    value: decimal(
+                                        replay.result.preparation
+                                            .consistencyBonus * 100,
+                                    ),
+                                })
+                            }}
+                        </dd>
+                    </div>
                 </dl>
+                <p
+                    v-if="
+                        replay.result.preparation.consistencyBonus !== undefined
+                    "
+                    class="event-note"
+                >
+                    {{
+                        t(
+                            'Experience in this discipline lowers the base error risk by up to 8 percentage points.',
+                        )
+                    }}
+                </p>
                 <details class="event-explanation">
                     <summary>
-                        {{ t('Recorded equipment effect')
+                        {{
+                            t(
+                                warmupEquipment
+                                    ? 'Recorded warm-up effect'
+                                    : 'Recorded equipment effect',
+                            )
                         }}<ChevronDown :size="16" aria-hidden="true" />
                     </summary>
                     <div class="event-gear-modifiers">
@@ -383,23 +550,49 @@ watch(
                             v-for="(value, key) in replay.result.preparation
                                 .modifiers"
                             :key="key"
-                            >{{ modifierEffect(key, value) }}</span
+                            >{{
+                                modifierEffect(
+                                    key,
+                                    value,
+                                    showPresentationEffects,
+                                )
+                            }}</span
                         >
                     </div>
                     <p class="event-note">
                         {{
                             t(
-                                'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                                showPresentationEffects
+                                    ? 'Precision lowers base error risk in percentage points; focus adds starting focus points. Stamina reduces fatigue gained at each stage. Movement equipment changes only movement presentation within the 20-point presentation limit.'
+                                    : 'Precision lowers the base error risk in percentage points. Focus adds starting focus points. Pace affects time; stamina reduces fatigue gained at each stage.',
+                            )
+                        }}
+                    </p>
+                    <p v-if="warmupEquipment" class="event-note">
+                        {{
+                            t(
+                                'Equipment is removed before the agility course. The warm-up effect supports precision, pace, fatigue control and starting focus.',
                             )
                         }}
                     </p>
                     <p
-                        v-if="event.discipline === 'conformation'"
+                        v-if="
+                            (event.discipline === 'conformation' ||
+                                groupRing) &&
+                            !showPresentationEffects
+                        "
                         class="event-note"
                     >
                         {{
                             t(
                                 'For conformation, focus and precision help judging; stamina limits fatigue. Pace equipment does not increase the final score.',
+                            )
+                        }}
+                    </p>
+                    <p v-if="oneStageOdorTest" class="event-note">
+                        {{
+                            t(
+                                'Stamina does not affect this one-stage odor test: there is no later stage for reduced fatigue to help.',
                             )
                         }}
                     </p>
@@ -417,18 +610,34 @@ watch(
                         number(stageIndex + 1)
                     }}</span>
                     <div class="event-replay-body">
-                        <h3>{{ stageLabel(stage.key) }}</h3>
-                        <strong v-if="event.discipline !== 'progeny'">{{
-                            optionLabel(
-                                event.discipline,
-                                stage.key,
-                                stage.decision,
-                            )
-                        }}</strong>
+                        <h3>
+                            {{
+                                event.regulation
+                                    ? (event.stages.find(
+                                          (item) => item.key === stage.key,
+                                      )?.label ?? stageLabel(stage.key))
+                                    : stageLabel(stage.key)
+                            }}
+                        </h3>
+                        <strong
+                            v-if="event.discipline !== 'progeny' && !groupRing"
+                            >{{
+                                optionLabel(
+                                    event.discipline,
+                                    stage.key,
+                                    stage.decision,
+                                )
+                            }}</strong
+                        >
                         <p>{{ t(stage.reason) }}</p>
+                        <p v-if="stage.timedOut" class="event-note">
+                            {{ t('Search timed out') }}
+                        </p>
                         <details
                             v-if="
-                                stage.factors && event.discipline !== 'progeny'
+                                stage.factors &&
+                                event.discipline !== 'progeny' &&
+                                !groupRing
                             "
                             class="event-explanation event-stage-factors"
                         >
@@ -452,6 +661,26 @@ watch(
                                                     100,
                                             )
                                         }}%
+                                    </dd>
+                                </div>
+                                <div
+                                    v-if="
+                                        stage.factors.consistencyBonus !==
+                                        undefined
+                                    "
+                                >
+                                    <dt>
+                                        {{ t('Experience risk reduction') }}
+                                    </dt>
+                                    <dd>
+                                        {{
+                                            t('{value} pp', {
+                                                value: decimal(
+                                                    stage.factors
+                                                        .consistencyBonus * 100,
+                                                ),
+                                            })
+                                        }}
                                     </dd>
                                 </div>
                                 <div>
@@ -497,6 +726,26 @@ watch(
                                             }}
                                         </dd>
                                     </div>
+                                    <div
+                                        v-if="
+                                            stage.factors
+                                                .presentationMultiplier !==
+                                            undefined
+                                        "
+                                    >
+                                        <dt>
+                                            {{ t('Presentation multiplier') }}
+                                        </dt>
+                                        <dd>
+                                            ×
+                                            {{
+                                                decimal(
+                                                    stage.factors
+                                                        .presentationMultiplier,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
                                 </template>
                             </dl>
                             <p class="event-note">
@@ -518,7 +767,21 @@ watch(
                                     }}
                                 </dd>
                             </div>
-                            <div v-if="event.discipline !== 'progeny'">
+                            <div v-if="stage.timeLimit !== undefined">
+                                <dt>{{ t('Time limit') }}</dt>
+                                <dd>
+                                    {{
+                                        t('{time} seconds', {
+                                            time: decimal(stage.timeLimit),
+                                        })
+                                    }}
+                                </dd>
+                            </div>
+                            <div
+                                v-if="
+                                    event.discipline !== 'progeny' && !groupRing
+                                "
+                            >
                                 <dt>{{ t('Penalties') }}</dt>
                                 <dd>{{ number(stage.penalties) }}</dd>
                             </div>
@@ -526,12 +789,36 @@ watch(
                                 <dt>{{ t('Score') }}</dt>
                                 <dd>{{ decimal(stage.score) }}</dd>
                             </div>
-                            <div v-if="event.discipline !== 'progeny'">
-                                <dt>{{ t('Fatigue') }}</dt>
+                            <div
+                                v-if="
+                                    event.discipline !== 'progeny' && !groupRing
+                                "
+                            >
+                                <dt>
+                                    {{
+                                        t(
+                                            stage.conditionTiming === 'before'
+                                                ? 'Fatigue before stage'
+                                                : 'Fatigue',
+                                        )
+                                    }}
+                                </dt>
                                 <dd>{{ decimal(stage.fatigue) }}</dd>
                             </div>
-                            <div v-if="event.discipline !== 'progeny'">
-                                <dt>{{ t('Focus') }}</dt>
+                            <div
+                                v-if="
+                                    event.discipline !== 'progeny' && !groupRing
+                                "
+                            >
+                                <dt>
+                                    {{
+                                        t(
+                                            stage.conditionTiming === 'before'
+                                                ? 'Focus before stage'
+                                                : 'Focus',
+                                        )
+                                    }}
+                                </dt>
                                 <dd>{{ decimal(stage.focus) }}</dd>
                             </div>
                         </dl>
@@ -544,7 +831,7 @@ watch(
                         ? t('Withdrawn')
                         : replay.result.eliminated
                           ? t('Eliminated')
-                          : isShow
+                          : scoredResult
                             ? t('Final score: {score}', {
                                   score: decimal(replay.result.score),
                               })

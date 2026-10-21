@@ -11,6 +11,8 @@ export type PlayerCareerStatistics = {
     conformationWins: number;
     progenyStarts: number;
     progenyWins: number;
+    coupleWins: number;
+    breedersWins: number;
     weeklyEventWins: number;
     monthlyEventWins: number;
     titlesCount: number;
@@ -75,6 +77,14 @@ export type AvatarLimits = {
     max_kilobytes: number;
     max_dimension: number;
     stored_dimension: number;
+};
+
+export type BoardingPlan = 'off' | 'cheap' | 'premium';
+
+export type BoardingSettings = {
+    plan: BoardingPlan;
+    inactivitySeconds: number;
+    hourlyPrices: { cheap: number; premium: number };
 };
 
 export type DailyWork = {

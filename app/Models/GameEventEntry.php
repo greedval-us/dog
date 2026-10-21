@@ -5,9 +5,12 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Database\Factories\GameEventEntryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -54,6 +57,45 @@ class GameEventEntry extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return HasMany<PetTitle, $this> */
+    public function titles(): HasMany
+    {
+        return $this->hasMany(PetTitle::class, 'game_event_entry_id');
+    }
+
+    /** @param Builder<GameEventEntry> $query
+     * @param  list<int>  $petIds
+     */
+    #[Scope]
+    protected function involvingPets(Builder $query, array $petIds): void
+    {
+        if ($petIds === []) {
+            $query->whereIn('pet_id', []);
+
+            return;
+        }
+        $query->where(function (Builder $entries) use ($petIds): void {
+            $entries->whereIn('pet_id', $petIds)->orWhere(function (Builder $groups) use ($petIds): void {
+                $groups->whereHas('event', fn (Builder $events) => $events->whereIn('discipline', ['progeny', 'couple', 'breeders'])
+                    ->where('rules->version', 3)->whereIn('rules->regulation->format', ['progeny_ring', 'couple_ring', 'breeders_ring']))
+                    ->where(function (Builder $members) use ($petIds): void {
+                        foreach ($petIds as $petId) {
+                            $members->orWhereJsonContains('plan->offspring_ids', $petId);
+                            $members->orWhereJsonContains('plan->member_ids', $petId);
+                        }
+                    });
+            });
+        });
+    }
+
+    /** @param Builder<GameEventEntry> $query */
+    #[Scope]
+    protected function physical(Builder $query): void
+    {
+        $query->whereHas('event', fn (Builder $events) => $events->where(fn (Builder $kinds) => $kinds->where('discipline', '!=', 'progeny')
+            ->orWhere(fn (Builder $groups) => $groups->where('rules->version', 3)->whereIn('rules->regulation->format', ['progeny_ring', 'couple_ring', 'breeders_ring']))));
     }
 
     /** @return array<string, string> */

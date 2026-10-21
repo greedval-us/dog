@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { Coins, House, PawPrint, Users } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
 import CursorPagination from '@/components/CursorPagination.vue';
@@ -23,12 +23,14 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/composables/useI18n';
+import { useDeadlineRefresh } from '@/composables/useDeadlineRefresh';
 import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { dashboard } from '@/routes';
 import { index as myPuppies, market, purchase } from '@/routes/puppies';
 import type { Puppy, PuppyPagination } from '@/types/breeding';
 
 const props = defineProps<{
+    serverNow: string;
     puppies: Puppy[];
     source: 'players' | 'kennel';
     freeSlots: number;
@@ -39,9 +41,31 @@ const props = defineProps<{
 const { t, number } = useI18n();
 const page = usePage();
 const moving = ref(false);
-const selected = ref<Puppy | null>(null);
+const selectedId = shallowRef<number | null>(null);
+const selected = computed(() =>
+    props.puppies.find((puppy) => puppy.id === selectedId.value),
+);
 const form = useForm({ name: '', expected_price: 0, operation_token: '' });
 const pending = computed(() => form.processing || moving.value);
+useDeadlineRefresh(
+    () => props.serverNow,
+    () =>
+        props.puppies
+            .filter((puppy) => puppy.status !== 'kennel')
+            .map((puppy) => puppy.expiresAt),
+    (options) =>
+        router.reload({
+            ...options,
+            only: [
+                'puppies',
+                'freeSlots',
+                'blocked',
+                'pagination',
+                'serverNow',
+            ],
+        }),
+    () => pending.value,
+);
 const price = (puppy: Puppy) => puppy.price ?? props.kennelPrice;
 const reason = (puppy: Puppy): string | null => {
     if (puppy.seller?.username === page.props.auth.user.username)
@@ -61,7 +85,7 @@ const pageLink = (cursor: string) =>
     market.url({ query: { source: props.source, cursor } });
 function choose(puppy: Puppy) {
     if (pending.value || reason(puppy)) return;
-    selected.value = puppy;
+    selectedId.value = puppy.id;
     form.name = puppy.name;
     form.expected_price = price(puppy);
     form.operation_token = crypto.randomUUID();
@@ -72,7 +96,7 @@ function buy() {
     form.submit(purchase(selected.value.id), {
         preserveScroll: true,
         onSuccess: () => {
-            selected.value = null;
+            selectedId.value = null;
         },
     });
 }
@@ -124,7 +148,7 @@ function buy() {
                     :label="t('Take your puppy home')"
                     :text="
                         t(
-                            'Starting characteristics are 20% of genetic potential. Your puppy’s active life begins when it goes home.',
+                            'Starting characteristics are 20% of genetic potential. Age is counted from birth; care begins when the puppy comes home.',
                         )
                     "
                 />
@@ -204,7 +228,7 @@ function buy() {
         />
         <Dialog
             :open="Boolean(selected)"
-            @update:open="!pending && !$event && (selected = null)"
+            @update:open="!pending && !$event && (selectedId = null)"
             ><DialogContent
                 ><DialogHeader
                     ><DialogTitle>{{ t('Take your puppy home') }}</DialogTitle
@@ -243,7 +267,7 @@ function buy() {
                             type="button"
                             variant="secondary"
                             :disabled="pending"
-                            @click="selected = null"
+                            @click="selectedId = null"
                             >{{ t('Cancel') }}</Button
                         ><Button
                             type="submit"

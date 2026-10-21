@@ -84,6 +84,8 @@ test('freeze fills a human division with marked NPCs and settlement is durable a
     expect(GameEventEntry::query()->where('is_npc', true)->whereNotNull('user_id')->exists())->toBeFalse();
     expect($entry->fresh()->snapshot['name'])->toBe($pet->name);
     expect($pet->fresh()->isBusy())->toBeTrue();
+    $previousPet = Pet::factory()->for($pet->user)->create();
+    GameEventEntry::factory()->for($event, 'event')->for($previousPet)->for($pet->user)->create(['status' => 'completed']);
     $this->travelTo($event->ends_at);
     $processor->processForOwner($pet->user);
     $completed = $entry->fresh();
@@ -101,6 +103,10 @@ test('freeze fills a human division with marked NPCs and settlement is durable a
     $this->assertDatabaseHas('pet_sport_records', ['pet_id' => $pet->id, 'starts' => 1]);
     expect(GameEventEntry::query()->where('is_npc', true)->sum('prize'))->toBe(0);
     expect(GameEventEntry::query()->where('is_npc', true)->whereNotNull('experience_awarded')->count())->toBe(0);
+    $notification = $pet->user->notifications()->get()->where('data.kind', 'competition_result')->sole();
+    expect($notification->data['message']['en'])->toBe($pet->name.' finished participating in Agility. View the results.');
+    expect($notification->data['actionUrl'])->toBe(route('game-events.show', $event->id, absolute: false));
+    $this->assertDatabaseCount('notifications', 1);
 });
 
 test('illness or retirement before freeze withdraws and refunds without NPC only tournaments', function () {
@@ -119,6 +125,7 @@ test('illness or retirement before freeze withdraws and refunds without NPC only
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 500]);
     $this->assertDatabaseCount('game_event_entries', 1);
     $this->assertDatabaseCount('pet_sport_records', 0);
+    expect($pet->user->notifications()->get()->whereIn('data.kind', ['competition_result', 'show_result'])->isNotEmpty())->toBeFalse();
 });
 
 test('a completed sleep is settled before the frozen competition snapshot', function () {
@@ -189,9 +196,9 @@ test('a promoted dog keeps its registered class while future entries use its new
     expect($entry->fresh()->status)->toBe('frozen');
 });
 
-test('progeny entries permit a retired parent and require three actual direct children', function () {
+test('progeny entries permit a parent without physical energy and require three actual direct children', function () {
     $this->freezeSecond();
-    $parent = Pet::factory()->retired()->for(User::factory()->state(['coins' => 500]))->create();
+    $parent = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create(['energy' => 0]);
     $event = GameEvent::factory()->create(['discipline' => 'progeny']);
     $children = Pet::factory()->count(3)->create(['dog_id' => $parent->dog_id, 'father_id' => $parent->id]);
     $winner = $children->first();
@@ -233,7 +240,7 @@ test('event schedule repeats safely and uses Sunday and the calendar month end i
     expect(GameEvent::query()->count())->toBe($count);
     $weekly = GameEvent::query()->where('frequency', 'weekly')->orderBy('starts_at')->first();
     expect($weekly->starts_at->setTimezone('Europe/Moscow')->format('Y-m-d H:i'))->toBe('2026-10-04 20:00');
-    $monthly = GameEvent::query()->where('frequency', 'monthly')->orderBy('starts_at')->first();
+    $monthly = GameEvent::query()->where('frequency', 'monthly')->where('discipline', 'agility')->orderBy('starts_at')->first();
     expect($monthly->starts_at->setTimezone('Europe/Moscow')->format('Y-m-d H:i'))->toBe('2026-10-31 20:30');
 });
 
@@ -359,7 +366,7 @@ test('NPC sporting profiles are independent of the human characteristic values',
     expect($second)->toBe($first);
 });
 
-test('a first place receives one durable title and losing a later event cannot lower its tier', function () {
+test('a show winner receives durable class and breed titles without lowering its tier', function () {
     $this->freezeSecond();
     $pet = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create([
         'bond' => 100, 'exterior' => ['type' => 100, 'structure' => 100, 'movement' => 100],
@@ -374,10 +381,12 @@ test('a first place receives one durable title and losing a later event cannot l
     app(GameEventProcessor::class)->processForOwner($pet->user);
 
     expect($entry->fresh()->rank)->toBe(1);
-    $this->assertDatabaseHas('pet_titles', ['pet_id' => $pet->id, 'game_event_entry_id' => $entry->id, 'code' => 'conformation_daily_winner']);
-    $this->assertDatabaseCount('pet_titles', 1);
+    $this->assertDatabaseHas('pet_titles', ['pet_id' => $pet->id, 'game_event_entry_id' => $entry->id, 'code' => 'conformation_class_place_1']);
+    $this->assertDatabaseCount('pet_titles', 3);
     $this->assertDatabaseHas('pet_sport_records', ['pet_id' => $pet->id, 'tier' => 2, 'wins' => 1]);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 575, 'exhibition_wins' => 1]);
+    expect($pet->user->notifications()->get()->where('data.kind', 'show_result')->sole()->data['message']['en'])
+        ->toBe($pet->name.' finished participating in Conformation show. View the results.');
 });
 
 test('water finished before freeze unlocks energy recovery during the remaining preparation time', function () {
@@ -397,7 +406,7 @@ test('water finished before freeze unlocks energy recovery during the remaining 
 
 test('documentary progeny judging rejects equipment without charging or consuming it', function () {
     $this->freezeSecond();
-    $parent = Pet::factory()->retired()->for(User::factory()->state(['coins' => 500]))->create();
+    $parent = Pet::factory()->for(User::factory()->state(['coins' => 500]))->create();
     $event = GameEvent::factory()->create(['discipline' => 'progeny']);
     $children = Pet::factory()->count(3)->create(['dog_id' => $parent->dog_id, 'father_id' => $parent->id]);
     $gear = InventoryItem::factory()->for($parent->user)->create(['remaining_uses' => 5]);

@@ -69,10 +69,10 @@ final class PurchaseVeterinaryService
             }
 
             $pet = $owner->pets()->lockForUpdate()->findOrFail($data->petId);
-            if (! $pet->isActive() && $pet->retired_at === null) {
+            if (! $pet->isActive()) {
                 throw new PetUnavailable('This dog is no longer active.');
             }
-            $reason = $this->rules->petUnavailableReason($owner->status, true, $pet->retired_at !== null, $pet->isBusy());
+            $reason = $this->rules->petUnavailableReason($owner->status, true, false, $pet->isBusy());
             if ($reason !== null) {
                 throw new PetUnavailable($reason);
             }

@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
+    config(require base_path('tests/Fixtures/long-care-timing.php'));
     $this->withoutVite();
 });
 
@@ -194,7 +195,8 @@ test('pet state and account restrictions reject care without writes', function (
     'clean dog' => [['cleanliness' => 100, 'cleanliness_max' => 100], 'wash', false],
     'full water' => [['hydration' => 100, 'hydration_max' => 100], 'water', false],
     'busy' => [['activity' => 'training'], 'home', false],
-    'retired' => [['retired_at' => '2026-09-01 00:00:00'], 'home', false],
+    'surrendered' => [['surrendered_at' => '2026-09-01 00:00:00'], 'home', false],
+    'deceased' => [['died_at' => '2026-09-01 00:00:00', 'health' => 0], 'home', false],
     'blocked account' => [[], 'home', true],
 ]);
 
@@ -205,6 +207,7 @@ test('guests cannot start or finish care', function (string $route) {
 })->with(['pets.care.store', 'pets.care.complete']);
 
 test('players cannot start or finish another players activity', function () {
+    $this->freezeSecond();
     $pet = Pet::factory()->create(['energy' => 40]);
     $care = app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
     $this->actingAs(User::factory()->create())->post(route('pets.care.store', $pet), [

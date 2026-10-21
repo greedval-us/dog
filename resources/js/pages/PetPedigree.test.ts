@@ -22,6 +22,7 @@ function profileFixture(): PetPublicProfile {
         generation: 4,
         description: 'A calm, observant dog.',
         bornAt: '2026-09-04T00:00:00Z',
+        age: { months: 30, years: 2, remainingMonths: 6, stage: 'adult' },
         isPurebred: true,
         traits: ['loyal'],
         stats: {
@@ -161,7 +162,8 @@ it('explains an absent lineage without drawing invented ancestors', async () => 
 
 it.each([
     ['active', null, 'Main attributes'],
-    ['retired', '2026-10-01T00:00:00Z', 'Retired'],
+    ['retired', null, 'Retired'],
+    ['surrendered', '2026-10-01T00:00:00Z', 'Passed on to a shelter'],
     ['deceased', '2026-10-01T00:00:00Z', 'In loving memory'],
 ] as const)(
     'shows the %s dog’s identity and attributes without gameplay controls',

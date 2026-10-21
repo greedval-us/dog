@@ -3,6 +3,7 @@ import type {
     EventFrequency,
     EventTitle,
 } from '@/types/game-event';
+import type { PetTitleProgress } from '@/types/pet-title-progress';
 
 export type PetCareerTitle = EventTitle & {
     count: number;
@@ -17,7 +18,7 @@ export type PetCareerResult = {
     frequency: EventFrequency;
     division: string;
     divisionLabel: string;
-    rank: number;
+    rank: number | null;
     prize: number;
     completedAt: string;
     petName: string;
@@ -26,6 +27,7 @@ export type PetCareerResult = {
 
 export type PetCareer = {
     petId: number;
+    titleProgress?: PetTitleProgress;
     titles: PetCareerTitle[];
     summary: {
         competitionStarts: number;

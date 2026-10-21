@@ -17,17 +17,10 @@ import { retire } from '@/routes/pets';
 import type { PlayerPet } from '@/types/pet';
 
 const props = defineProps<{ pet: PlayerPet }>();
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const open = ref(false);
 const form = useForm({});
 const error = computed(() => Object.values(form.errors).join(' '));
-const automaticRetirementDate = computed(() =>
-    new Intl.DateTimeFormat(locale.value, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    }).format(new Date(props.pet.lifecycle.automaticRetirementAt)),
-);
 
 function retirePet(): void {
     if (form.processing || !props.pet.lifecycle.canRetire) return;
@@ -50,13 +43,13 @@ function retirePet(): void {
                 form.clearErrors();
             "
         >
-            <Leaf :size="17" aria-hidden="true" />{{ t('Send to retirement') }}
+            <Leaf :size="17" aria-hidden="true" />{{ t('End career') }}
         </Button>
         <p>
             {{
-                t('Automatic retirement: {date}', {
-                    date: automaticRetirementDate,
-                })
+                t(
+                    'Retirement is your choice. Age alone does not end your dog’s career.',
+                )
             }}
         </p>
         <Dialog v-model:open="open">
@@ -67,21 +60,19 @@ function retirePet(): void {
             >
                 <DialogHeader>
                     <DialogTitle>{{
-                        t('Retire {name}?', { name: pet.name })
+                        t('End {name}’s career?', { name: pet.name })
                     }}</DialogTitle>
                     <DialogDescription>
                         {{
                             t(
-                                'Your dog will leave active play and free a slot. The card and all characteristics will be preserved in the Pet memorial hall. Retirement is permanent.',
+                                'Retirement ends competitions, exhibitions, breeding and paid work. Your dog stays home, keeps a slot and can still receive care and veterinary help.',
                             )
                         }}
                     </DialogDescription>
                 </DialogHeader>
                 <p class="field-hint">
                     {{
-                        t(
-                            'Any activity in progress will end without a reward or experience.',
-                        )
+                        t('Care and any activity already in progress continue.')
                     }}
                 </p>
                 <InputError :message="error" role="alert" />
@@ -91,7 +82,7 @@ function retirePet(): void {
                         variant="secondary"
                         :disabled="form.processing"
                         @click="open = false"
-                        >{{ t('Keep playing together') }}</Button
+                        >{{ t('Continue career') }}</Button
                     >
                     <Button
                         type="button"

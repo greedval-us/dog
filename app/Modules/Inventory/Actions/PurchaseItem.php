@@ -112,7 +112,7 @@ final class PurchaseItem
                 'remaining_uses' => $item->usage_limit,
             ]);
             if ($this->ammunition->metadata($snapshot['characteristics']) !== null) {
-                $this->progress->refreshAchievements($owner, [AchievementMetric::AmmunitionPurchases]);
+                $this->progress->refreshAchievements($owner, [AchievementMetric::AmmunitionPurchases], notifyOnUnlock: true);
             }
 
             return $purchase;

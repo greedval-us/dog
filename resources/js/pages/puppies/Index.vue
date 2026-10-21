@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { Clock, House, PawPrint, RefreshCw, Tag, X } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import ActionHint from '@/components/ActionHint.vue';
 import BreedingNavigation from '@/components/BreedingNavigation.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -23,14 +23,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { useBreedingMessages } from '@/composables/useBreedingMessages';
 import { useI18n } from '@/composables/useI18n';
+import { useDeadlineRefresh } from '@/composables/useDeadlineRefresh';
+import { careDuration } from '@/lib/petCarePresentation';
 import { dashboard } from '@/routes';
 import { index, keep, surrender } from '@/routes/puppies';
 import { store as list, destroy } from '@/routes/puppies/listing';
 import type { Puppy, PuppyPagination } from '@/types/breeding';
 
 const props = defineProps<{
+    serverNow: string;
     puppies: Puppy[];
     pregnancies: {
         id: number;
@@ -44,8 +46,10 @@ const props = defineProps<{
     parentId: number | null;
 }>();
 const { t, number } = useI18n();
-const { date } = useBreedingMessages();
-const selected = ref<Puppy | null>(null);
+const selectedId = shallowRef<number | null>(null);
+const selected = computed(() =>
+    props.puppies.find((puppy) => puppy.id === selectedId.value),
+);
 const action = ref<'keep' | 'list' | 'surrender' | null>(null);
 const moving = ref(false);
 const keepForm = useForm({ name: '', operation_token: '' });
@@ -60,6 +64,37 @@ const pending = computed(
         transferForm.processing ||
         withdrawForm.processing,
 );
+const { now } = useDeadlineRefresh(
+    () => props.serverNow,
+    () => [
+        ...props.pregnancies.map((litter) => litter.dueAt),
+        ...props.puppies.map((puppy) => puppy.expiresAt),
+    ],
+    (options) =>
+        router.reload({
+            ...options,
+            only: [
+                'puppies',
+                'pregnancies',
+                'freeSlots',
+                'blocked',
+                'pagination',
+                'serverNow',
+            ],
+        }),
+    () => pending.value,
+);
+function arrivalLabel(dueAt: string): string {
+    const seconds = Math.max(
+        0,
+        Math.ceil((Date.parse(dueAt) - now.value) / 1000),
+    );
+    return seconds
+        ? t('Puppies arrive in {duration}', {
+              duration: careDuration(seconds, t),
+          })
+        : t('Puppies are arriving...');
+}
 const errors = computed(() =>
     [
         ...Object.values(keepForm.errors),
@@ -85,7 +120,7 @@ const pageLink = (cursor: string) =>
     index.url({ query: { parent: props.parentId, cursor } });
 function open(puppy: Puppy, nextAction: 'keep' | 'list' | 'surrender') {
     if (pending.value || props.blocked) return;
-    selected.value = puppy;
+    selectedId.value = puppy.id;
     action.value = nextAction;
     keepForm.clearErrors();
     listForm.clearErrors();
@@ -146,7 +181,7 @@ function submit() {
                     :label="t('Manage dog places')"
                     :text="
                         t(
-                            'Puppies do not age while waiting. Taking one home uses a free dog slot.',
+                            'Puppies keep their birth date while waiting. One real day equals one game month. Taking one home uses a free dog slot.',
                         )
                     "
                 />
@@ -186,13 +221,7 @@ function submit() {
                         >{{ litter.motherName }} ×
                         {{ litter.fatherName }}</strong
                     >
-                    <p>
-                        {{
-                            t('Puppies arrive: {date}', {
-                                date: date(litter.dueAt),
-                            })
-                        }}
-                    </p>
+                    <p>{{ arrivalLabel(litter.dueAt) }}</p>
                 </div>
             </div></SurfaceCard
         >
@@ -279,7 +308,7 @@ function submit() {
             @finish="moving = false"
         />
         <Dialog
-            :open="action !== null"
+            :open="action !== null && Boolean(selected)"
             @update:open="!pending && !$event && (action = null)"
             ><DialogContent
                 ><DialogHeader

@@ -11,7 +11,9 @@ final class TrainingRules
      */
     public function valid(array $gains, array $costs, int $energy, int $duration, int $cooldown): bool
     {
-        if (count($gains) < 1 || count($gains) > 2 || $energy < 1 || $duration < 1 || $cooldown < 1 || $costs === []) {
+        if (count($gains) < 1 || count($gains) > 2 || $energy < 1 || $costs === []
+            || $duration < GameplayTiming::MIN_SECONDS || $duration > GameplayTiming::MAX_SECONDS
+            || $cooldown < GameplayTiming::MIN_SECONDS || $cooldown > GameplayTiming::MAX_SECONDS) {
             return false;
         }
         foreach ($gains as $stat => $gain) {

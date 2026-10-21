@@ -26,12 +26,17 @@ test('the calendar filters monthly shows and does not expose the event random se
     $this->freezeTime();
     $user = User::factory()->create();
 
-    $this->actingAs($user)->get(route('game-events.index', ['frequency' => 'monthly', 'kind' => 'exhibition']))
+    $response = $this->actingAs($user)->get(route('game-events.index', ['frequency' => 'monthly', 'kind' => 'exhibition']))
         ->assertInertia(fn (Assert $page) => $page->component('GameEvents')
-            ->has('events', 4)->where('events.0.frequency', 'monthly')
+            ->has('events')->where('events.0.frequency', 'monthly')
             ->where('filters.kind', 'exhibition')->missing('events.0.seed')
             ->where('events.0.participationRules', ['playerDailyLimit' => 3, 'petDailyLimit' => 2, 'petRestHours' => 2])
             ->missing('dogs')->missing('equipment')->missing('disciplines'));
+
+    $events = collect($response->viewData('page')['props']['events']);
+    expect($events)->not->toBeEmpty();
+    expect($events->every(fn (array $event): bool => $event['frequency'] === 'monthly'
+        && in_array($event['discipline'], ['conformation', 'progeny', 'couple', 'breeders'], true)))->toBeTrue();
 });
 
 test('event participation rules use server configuration and remain present during partial polling', function () {

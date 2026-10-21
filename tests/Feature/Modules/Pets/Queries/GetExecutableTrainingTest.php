@@ -17,7 +17,7 @@ test('an executable training keeps the same costs gains and risk snapshot as its
 
     expect($option)->not->toBeNull();
     expect($option->toArray())->toBe($catalogue[$variant]->toArray())->toMatchArray([
-        'group' => 'training', 'label' => 'Running', 'duration' => 120, 'cooldown' => 600, 'energy' => 15,
+        'group' => 'training', 'label' => 'Running', 'duration' => 10, 'cooldown' => 10, 'energy' => 15,
         'requirements' => ['sports'], 'optional' => [], 'uses' => ['sports' => 1],
         'effects' => ['satiety' => -5, 'hydration' => -8, 'cleanliness' => -3],
         'statGains' => ['speed' => 4, 'endurance' => 4], 'trainingName' => ['ru' => 'Бег', 'en' => 'Running'],

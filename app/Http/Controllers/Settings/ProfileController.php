@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\User;
+use App\Modules\Pets\Queries\GetPetBoardingSettings;
 use App\Modules\Players\Actions\UpdatePlayerAvatar;
 use App\Modules\Players\Actions\UpdatePlayerProfile;
 use App\Modules\Players\Queries\GetPlayerProfile;
@@ -22,7 +23,7 @@ class ProfileController extends Controller
     /**
      * Show the user's profile settings page.
      */
-    public function edit(Request $request, GetPlayerProfile $profile): Response
+    public function edit(Request $request, GetPlayerProfile $profile, GetPetBoardingSettings $boarding): Response
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
@@ -32,6 +33,7 @@ class ProfileController extends Controller
             'status' => $request->session()->get('status'),
             'player' => $profile->handle($user)->toArray(),
             'avatarLimits' => config('doglive.avatar'),
+            'boarding' => $boarding->handle($user),
         ]);
     }
 

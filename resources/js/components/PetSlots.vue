@@ -37,8 +37,8 @@ const form = useForm({
     currency: 'coins' as 'coins' | 'gems',
     expected_price: 100,
 });
-const unlocked = computed(
-    () => props.slots.filter((slot) => slot.unlocked).length,
+const dogsInCare = computed(
+    () => props.slots.filter((slot) => slot.pet !== null).length,
 );
 const price = computed(() => selected.value?.[form.currency] ?? 0);
 const shortfall = computed(() =>
@@ -89,12 +89,13 @@ function purchase() {
             <span
                 class="pet-slots-count"
                 :aria-label="
-                    t('Dog slots: {count} of 9 unlocked', { count: unlocked })
+                    t('Dogs in your care: {count}', {
+                        count: number(dogsInCare),
+                    })
                 "
             >
-                <span>{{ t('Places') }}</span
-                ><strong>{{ unlocked }}</strong
-                ><span>/ 9</span>
+                <span>{{ t('Dogs in your care') }}</span
+                ><strong>{{ number(dogsInCare) }}</strong>
             </span>
         </header>
         <div
@@ -148,12 +149,12 @@ function purchase() {
                         class="pet-slot-action"
                         :title="
                             canClaimStarterPet
-                                ? t('Get your first dog')
+                                ? t('Take home a dog for free')
                                 : t('Visit the kennel')
                         "
                         :aria-label="
                             canClaimStarterPet
-                                ? t('Get your first dog')
+                                ? t('Take home a dog for free')
                                 : t('Visit the kennel')
                         "
                     >

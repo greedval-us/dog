@@ -109,6 +109,8 @@ const groups = computed<StatisticGroup[]>(() => {
                 metric('Conformation wins', 'conformationWins'),
                 metric('Progeny competition starts', 'progenyStarts'),
                 metric('Progeny evaluation wins', 'progenyWins'),
+                metric('Couple competition wins', 'coupleWins'),
+                metric('Breeders group wins', 'breedersWins'),
             ],
         },
         {

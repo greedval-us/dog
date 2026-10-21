@@ -2,6 +2,8 @@
 import { Trophy } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import type { EventExterior, EventTitle } from '@/types/game-event';
+import { formatAgeMonths } from '@/lib/petAge';
+import { eventAwardLabels } from '@/lib/eventAwards';
 
 withDefaults(
     defineProps<{
@@ -12,7 +14,7 @@ withDefaults(
     }>(),
     { compact: false },
 );
-const { t, number } = useI18n();
+const { t, number, locale } = useI18n();
 </script>
 
 <template>
@@ -39,7 +41,7 @@ const { t, number } = useI18n();
                 ><Trophy :size="13" aria-hidden="true" />{{
                     titleLabel
                         ? t(titleLabel)
-                        : t('Titles: {count}', {
+                        : t('Achievements: {count}', {
                               count: number(titles.length),
                           })
                 }}{{ titleLabel ? `: ${number(titles.length)}` : '' }}</span
@@ -47,7 +49,7 @@ const { t, number } = useI18n();
             <details v-else class="dog-titles-details">
                 <summary>
                     <Trophy :size="14" aria-hidden="true" />{{
-                        titleLabel ? t(titleLabel) : t('Dog titles')
+                        titleLabel ? t(titleLabel) : t('Dog achievements')
                     }}
                     · {{ number(titles.length) }}
                 </summary>
@@ -60,9 +62,27 @@ const { t, number } = useI18n();
                                     t(`events.discipline.${title.discipline}`)
                                 }}
                                 ·
-                                {{
-                                    t(`events.frequency.${title.frequency}`)
-                                }}</small
+                                {{ t(eventAwardLabels[title.kind ?? 'legacy'])
+                                }}<template
+                                    v-if="
+                                        !title.kind || title.kind === 'legacy'
+                                    "
+                                >
+                                    ·
+                                    {{
+                                        t(`events.frequency.${title.frequency}`)
+                                    }}</template
+                                ><template v-if="title.ageMonths != null">
+                                    ·
+                                    {{
+                                        t('Age at award: {age}', {
+                                            age: formatAgeMonths(
+                                                title.ageMonths,
+                                                locale,
+                                            ),
+                                        })
+                                    }}</template
+                                ></small
                             ></span
                         >
                     </li>

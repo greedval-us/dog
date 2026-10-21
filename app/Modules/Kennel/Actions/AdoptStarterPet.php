@@ -6,6 +6,7 @@ use App\Models\Dog;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
@@ -22,6 +23,9 @@ final class AdoptStarterPet
 
     public function handle(User $user, AdoptStarterPetData $data): Pet
     {
+        if (KennelPetAge::tryFrom((string) $data->ageMonths) === null) {
+            throw new AdoptionUnavailable('ownership.errors.age');
+        }
         $this->lifecycle->synchronizeOwner($user);
 
         return DB::transaction(function () use ($user, $data): Pet {
@@ -37,14 +41,12 @@ final class AdoptStarterPet
 
             $this->lifecycle->assertCanAdvance($owner);
 
-            $claimed = User::query()
-                ->whereKey($user->id)
-                ->eligibleForStarterPet()
-                ->update(['starter_pet_claimed_at' => now()]);
-
-            if ($claimed !== 1) {
+            if (! $owner->canClaimStarterPet()) {
                 throw new StarterPetAlreadyClaimed;
             }
+
+            User::query()->whereKey($owner->id)->whereNull('starter_pet_claimed_at')
+                ->update(['starter_pet_claimed_at' => now()]);
 
             $dog = Dog::query()->find($data->dogId);
 
@@ -59,8 +61,9 @@ final class AdoptStarterPet
                 excludedCoatColors: config('doglive.breeding_rare_colors', []),
             ));
             $pet->user()->associate($user);
+            $pet->born_at = now()->subDays($data->ageMonths);
             $pet->save();
-            $this->progress->refreshAchievements($owner);
+            $this->progress->refreshAchievements($owner, notifyOnUnlock: true);
 
             return $pet;
         }, attempts: 3);

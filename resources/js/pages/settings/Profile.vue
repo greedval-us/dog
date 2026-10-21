@@ -5,6 +5,7 @@ import { ArrowUpRight, Camera, ChevronDown, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
+import BoardingSettings from '@/components/BoardingSettings.vue';
 import FormActions from '@/components/FormActions.vue';
 import FormField from '@/components/FormField.vue';
 import PlayerCard from '@/components/PlayerCard.vue';
@@ -13,9 +14,17 @@ import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { show as playerProfile } from '@/routes/players';
-import type { AvatarLimits, PlayerProfile } from '@/types/player';
+import type {
+    AvatarLimits,
+    BoardingSettings as BoardingSettingsData,
+    PlayerProfile,
+} from '@/types/player';
 
-defineProps<{ player: PlayerProfile; avatarLimits: AvatarLimits }>();
+defineProps<{
+    player: PlayerProfile;
+    avatarLimits: AvatarLimits;
+    boarding: BoardingSettingsData;
+}>();
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 const { t } = useI18n();
@@ -141,6 +150,7 @@ const { t } = useI18n();
                 </Form>
             </div>
         </SurfaceCard>
+        <BoardingSettings :boarding="boarding" />
         <DeleteUser />
     </div>
 </template>

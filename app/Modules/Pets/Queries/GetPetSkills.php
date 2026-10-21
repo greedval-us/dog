@@ -17,7 +17,7 @@ final class GetPetSkills
 {
     public function __construct(private SkillRules $rules, private PetDecayCalculator $decay, private GetPetStatSnapshot $getAttributes) {}
 
-    /** @return array{serverNow: string, token: string, skills: list<SkillView>} */
+    /** @return array{serverNow: string, token: string, cooldownSeconds: int, skills: list<SkillView>} */
     public function handle(User $user, int $petId, string $locale): array
     {
         $pet = $user->pets()->with('skills')->findOrFail($petId);
@@ -53,7 +53,7 @@ final class GetPetSkills
                 ! $skill->is_active || ! $valid => 'This skill is unavailable.',
                 $level >= SkillRules::MAX_LEVEL => 'Your dog has mastered all five levels of this skill.',
                 $pet->isBusy() => 'Finish your dog’s current activity before a skill lesson.',
-                $progress?->cooldown_until?->greaterThan($at) === true => 'Wait 24 hours between lessons for the same skill.',
+                $progress?->cooldown_until?->greaterThan($at) === true => 'Wait for the cooldown between lessons for the same skill.',
                 $next !== null && ! $this->rules->meets($attributes, $next['requirementPercentages']) => 'Raise your dog’s attributes to the lesson requirements.',
                 $next !== null && $user->coins < $next['price'] => 'You do not have enough coins to pay the instructor.',
                 default => null,
@@ -69,6 +69,6 @@ final class GetPetSkills
             ];
         }
 
-        return ['serverNow' => $at->toIso8601String(), 'token' => (string) Str::uuid(), 'skills' => $skills];
+        return ['serverNow' => $at->toIso8601String(), 'token' => (string) Str::uuid(), 'cooldownSeconds' => SkillRules::COOLDOWN_SECONDS, 'skills' => $skills];
     }
 }

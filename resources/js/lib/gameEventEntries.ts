@@ -5,7 +5,15 @@ export function entryWasWithdrawn(entry?: GameEventEntry | null): boolean {
 }
 
 export function isExhibition(discipline: EventDiscipline): boolean {
-    return discipline === 'conformation' || discipline === 'progeny';
+    return ['conformation', 'progeny', 'couple', 'breeders'].includes(
+        discipline,
+    );
+}
+
+export function isGroupRing(format?: string): boolean {
+    return ['progeny_ring', 'couple_ring', 'breeders_ring'].includes(
+        format ?? '',
+    );
 }
 
 export function groupEventEntries(entries: GameEventEntry[]) {

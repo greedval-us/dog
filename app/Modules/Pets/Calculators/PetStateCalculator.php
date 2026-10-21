@@ -14,18 +14,19 @@ final class PetStateCalculator
      * @param  array<string, float>  $values
      * @param  array<string, int>  $maximums
      * @param  array<string, int>  $modifiers
+     * @param  array<string, int|float>  $rateOverrides
      * @return array<string, float>
      */
-    public function calculate(array $values, array $maximums, int $seconds, array $modifiers = []): array
+    public function calculate(array $values, array $maximums, int $seconds, array $modifiers = [], array $rateOverrides = []): array
     {
         if ($seconds <= 0) {
             return $values;
         }
 
         $hours = $seconds / 3600;
-        $rates = $this->balance['decay_per_hour'];
+        $rates = array_replace($this->balance['decay_per_hour'], $rateOverrides);
         foreach ($rates as $state => $rate) {
-            $rates[$state] = max(0, $rate) * (100 + max(-50, min(50, $modifiers[$state.'_decay_percent'] ?? 0))) / 100;
+            $rates[$state] = max(0, $rate) * (100 + max(PetStatusRules::MIN_MODIFIER_PERCENT, min(PetStatusRules::MAX_MODIFIER_PERCENT, $modifiers[$state.'_decay_percent'] ?? 0))) / 100;
         }
         $criticalAfter = INF;
         foreach ($this->balance['health_needs'] as $state) {
@@ -54,7 +55,8 @@ final class PetStateCalculator
         }
 
         $values['health'] -= $maximums['health'] * $healthLoss / 100;
-        $values['energy'] += $maximums['energy'] * $this->balance['energy_recovery_per_hour'] * $recoveryHours / 100;
+        $recoveryMultiplier = (100 + max(PetStatusRules::MIN_MODIFIER_PERCENT, min(PetStatusRules::MAX_MODIFIER_PERCENT, $modifiers['energy_recovery_percent'] ?? 0))) / 100;
+        $values['energy'] += $maximums['energy'] * $this->balance['energy_recovery_per_hour'] * $recoveryHours * $recoveryMultiplier / 100;
 
         foreach ($values as $state => $value) {
             $values[$state] = round(max(0, min($maximums[$state], $value)), 4);

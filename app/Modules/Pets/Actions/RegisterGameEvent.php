@@ -7,8 +7,10 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
+use App\Modules\Pets\Queries\GetGameEventParticipation;
 use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Pets\Services\PetEventReservation;
 use App\Modules\Pets\Services\PetLifecycle;
@@ -21,7 +23,7 @@ use Illuminate\Support\Str;
 
 final class RegisterGameEvent
 {
-    public function __construct(private GameEventAdmission $admission, private PetLifecycle $lifecycle, private PlayerWallet $wallet, private PetEventReservation $reservations) {}
+    public function __construct(private GameEventAdmission $admission, private PetLifecycle $lifecycle, private PlayerWallet $wallet, private PetEventReservation $reservations, private GetGameEventParticipation $participation) {}
 
     /**
      * @param  array<string, mixed>  $plan
@@ -43,7 +45,7 @@ final class RegisterGameEvent
 
         return DB::transaction(function () use ($user, $eventId, $petId, $plan, $gearIds, $expectedFee, $token, $hash, $pendingRegistration): GameEventEntry {
             $event = GameEvent::query()->lockForUpdate()->findOrFail($eventId);
-            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+            $owner = $this->admission->lockRegistrationParticipants($user, $event, $petId, $plan);
             if ($owner->status !== PlayerStatus::Active) {
                 throw new GameEventUnavailable('events.errors.blocked');
             }
@@ -65,17 +67,19 @@ final class RegisterGameEvent
             if (($event->rules['fee'] ?? null) !== $expectedFee) {
                 throw new GameEventUnavailable('events.errors.fee');
             }
-            if ($event->entries()->where('user_id', $owner->id)->exists()) {
+            $multipleDogs = ($event->discipline === 'conformation' && EventRegulationData::isRegulated($event)) || EventRegulationData::isGroupRing($event);
+            $duplicates = $event->entries()->where('user_id', $owner->id);
+            if ($multipleDogs) {
+                $duplicates->where('pet_id', $petId);
+            }
+            if ($duplicates->exists()) {
                 throw new GameEventUnavailable('events.errors.entered');
             }
             if (CurrencyTransaction::query()->where('user_id', $owner->id)->whereRaw('LOWER(operation_key) = ?', ['event-registration:'.$token])->exists()) {
                 throw new GameEventUnavailable('events.errors.token');
             }
-            $startOfDay = $event->starts_at->setTimezone(config('game-events.timezone'))->startOfDay()->utc();
-            $dailyCount = GameEventEntry::query()->where('user_id', $owner->id)->whereNotIn('status', ['cancelled', 'withdrawn'])
-                ->whereHas('event', fn ($query) => $query->where('starts_at', '>=', $startOfDay)->where('starts_at', '<', $startOfDay->addDay()))->count();
-            if ($dailyCount >= config('game-events.daily_limit', 3)) {
-                throw new GameEventUnavailable('events.errors.daily_limit');
+            if (($reason = $this->participation->playerReason($owner, $event)) !== null) {
+                throw new GameEventUnavailable($reason);
             }
             $pet = Pet::query()->where('user_id', $owner->id)->lockForUpdate()->findOrFail($petId);
             $this->lifecycle->assertCanAdvance($owner, $at);
@@ -84,7 +88,8 @@ final class RegisterGameEvent
             }
             $this->reservations->assertCanRegister($pet, $event);
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $division = $this->availableDivision($event, $this->admission->division($event, $pet));
+            $baseDivision = $this->admission->division($event, $pet, $preparation->plan);
+            $division = $event->discipline === 'conformation' || EventRegulationData::isRegulated($event) ? $baseDivision : $this->availableDivision($event, $baseDivision);
             try {
                 $this->wallet->change($owner, 'coins', -$expectedFee, 'event-registration:'.$token, 'event_registration');
             } catch (InsufficientFunds) {

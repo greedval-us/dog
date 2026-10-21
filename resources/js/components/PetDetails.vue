@@ -129,7 +129,9 @@ const tabs = [
                         <p>{{ t('Could not load data. Please retry.') }}</p>
                         <Button
                             :disabled="reloading"
-                            @click="router.reload({ only: ['care'] })"
+                            @click="
+                                router.reload({ only: ['care', 'ownership'] })
+                            "
                             >{{ t('Retry') }}</Button
                         >
                     </div></template

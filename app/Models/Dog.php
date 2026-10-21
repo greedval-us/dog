@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Modules\Pets\Calculators\PetEventProfileRules;
 use App\Modules\Pets\DTO\NewPetData;
 use App\Modules\Pets\Enums\DogSize;
 use App\Modules\Pets\Enums\PetStat;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @phpstan-import-type BreedProfile from PetEventProfileRules
+ *
  * @property int $id
  * @property string $breed
  * @property array<string, string> $name
@@ -22,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property DogSize $size
  * @property bool $is_starter
  * @property array<string, array<string, string>> $coat_colors
+ * @property array<string,mixed>|null $event_profile
  * @property int $endurance_potential
  * @property int $speed_potential
  * @property int $strength_potential
@@ -38,13 +42,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $food_per_day
  * @property int $water_per_day
  */
-#[Fillable(['breed', 'name', 'description', 'size', 'coat_colors', 'is_starter', 'endurance_potential', 'speed_potential', 'strength_potential', 'agility_potential', 'obedience_potential', 'intelligence_potential', 'health_max', 'energy_max', 'satiety_max', 'hydration_max', 'mood_max', 'cleanliness_max', 'bond_max', 'food_per_day', 'water_per_day'])]
+#[Fillable(['breed', 'name', 'description', 'size', 'coat_colors', 'is_starter', 'event_profile', 'endurance_potential', 'speed_potential', 'strength_potential', 'agility_potential', 'obedience_potential', 'intelligence_potential', 'health_max', 'energy_max', 'satiety_max', 'hydration_max', 'mood_max', 'cleanliness_max', 'bond_max', 'food_per_day', 'water_per_day'])]
 class Dog extends Model
 {
     /** @use HasFactory<DogFactory> */
     use HasFactory;
 
     protected $table = 'dog';
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $dog): void {
+            $dog->event_profile = $dog->eventProfileDefaults();
+        });
+    }
+
+    /** @return BreedProfile */
+    public function eventProfileDefaults(): array
+    {
+        return (new PetEventProfileRules)->breedProfile(array_replace(config('event_breeds.'.$this->breed, []), $this->event_profile ?? []), $this->size->value);
+    }
 
     /** @return HasMany<Pet, $this> */
     public function pets(): HasMany
@@ -138,6 +155,7 @@ class Dog extends Model
             'name' => 'array',
             'description' => 'array',
             'coat_colors' => 'array',
+            'event_profile' => 'array',
             'is_starter' => 'boolean',
             'endurance_potential' => 'integer',
             'speed_potential' => 'integer',

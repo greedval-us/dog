@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->freezeSecond();
 });
 
-function careerCompletedEntry(Pet $pet, string $discipline = 'agility', int $rank = 1, bool $eliminated = false, ?User $previousOwner = null, ?CarbonImmutable $completedAt = null): GameEventEntry
+function careerCompletedEntry(Pet $pet, string $discipline = 'agility', ?int $rank = 1, bool $eliminated = false, ?User $previousOwner = null, ?CarbonImmutable $completedAt = null): GameEventEntry
 {
     $completedAt ??= CarbonImmutable::now()->subHour();
     $event = GameEvent::factory()->create([
@@ -27,7 +27,7 @@ function careerCompletedEntry(Pet $pet, string $discipline = 'agility', int $ran
 
     return GameEventEntry::factory()->for($event, 'event')->for($previousOwner ?? $pet->user)->for($pet)->create([
         'status' => 'completed', 'completed_at' => $completedAt, 'rank' => $rank,
-        'prize' => $eliminated ? 0 : 100, 'result' => ['eliminated' => $eliminated, 'score' => 97],
+        'prize' => $eliminated || $rank === null ? 0 : 100, 'result' => ['eliminated' => $eliminated, 'score' => 97],
         'snapshot' => ['name' => 'Имя на выступлении', 'buffs' => ['private' => 10], 'states' => ['health' => 94]],
     ]);
 }
@@ -109,9 +109,91 @@ test('career summaries count valid wins and podiums while excluding unfinished c
     $agility = collect($career['titles'])->firstWhere('discipline', 'agility');
     expect($agility)->toBe([
         'name' => 'Club winner: Agility', 'discipline' => 'agility', 'frequency' => 'daily',
-        'awardedAt' => $latest->completed_at->toIso8601String(), 'count' => 2, 'eventId' => $latest->game_event_id,
+        'awardedAt' => $latest->completed_at->toIso8601String(),
+        'code' => 'agility_daily_winner', 'classKey' => null, 'rank' => null, 'ageMonths' => null, 'breedId' => null,
+        'kind' => 'legacy', 'context' => [], 'details' => [], 'scopeKey' => '', 'sourceCount' => 0, 'regulationVersion' => null,
+        'count' => 2, 'eventId' => $latest->game_event_id,
     ]);
     expect(collect($career['results']['entries'])->firstWhere('id', $show->id)['kind'])->toBe('exhibition');
+});
+
+test('regulated career awards distinguish their category while combining repeated awards across the schedule', function (string $discipline, string $class, string $code, array $firstContext, array $otherContext, string $firstName, string $otherName) {
+    $pet = Pet::factory()->create();
+    $earlier = careerCompletedEntry($pet, $discipline, completedAt: CarbonImmutable::now()->subHours(3));
+    $latest = careerCompletedEntry($pet, $discipline, completedAt: CarbonImmutable::now()->subHour());
+    $latest->event->update(['frequency' => 'weekly']);
+    $other = careerCompletedEntry($pet, $discipline, completedAt: CarbonImmutable::now()->subHours(2));
+    foreach ([[$earlier, $firstContext], [$latest, $firstContext], [$other, $otherContext]] as [$entry, $context]) {
+        PetTitle::factory()->for($entry, 'entry')->create([
+            'pet_id' => $pet->id, 'discipline' => $discipline, 'frequency' => $entry->event->frequency,
+            'code' => $code, 'class_key' => $class, 'kind' => 'qualification', 'details' => $context,
+            'regulation_version' => '1', 'awarded_at' => $entry->completed_at,
+        ]);
+    }
+
+    $career = app(GetPetCareer::class)->handle($pet->user, $pet->id, 'en');
+
+    expect($career['titles'])->toHaveCount(2);
+    expect($career['titles'][0])->toMatchArray([
+        'name' => $firstName, 'count' => 2, 'context' => $firstContext, 'eventId' => $latest->game_event_id,
+    ]);
+    expect($career['titles'][1])->toMatchArray([
+        'name' => $otherName, 'count' => 1, 'context' => $otherContext, 'eventId' => $other->game_event_id,
+    ]);
+})->with([
+    'nosework programs' => ['nosework', 'nw_0', 'NW_CLASS_QUALIFICATION', ['program' => 'pr1'], ['program' => 'pr2'],
+        'Nosework class qualification · Nosework — class 0 · Program 1', 'Nosework class qualification · Nosework — class 0 · Program 2'],
+    'nosework test odors' => ['nosework', 'nw_test', 'NW_ODOR_TEST', ['program' => 'pr1', 'odor' => 'birch'], ['program' => 'pr1', 'odor' => 'lavender'],
+        'Odor recognition test passed · Odor recognition test · Program 1 · Birch tar', 'Odor recognition test passed · Odor recognition test · Program 1 · Lavender'],
+    'agility heights' => ['agility', 'agility_1', 'AGILITY_QUALIFICATION', ['heightCategory' => 'S'], ['heightCategory' => 'I'],
+        'Agility class qualification · Agility 1 · Height category S', 'Agility class qualification · Agility 1 · Height category I'],
+    'agility and jumping' => ['agility', 'agility_1', 'AGILITY_QUALIFICATION', ['format' => 'agility'], ['format' => 'jumping'],
+        'Agility class qualification · Agility 1 · Agility', 'Agility class qualification · Agility 1 · Jumping'],
+    'canicross breed categories' => ['canicross', 'canicross_open', 'RACE_QUALIFICATION', ['race_category' => '3'], ['race_category' => '4'],
+        'Canicross qualifying standard met · Canicross — open class · Breed category 3', 'Canicross qualifying standard met · Canicross — open class · Breed category 4'],
+]);
+
+test('completed unplaced qualifications remain in the career without becoming wins or podiums', function () {
+    $pet = Pet::factory()->create();
+    $entry = careerCompletedEntry($pet, 'nosework', rank: null);
+    PetTitle::factory()->for($entry, 'entry')->create([
+        'pet_id' => $pet->id, 'discipline' => 'nosework', 'frequency' => 'daily', 'code' => 'NW_ODOR_TEST',
+        'class_key' => 'nw_test', 'kind' => 'qualification', 'details' => ['program' => 'pr1', 'odor' => 'birch'],
+        'regulation_version' => '1', 'awarded_at' => $entry->completed_at,
+    ]);
+
+    $career = app(GetPetCareer::class)->handle($pet->user, $pet->id, 'en');
+
+    expect($career['results']['entries'])->toHaveCount(1);
+    expect($career['results']['entries'][0]['rank'])->toBeNull();
+    expect($career['titles'])->toHaveCount(1);
+    expect($career['summary'])->toMatchArray(['competitionStarts' => 1, 'competitionWins' => 0, 'podiums' => 0, 'cups' => 0]);
+});
+
+test('an eliminated trigger keeps earned championships and qualifications while hiding finish dependent awards', function () {
+    $pet = Pet::factory()->create();
+    $entry = careerCompletedEntry($pet, eliminated: true);
+    foreach ([
+        ['SPORT_REGIONAL_CH', 'championship'], ['AGILITY_QUALIFICATION', 'qualification'],
+        ['CACAg', 'certificate'], ['PLACE_1', 'placement'], ['CW', 'comparison'], ['agility_daily_winner', 'legacy'],
+    ] as [$code, $kind]) {
+        PetTitle::factory()->for($pet)->for($entry, 'entry')->create([
+            'code' => $code, 'kind' => $kind, 'regulation_version' => '2', 'awarded_at' => $entry->completed_at,
+        ]);
+    }
+    $unfinished = careerCompletedEntry($pet);
+    $unfinished->update(['status' => 'frozen']);
+    PetTitle::factory()->for($pet)->for($unfinished, 'entry')->create(['code' => 'AGILITY_START', 'kind' => 'qualification']);
+    $unsettled = careerCompletedEntry($pet);
+    $unsettled->event->update(['status' => 'frozen']);
+    PetTitle::factory()->for($pet)->for($unsettled, 'entry')->create(['code' => 'SPORT_NATIONAL_CH', 'kind' => 'championship']);
+
+    $career = app(GetPetCareer::class)->handle($pet->user, $pet->id, 'en');
+
+    expect(collect($career['titles'])->pluck('code')->sort()->values()->all())->toBe(['AGILITY_QUALIFICATION', 'SPORT_REGIONAL_CH']);
+    expect($career['results']['entries'])->toHaveCount(1);
+    expect($career['results']['entries'][0])->toMatchArray(['id' => $entry->id, 'eliminated' => true]);
+    expect($career['summary'])->toMatchArray(['competitionStarts' => 1, 'competitionWins' => 0, 'podiums' => 0]);
 });
 
 test('all historical results remain accessible with stable forward and backward pagination', function () {

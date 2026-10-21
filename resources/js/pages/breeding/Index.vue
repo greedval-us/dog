@@ -37,6 +37,8 @@ import {
 } from '@/components/ui/dialog';
 import { useBreedingMessages } from '@/composables/useBreedingMessages';
 import { useI18n } from '@/composables/useI18n';
+import { useDeadlineRefresh } from '@/composables/useDeadlineRefresh';
+import { careDuration } from '@/lib/petCarePresentation';
 import { purchaseShortfall } from '@/lib/purchaseAvailability';
 import { index, store } from '@/routes/breeding';
 import { store as list, destroy } from '@/routes/breeding/listings';
@@ -44,6 +46,11 @@ import { index as kennel } from '@/routes/kennel';
 import type { BreedingForecast, BreedingParent } from '@/types/breeding';
 
 const props = defineProps<{
+    serverNow: string;
+    cooldownSeconds: number;
+    pregnancySeconds: number;
+    breedingMinimumMonths: number;
+    breedingMaximumMonths: number;
     access: { level: number; requiredLevel: number; allowed: boolean };
     dogs: BreedingParent[];
     ownListings: {
@@ -74,7 +81,7 @@ const props = defineProps<{
     };
 }>();
 const { t, number } = useI18n();
-const { reason, date } = useBreedingMessages();
+const { reason } = useBreedingMessages();
 const page = usePage();
 const moving = ref(false);
 const confirmOpen = ref(false);
@@ -85,7 +92,13 @@ const form = useForm({
     expected_price: 0,
     operation_token: props.operationToken,
 });
-const listingForm = useForm({ pet_id: props.selection.petId, price: 100 });
+const selectedListing = computed(() =>
+    props.ownListings.find((offer) => offer.petId === props.selection.petId),
+);
+const listingForm = useForm({
+    pet_id: props.selection.petId,
+    price: selectedListing.value?.price ?? 100,
+});
 const removeForm = useForm({});
 const pending = computed(
     () =>
@@ -93,6 +106,43 @@ const pending = computed(
         form.processing ||
         listingForm.processing ||
         removeForm.processing,
+);
+const { now } = useDeadlineRefresh(
+    () => props.serverNow,
+    () =>
+        [
+            ...props.dogs,
+            ...props.listings.map((offer) => offer.pet),
+            ...props.partners.map((offer) => offer.pet),
+        ].flatMap((dog) => (dog.cooldownUntil ? [dog.cooldownUntil] : [])),
+    (options) =>
+        router.reload({
+            ...options,
+            only: [
+                'access',
+                'dogs',
+                'ownListings',
+                'listings',
+                'listingPagination',
+                'partners',
+                'selection',
+                'ownPair',
+                'selectedPrice',
+                'preview',
+                'operationToken',
+                'serverNow',
+            ],
+        }),
+    () => pending.value,
+);
+const breedingTiming = computed(() =>
+    t(
+        'A litter of 2–5 puppies arrives in {pregnancy}. One random puppy belongs to the father’s owner; the rest belong to the mother’s owner. Both parents rest from breeding for {cooldown}.',
+        {
+            pregnancy: careDuration(props.pregnancySeconds, t),
+            cooldown: careDuration(props.cooldownSeconds, t),
+        },
+    ),
 );
 const selectedDog = computed(() =>
     props.dogs.find((dog) => dog.id === props.selection.petId),
@@ -130,6 +180,13 @@ const listingErrors = computed(() =>
     Object.entries(listingForm.errors)
         .filter(([key, value]) => key !== 'price' && typeof value === 'string')
         .map(([, value]) => String(value)),
+);
+watch(
+    () => props.selection.petId,
+    () => {
+        listingForm.price = selectedListing.value?.price ?? 100;
+        listingForm.clearErrors();
+    },
 );
 watch(
     () => props.selection,
@@ -240,7 +297,11 @@ function createListing() {
                             :label="t('Your dog')"
                             :text="
                                 t(
-                                    'Both dogs must be at least 7 days old, healthy and available. Only unrelated dogs of the same breed can be paired.',
+                                    'Both dogs must be at least {minimum} and under {maximum} game months old, available and free of untreated diseases. Pair unrelated, purebred dogs of opposite sexes from the same breed. One real day equals one game month.',
+                                    {
+                                        minimum: number(breedingMinimumMonths),
+                                        maximum: number(breedingMaximumMonths),
+                                    },
                                 )
                             "
                         />
@@ -271,10 +332,26 @@ function createListing() {
                     compact
                 />
                 <ActionHint :message="reason(selectedDog?.reason ?? null)" />
-                <p v-if="selectedDog?.cooldownUntil" class="field-hint">
+                <p
+                    v-if="
+                        selectedDog?.cooldownUntil &&
+                        Date.parse(selectedDog.cooldownUntil) > now
+                    "
+                    class="field-hint"
+                >
                     {{
-                        t('Next breeding: {date}', {
-                            date: date(selectedDog.cooldownUntil),
+                        t('Next breeding in {duration}', {
+                            duration: careDuration(
+                                Math.max(
+                                    0,
+                                    Math.ceil(
+                                        (Date.parse(selectedDog.cooldownUntil) -
+                                            now) /
+                                            1000,
+                                    ),
+                                ),
+                                t,
+                            ),
                         })
                     }}
                 </p>
@@ -330,11 +407,7 @@ function createListing() {
                                         selection.kind === 'listing' &&
                                         selection.partnerId === offer.id
                                     "
-                                    :disabled="
-                                        pending ||
-                                        Boolean(offer.pet.reason) ||
-                                        Boolean(selectedDog.reason)
-                                    "
+                                    :disabled="pending"
                                     @click="
                                         select(
                                             selectedDog.id,
@@ -426,11 +499,7 @@ function createListing() {
                                         selection.kind === 'partner' &&
                                         selection.partnerId === offer.id
                                     "
-                                    :disabled="
-                                        pending ||
-                                        Boolean(offer.pet.reason) ||
-                                        Boolean(selectedDog.reason)
-                                    "
+                                    :disabled="pending"
                                     @click="
                                         select(
                                             selectedDog.id,
@@ -493,11 +562,7 @@ function createListing() {
                         }}</strong>
                         <HelpHint
                             :label="t('Confirm breeding')"
-                            :text="
-                                t(
-                                    'A litter of 2–5 puppies arrives in 24 hours. One random puppy belongs to the father’s owner; the rest belong to the mother’s owner. Both parents rest from breeding for 7 days.',
-                                )
-                            "
+                            :text="breedingTiming"
                         />
                     </div>
                     <Button
@@ -587,9 +652,7 @@ function createListing() {
                 ><DialogHeader
                     ><DialogTitle>{{ t('Confirm breeding') }}</DialogTitle
                     ><DialogDescription>{{
-                        t(
-                            'A litter of 2–5 puppies arrives in 24 hours. One random puppy belongs to the father’s owner; the rest belong to the mother’s owner. Both parents rest from breeding for 7 days.',
-                        )
+                        breedingTiming
                     }}</DialogDescription></DialogHeader
                 >
                 <p>

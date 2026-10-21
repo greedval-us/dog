@@ -3,6 +3,7 @@
 namespace App\MoonShine\Resources;
 
 use App\Models\Training;
+use App\Modules\Pets\Calculators\GameplayTiming;
 use Illuminate\Database\Eloquent\Model;
 use MoonShine\Support\Attributes\Icon;
 use MoonShine\UI\Fields\ID;
@@ -31,8 +32,8 @@ final class TrainingResource extends AdminResource
         return [
             ...$this->catalogueFields(),
             Number::make(__('admin.fields.energy_cost'), 'energy_cost')->min(0)->max(100)->required(),
-            Number::make(__('admin.fields.duration_seconds'), 'duration_seconds')->min(1)->max(86400)->required(),
-            Number::make(__('admin.fields.cooldown_seconds'), 'cooldown_seconds')->min(0)->max(604800)->required(),
+            Number::make(__('admin.fields.duration_seconds'), 'duration_seconds')->min(GameplayTiming::MIN_SECONDS)->max(GameplayTiming::MAX_SECONDS)->required(),
+            Number::make(__('admin.fields.cooldown_seconds'), 'cooldown_seconds')->min(GameplayTiming::MIN_SECONDS)->max(GameplayTiming::MAX_SECONDS)->required(),
             Number::make(__('admin.fields.risk_chance'), 'risk_chance')->min(0)->max(100)->required(),
         ];
     }
@@ -42,8 +43,8 @@ final class TrainingResource extends AdminResource
         return [
             ...$this->catalogueRules(),
             'energy_cost' => ['required', 'integer', 'between:0,100'],
-            'duration_seconds' => ['required', 'integer', 'between:1,86400'],
-            'cooldown_seconds' => ['required', 'integer', 'between:0,604800'],
+            'duration_seconds' => ['required', 'integer', 'between:'.GameplayTiming::MIN_SECONDS.','.GameplayTiming::MAX_SECONDS],
+            'cooldown_seconds' => ['required', 'integer', 'between:'.GameplayTiming::MIN_SECONDS.','.GameplayTiming::MAX_SECONDS],
             'risk_chance' => ['required', 'integer', 'between:0,100'],
         ];
     }

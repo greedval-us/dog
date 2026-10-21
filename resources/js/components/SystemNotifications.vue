@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { useHttp, usePage } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import {
+    ArrowUpRight,
+    Award,
     Bell,
     BellCheck,
     Check,
     CheckCheck,
+    Coins,
+    HeartCrack,
     LogIn,
+    PawPrint,
     ShieldCheck,
     Sparkles,
+    Trophy,
     X,
 } from '@lucide/vue';
 import {
@@ -17,38 +23,37 @@ import {
     PopoverRoot,
     PopoverTrigger,
 } from 'reka-ui';
-import { computed, onUnmounted, ref, useId, watch } from 'vue';
+import { useId } from 'vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
-import { index, readAll, update } from '@/routes/notifications';
-import type {
-    SystemNotification,
-    SystemNotificationPage,
-} from '@/types/notification';
+import { useSystemNotifications } from '@/composables/useSystemNotifications';
 
-const page = usePage();
 const { t, locale, number } = useI18n();
 const titleId = useId();
-const open = ref(false);
-const items = ref<SystemNotification[]>([]);
-const nextCursor = ref<string | null>(null);
-const unreadCount = ref(page.props.systemNotificationUnreadCount);
-const loadError = ref(false);
-const actionError = ref(false);
-const loaded = ref(false);
-const listRequest = useHttp<Record<string, never>, SystemNotificationPage>({});
-const readRequest = useHttp<
-    Record<string, never>,
-    { readAt: string; unreadCount: number }
->({});
-const busy = computed(() => listRequest.processing || readRequest.processing);
-let generation = 0;
-let active = true;
+const {
+    open,
+    items,
+    nextCursor,
+    unreadCount,
+    loadError,
+    actionError,
+    loaded,
+    busy,
+    loading,
+    load,
+    markRead,
+} = useSystemNotifications();
 const icons = {
     login: LogIn,
     password_changed: ShieldCheck,
     password_reset: ShieldCheck,
     site_update: Sparkles,
+    achievement: Award,
+    pet_death: HeartCrack,
+    show_result: Trophy,
+    competition_result: Trophy,
+    breeding_success: PawPrint,
+    pet_sold: Coins,
 };
 const localized = (value: Record<'ru' | 'en', string>) => value[locale.value];
 const formatDate = (value: string) =>
@@ -56,77 +61,7 @@ const formatDate = (value: string) =>
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(value));
-
-watch(
-    () => page.props,
-    (props) => {
-        unreadCount.value = props.systemNotificationUnreadCount;
-    },
-);
-watch(
-    () => page.url,
-    () => {
-        open.value = false;
-    },
-);
-watch(open, (value) => {
-    if (value) {
-        void load();
-    } else {
-        generation++;
-        listRequest.cancel();
-    }
-});
-onUnmounted(() => {
-    active = false;
-    generation++;
-    listRequest.cancel();
-    readRequest.cancel();
-});
-
-async function load(older = false) {
-    if (busy.value || (older && !nextCursor.value)) return;
-    const currentGeneration = ++generation;
-    loadError.value = false;
-    actionError.value = false;
-    if (!older) loaded.value = false;
-    try {
-        const response = await listRequest.get(
-            index.url({
-                query: older ? { cursor: nextCursor.value } : {},
-            }),
-        );
-        if (!active || currentGeneration !== generation) return;
-        items.value = older
-            ? [...items.value, ...response.items]
-            : response.items;
-        nextCursor.value = response.nextCursor;
-        unreadCount.value = response.unreadCount;
-        loaded.value = true;
-    } catch {
-        if (active && currentGeneration === generation) loadError.value = true;
-    }
-}
-
-async function markRead(notification?: SystemNotification) {
-    if (busy.value) return;
-    actionError.value = false;
-    try {
-        const response = await readRequest.patch(
-            notification ? update.url(notification.id) : readAll.url(),
-        );
-        if (!active) return;
-        items.value = notification
-            ? items.value.filter((item) => item.id !== notification.id)
-            : [];
-        if (!notification) nextCursor.value = null;
-        unreadCount.value = response.unreadCount;
-    } catch {
-        if (active) actionError.value = true;
-    }
-}
 </script>
-
 <template>
     <PopoverRoot v-model:open="open">
         <PopoverTrigger as-child>
@@ -164,7 +99,7 @@ async function markRead(notification?: SystemNotification) {
                 <div class="notification-header">
                     <div>
                         <h2 :id="titleId">{{ t('Notifications') }}</h2>
-                        <p>{{ t('Account security and site updates') }}</p>
+                        <p>{{ t('Gameplay and account updates') }}</p>
                     </div>
                     <PopoverClose as-child>
                         <Button
@@ -200,7 +135,7 @@ async function markRead(notification?: SystemNotification) {
                     }}
                 </p>
                 <div
-                    v-if="!loaded && listRequest.processing"
+                    v-if="!loaded && loading"
                     class="notification-loading"
                     role="status"
                 >
@@ -220,7 +155,7 @@ async function markRead(notification?: SystemNotification) {
                     <p>
                         {{
                             t(
-                                'New sign-ins, password changes and site updates will appear here.',
+                                'Achievements, dog updates, event results and sales will appear here.',
                             )
                         }}
                     </p>
@@ -236,9 +171,12 @@ async function markRead(notification?: SystemNotification) {
                         class="notification-item"
                         :class="{ 'notification-unread': !notification.readAt }"
                     >
-                        <span class="notification-icon">
+                        <span
+                            class="notification-icon"
+                            :class="`notification-icon-${notification.kind}`"
+                        >
                             <component
-                                :is="icons[notification.kind]"
+                                :is="icons[notification.kind] ?? Bell"
                                 :size="18"
                                 aria-hidden="true"
                             />
@@ -256,23 +194,45 @@ async function markRead(notification?: SystemNotification) {
                             <time :datetime="notification.createdAt">{{
                                 formatDate(notification.createdAt)
                             }}</time>
-                            <Button
-                                v-if="!notification.readAt"
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                class="notification-read-button"
-                                :disabled="busy"
-                                :aria-label="
-                                    t('Mark as read: {title}', {
-                                        title: localized(notification.title),
-                                    })
-                                "
-                                @click="markRead(notification)"
-                            >
-                                <Check :size="14" aria-hidden="true" />
-                                {{ t('Mark as read') }}
-                            </Button>
+                            <div class="notification-item-actions">
+                                <Link
+                                    v-if="notification.actionUrl"
+                                    :href="notification.actionUrl"
+                                    class="notification-action"
+                                    :aria-label="
+                                        t('View details: {title}', {
+                                            title: localized(
+                                                notification.title,
+                                            ),
+                                        })
+                                    "
+                                >
+                                    {{ t('Details') }}
+                                    <ArrowUpRight
+                                        :size="15"
+                                        aria-hidden="true"
+                                    />
+                                </Link>
+                                <Button
+                                    v-if="!notification.readAt"
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    class="notification-read-button"
+                                    :disabled="busy"
+                                    :aria-label="
+                                        t('Mark as read: {title}', {
+                                            title: localized(
+                                                notification.title,
+                                            ),
+                                        })
+                                    "
+                                    @click="markRead(notification)"
+                                >
+                                    <Check :size="14" aria-hidden="true" />
+                                    {{ t('Mark as read') }}
+                                </Button>
+                            </div>
                         </div>
                     </li>
                 </ol>
@@ -304,7 +264,7 @@ async function markRead(notification?: SystemNotification) {
                         @click="load(true)"
                     >
                         {{
-                            listRequest.processing
+                            loading
                                 ? t('Loading notifications')
                                 : t('Older notifications')
                         }}

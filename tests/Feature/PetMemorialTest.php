@@ -29,12 +29,12 @@ test('signed in players can open a memorial with the current email verification 
         ->assertOk();
 });
 
-test('the public memorial lists only the named players retired and deceased pets', function (string $locale, string $breedName) {
+test('the public memorial lists only the named players deceased pets', function (string $locale, string $breedName) {
     $viewer = User::factory()->create(['locale' => $locale]);
     $owner = User::factory()->create(['username' => 'remembered_dogs']);
     $dog = Dog::factory()->create(['name' => ['ru' => 'Овчарка', 'en' => 'Shepherd']]);
     $retired = Pet::factory()->for($owner)->for($dog)->retired()->create([
-        'name' => 'Рэй', 'born_at' => '2026-04-01 12:00:00', 'retired_at' => '2026-10-01 12:00:00',
+        'name' => 'Рэй', 'born_at' => now()->subDays(120), 'retired_at' => now(),
     ]);
     $deceased = Pet::factory()->for($owner)->for($dog)->create([
         'name' => 'Луна', 'health' => 0, 'born_at' => '2026-07-01 12:00:00', 'died_at' => '2026-10-02 12:00:00',
@@ -52,9 +52,6 @@ test('the public memorial lists only the named players retired and deceased pets
                     ['id' => $deceased->id, 'name' => 'Луна', 'breed' => $breedName,
                         'portraitId' => null, 'backgroundId' => null, 'bornAt' => '2026-07-01T12:00:00+00:00',
                         'archivedAt' => '2026-10-02T12:00:00+00:00', 'status' => 'deceased'],
-                    ['id' => $retired->id, 'name' => 'Рэй', 'breed' => $breedName,
-                        'portraitId' => null, 'backgroundId' => null, 'bornAt' => '2026-04-01T12:00:00+00:00',
-                        'archivedAt' => '2026-10-01T12:00:00+00:00', 'status' => 'retired'],
                 ],
                 'nextCursor' => null, 'previousCursor' => null,
             ])
@@ -64,9 +61,9 @@ test('the public memorial lists only the named players retired and deceased pets
 test('memorial cursor pagination keeps older pets without leaking active or other owners pets', function () {
     $player = User::factory()->create();
     $dog = Dog::factory()->create();
-    $pets = Pet::factory()->for($player)->for($dog)->retired()->count(13)->create();
+    $pets = Pet::factory()->for($player)->for($dog)->deceased()->count(13)->create();
     Pet::factory()->for($player)->for($dog)->create();
-    Pet::factory()->for($dog)->retired()->create();
+    Pet::factory()->for($dog)->deceased()->create();
 
     $first = $this->actingAs($player)->get(route('players.memorial.index', $player->username));
     $first->assertInertia(fn (Assert $page) => $page
@@ -94,26 +91,25 @@ test('an empty memorial does not fabricate pets and missing players return not f
     $this->get(route('players.memorial.index', 'missing_player'))->assertNotFound();
 });
 
-test('visiting an offline players memorial archives deaths and automatic retirement before displaying the list', function () {
+test('visiting an offline players memorial keeps seniors active while listing only deaths', function () {
     $this->travelTo(now()->setDate(2026, 10, 3)->setTime(12, 0));
     $owner = User::factory()->create();
     $viewer = User::factory()->create();
-    $old = Pet::factory()->for($owner)->create(['born_at' => '2026-04-03 12:00:00']);
+    $old = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(120)]);
     $dead = Pet::factory()->for($owner)->create(['born_at' => '2026-08-01 12:00:00', 'health' => 0]);
     $active = Pet::factory()->for($owner)->create();
 
     $this->actingAs($viewer)->get(route('players.memorial.index', $owner->username))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('pets.data', 2)
+            ->has('pets.data', 1)
             ->where('pets.data.0.id', $dead->id)->where('pets.data.0.status', 'deceased')
-            ->where('pets.data.1.id', $old->id)->where('pets.data.1.status', 'retired')
-            ->where('player.dogsCount', 1)
+            ->where('player.dogsCount', 2)
         );
-    $this->assertDatabaseHas('pets', ['id' => $old->id, 'retired_at' => '2026-10-03 12:00:00']);
+    $this->assertDatabaseHas('pets', ['id' => $old->id, 'retired_at' => null, 'died_at' => null]);
     $this->assertDatabaseHas('pets', ['id' => $dead->id, 'died_at' => '2026-10-03 12:00:00']);
     $this->get(route('players.show', $owner->username))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('player.dogsCount', 1)->has('dogs', 1)->where('dogs.0.id', $active->id)
+            ->where('player.dogsCount', 2)->has('dogs', 2)->where('dogs.0.id', $old->id)->where('dogs.1.id', $active->id)
         );
 });
 
@@ -123,10 +119,10 @@ test('an archived pet card preserves states attributes and learned levels across
     $viewer = User::factory()->create();
     $pet = Pet::factory()->for($owner)->create([
         'name' => 'Старый друг', 'born_at' => '2026-05-01 12:00:00',
-        'retired_at' => $status === 'retired' ? '2026-10-01 12:00:00' : null,
-        'died_at' => $status === 'deceased' ? '2026-10-01 12:00:00' : null,
+        'retired_at' => $status === 'deceased_after_retirement' ? '2026-10-01 12:00:00' : null,
+        'died_at' => '2026-10-01 12:00:00',
         'state_updated_at' => '2026-10-01 12:00:00', 'stats_updated_at' => '2026-10-01 12:00:00',
-        'health' => $status === 'deceased' ? 0 : 29, 'health_max' => 100,
+        'health' => 0, 'health_max' => 100,
         'satiety' => 42, 'satiety_max' => 100, 'energy' => 17,
         'strength' => 43, 'strength_potential' => 80,
     ]);
@@ -143,7 +139,7 @@ test('an archived pet card preserves states attributes and learned levels across
         ->where('pet.states.satiety', 42)
         ->where('pet.energy.value', 17)
         ->where('pet.stats.strength', ['value' => 43, 'potential' => 80])
-        ->where('pet.lifecycle.status', $status)
+        ->where('pet.lifecycle.status', 'deceased')
         ->where('pet.lifecycle.canRetire', false)
         ->where('appearance', ['assets' => [], 'portraitId' => null, 'backgroundId' => null])
         ->where('learnedSkills', [['id' => $skill->id, 'name' => 'Найти предмет', 'description' => '', 'level' => 3]])
@@ -154,12 +150,12 @@ test('an archived pet card preserves states attributes and learned levels across
     $this->get(route('players.memorial.show', ['user' => $owner->username, 'pet' => $pet]))
         ->assertInertia(fn (Assert $page) => $page->where('pet', $first->inertiaProps('pet')));
     expect($pet->fresh()->getAttributes())->toBe($snapshot);
-})->with(['retired', 'deceased']);
+})->with(['deceased_after_retirement', 'deceased']);
 
 test('an active pet and a different owners pet cannot be opened through a memorial detail link', function () {
     $owner = User::factory()->create();
     $active = Pet::factory()->for($owner)->create();
-    $other = Pet::factory()->retired()->create();
+    $other = Pet::factory()->deceased()->create();
 
     $this->actingAs($owner)->get(route('players.memorial.show', ['user' => $owner->username, 'pet' => $active]))
         ->assertNotFound();
@@ -171,7 +167,7 @@ test('archived cards use selected artwork purchased by the owner', function () {
     Storage::fake('local');
     Storage::disk('local')->put('appearance/test/portrait.png', 'portrait');
     Storage::disk('local')->put('appearance/test/icon.png', 'icon');
-    $pet = Pet::factory()->retired()->create();
+    $pet = Pet::factory()->deceased()->create();
     $portrait = GameAsset::factory()->paid()->create(['dog_id' => $pet->dog_id, 'coat_color' => $pet->coat_color]);
     $background = GameAsset::factory()->background()->paid()->create();
     AssetUnlock::factory()->for($pet->user)->create(['game_asset_id' => $portrait->id]);

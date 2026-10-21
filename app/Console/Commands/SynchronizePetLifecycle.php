@@ -14,7 +14,7 @@ class SynchronizePetLifecycle extends Command
 {
     protected $signature = 'pets:sync-lifecycle';
 
-    protected $description = 'Freeze deceased dogs and automatically retire dogs at six months';
+    protected $description = 'Synchronize dog age, career retirement and death while continuing care for living seniors';
 
     public function handle(PetLifecycle $lifecycle, GameEventProcessor $events): int
     {
@@ -23,7 +23,7 @@ class SynchronizePetLifecycle extends Command
         do {
             $events->processDue($at);
         } while ($events->hasDueEvents($at));
-        foreach (User::query()->whereHas('pets', fn (Builder $query) => $query->whereNull('retired_at')->whereNull('died_at'))
+        foreach (User::query()->whereHas('pets', fn (Builder $query) => $query->whereNull('surrendered_at')->whereNull('died_at'))
             ->select('id')->lazyById(200) as $user) {
             if ($events->hasDueRegistrations($user, $at)) {
                 continue;

@@ -101,6 +101,7 @@ test('the puppy market separates active player listings from kennel puppies', fu
 
     $this->actingAs($viewer)->get(route('puppies.market'))->assertInertia(fn (Assert $page) => $page
         ->component('puppies/Market')->where('source', 'players')->has('puppies', 1)
+        ->where('serverNow', now()->toIso8601String())
         ->where('puppies.0.id', $listed->id)->where('puppies.0.price', 137)
         ->where('puppies.0.seller.username', $listed->user->username));
     $this->get(route('puppies.market', ['source' => 'kennel']))->assertInertia(fn (Assert $page) => $page
@@ -108,7 +109,7 @@ test('the puppy market separates active player listings from kennel puppies', fu
         ->where('puppies.0.price', 500)->where('puppies.0.seller', null));
 });
 
-test('keeping a puppy preserves its genetics and ancestry and starts its game lifetime on acquisition', function () {
+test('keeping a puppy preserves its genetics ancestry and original litter birth date', function () {
     $owner = User::factory()->create(['coins' => 317]);
     $puppy = tradePuppy($owner, 'pending', [
         'coat_color' => 'silver', 'generation' => 4, 'endurance_potential' => 135, 'speed_potential' => 127,
@@ -129,7 +130,7 @@ test('keeping a puppy preserves its genetics and ancestry and starts its game li
         'endurance_potential' => 135, 'speed_potential' => 127, 'strength_potential' => 88,
         'agility_potential' => 101, 'obedience_potential' => 73, 'intelligence_potential' => 59,
         'endurance' => 27, 'speed' => 25, 'strength' => 18, 'agility' => 20, 'obedience' => 15, 'intelligence' => 12,
-        'born_at' => now()->toDateTimeString(),
+        'born_at' => $puppy->litter->born_at->toDateTimeString(),
     ]);
     $this->assertDatabaseHas('puppies', ['id' => $puppy->id, 'status' => 'placed', 'pet_id' => $placement->pet_id]);
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 317, 'experience' => '0']);
@@ -192,6 +193,10 @@ test('player puppy sales transfer the exact price and replay the durable placeme
     $this->assertDatabaseHas('currency_transactions', ['user_id' => $buyer->id, 'amount' => -137, 'reason' => 'puppy_purchase', 'operation_key' => 'puppy-purchase:'.$token]);
     $this->assertDatabaseHas('currency_transactions', ['user_id' => $seller->id, 'amount' => 137, 'reason' => 'puppy_sale', 'operation_key' => 'puppy-purchase:'.$token]);
     $this->assertDatabaseHas('puppy_placements', ['id' => $placement->id, 'seller_id' => $seller->id, 'price' => 137, 'kind' => 'purchase']);
+    $notification = $seller->notifications()->get()->where('data.kind', 'pet_sold')->sole();
+    expect($notification->data['message']['en'])->toBe($puppy->name.' was sold for 137 coins. The payment has been added to your balance.');
+    expect($notification->data['actionUrl'])->toBe(route('pets.show', $placement->pet_id, absolute: false));
+    expect($buyer->notifications()->get()->where('data.kind', 'pet_sold')->isNotEmpty())->toBeFalse();
     $this->assertDatabaseHas('puppies', ['id' => $puppy->id, 'status' => 'placed', 'user_id' => $buyer->id]);
     $this->assertDatabaseCount('currency_transactions', 2);
     $this->assertDatabaseCount('puppy_placements', 1);
@@ -247,6 +252,7 @@ test('insufficient funds or a full roster prevents both payment and puppy placem
     $this->assertDatabaseHas('puppies', ['id' => $puppy->id, 'status' => 'listed', 'user_id' => $seller->id]);
     $this->assertDatabaseCount('currency_transactions', 0);
     $this->assertDatabaseCount('puppy_placements', 0);
+    expect($seller->notifications()->get()->where('data.kind', 'pet_sold')->isNotEmpty())->toBeFalse();
 })->with(['insufficient funds' => [false], 'full roster' => [true]]);
 
 test('listing can be cancelled and surrender gives the kennel custody without a payout', function () {

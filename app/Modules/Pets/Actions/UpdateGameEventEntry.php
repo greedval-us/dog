@@ -6,6 +6,7 @@ use App\Models\GameEvent;
 use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Services\GameEventAdmission;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -25,14 +26,21 @@ final class UpdateGameEventEntry
 
         return DB::transaction(function () use ($user, $candidate, $plan, $gearIds): GameEventEntry {
             $event = GameEvent::query()->lockForUpdate()->findOrFail($candidate->game_event_id);
-            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+            if (EventRegulationData::isGroupRing($event)) {
+                $candidate->refresh();
+            }
+            $owner = $this->admission->lockRegistrationParticipants($user, $event, $candidate->pet_id, $plan, $candidate->plan);
             $pet = Pet::query()->where('user_id', $owner->id)->lockForUpdate()->findOrFail($candidate->pet_id);
             $entry = GameEventEntry::query()->lockForUpdate()->findOrFail($candidate->id);
             if ($owner->status !== PlayerStatus::Active || $entry->status !== 'registered' || $event->status !== 'registration' || now()->greaterThanOrEqualTo($event->closes_at)) {
                 throw new GameEventUnavailable('events.errors.closed');
             }
             $preparation = $this->admission->prepare($owner, $event, $pet, $plan, $gearIds);
-            $entry->update(['plan' => $preparation->plan, 'gear_ids' => $gearIds]);
+            $changes = ['plan' => $preparation->plan, 'gear_ids' => $gearIds];
+            if ($event->discipline === 'conformation' || EventRegulationData::isRegulated($event)) {
+                $changes['division'] = $this->admission->division($event, $pet, $preparation->plan);
+            }
+            $entry->update($changes);
 
             return $entry;
         }, attempts: 3);

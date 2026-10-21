@@ -11,9 +11,11 @@ use App\Models\PetTitle;
 use App\Models\User;
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Enums\AchievementMetric;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Carbon\CarbonImmutable;
@@ -27,6 +29,9 @@ final class GameEventSettlement
         private PlayerProgress $progress,
         private GameEventSimulator $simulator,
         private GameEventRandomness $randomness,
+        private ExhibitionAwards $exhibitionAwards,
+        private RegulatedEventSettlement $regulated,
+        private PlayerNotifications $notifications,
     ) {}
 
     /**
@@ -37,6 +42,13 @@ final class GameEventSettlement
      */
     public function settle(GameEvent $event, Collection $owners, Collection $pets, CarbonImmutable $at): void
     {
+        $entryIds = array_values($event->entries()->where('status', 'frozen')->get(['id'])
+            ->map(static fn (GameEventEntry $entry): int => $entry->id)->all());
+        if (EventRegulationData::isRegulated($event)) {
+            $this->finish($event, $owners, $pets, $this->regulated->settle($event, $owners, $pets), $at, $entryIds);
+
+            return;
+        }
         $winningPetIds = [];
         foreach ($event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division') as $participants) {
             $results = [];
@@ -88,6 +100,20 @@ final class GameEventSettlement
                 }
             }
         }
+        if ($event->discipline === GameEventDiscipline::Conformation->value) {
+            $this->exhibitionAwards->recordBreedTitles($event);
+        }
+        $this->finish($event, $owners, $pets, $winningPetIds, $at, $entryIds);
+    }
+
+    /**
+     * @param  Collection<int,User>  $owners
+     * @param  Collection<int,Pet>  $pets
+     * @param  list<int>  $winningPetIds
+     * @param  list<int>  $entryIds
+     */
+    private function finish(GameEvent $event, Collection $owners, Collection $pets, array $winningPetIds, CarbonImmutable $at, array $entryIds): void
+    {
         if ($winningPetIds !== []) {
             $breederIds = BreedingLitter::query()->whereNotNull('delivered_at')
                 ->whereHas('puppies', fn (Builder $query): Builder => $query->whereIn('pet_id', $winningPetIds))
@@ -95,11 +121,20 @@ final class GameEventSettlement
             foreach ($breederIds as $breederId) {
                 $breeder = $owners->get($breederId);
                 if ($breeder !== null) {
-                    $this->progress->refreshAchievements($breeder, [AchievementMetric::TitledOffspring]);
+                    $this->progress->refreshAchievements($breeder, [AchievementMetric::TitledOffspring], notifyOnUnlock: true);
                 }
             }
         }
         $event->update(['status' => 'settled', 'settled_at' => $at]);
+        foreach ($event->entries()->whereKey($entryIds)->where('status', 'completed')->where('is_npc', false)->whereIn('user_id', $owners->keys())->orderBy('id')->get() as $entry) {
+            $owner = $owners->get($entry->user_id);
+            if ($owner !== null) {
+                $savedName = $entry->snapshot['name'] ?? null;
+                $petName = is_string($savedName) && $savedName !== '' ? $savedName : $pets->get($entry->pet_id)?->name;
+                $this->notifications->eventCompleted($owner, $event->id, $event->discipline,
+                    GameEventDiscipline::from($event->discipline)->isExhibition(), $petName);
+            }
+        }
     }
 
     private function recordCareer(GameEvent $event, GameEventEntry $entry, Pet $pet): void
@@ -111,10 +146,12 @@ final class GameEventSettlement
         $record->experience = min(1000000, $record->experience + ($entry->result['eliminated'] ? 2 : ($win ? 10 : 5)));
         $record->tier = max($record->tier, $record->experience >= 90 ? 2 : ($record->experience >= 30 ? 1 : 0));
         $record->save();
-        if ($win) {
-            PetTitle::query()->firstOrCreate(['game_event_entry_id' => $entry->id], [
+        if ($event->discipline === GameEventDiscipline::Conformation->value && isset($entry->snapshot['exhibition_class'])) {
+            $this->exhibitionAwards->recordPlace($event, $entry);
+        } elseif ($win) {
+            PetTitle::query()->firstOrCreate(['game_event_entry_id' => $entry->id, 'code' => $event->discipline.'_'.$event->frequency.'_winner'], [
                 'pet_id' => $pet->id, 'discipline' => $event->discipline, 'frequency' => $event->frequency,
-                'code' => $event->discipline.'_'.$event->frequency.'_winner', 'awarded_at' => $event->ends_at,
+                'awarded_at' => $event->ends_at,
             ]);
         }
     }

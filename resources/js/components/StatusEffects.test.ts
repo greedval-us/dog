@@ -73,6 +73,18 @@ describe('effect lifetime labels', () => {
         expect(html).not.toContain('Until treatment');
     });
 
+    it.each([
+        ['en', '10 sec left'],
+        ['ru', 'Осталось 10 сек'],
+    ])('shows seconds for short effects in %s', async (locale, label) => {
+        const html = await renderEffect(locale, {
+            duration_seconds: 10,
+            expires_at: 1791021610,
+        });
+
+        expect(html).toContain(label);
+    });
+
     it('keeps the condition label for state effects', async () => {
         const html = await renderEffect('en', { condition_state: 'satiety' });
 

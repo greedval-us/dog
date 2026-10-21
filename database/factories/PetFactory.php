@@ -19,6 +19,7 @@ class PetFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->firstName(),
             'sex' => PetSex::Male,
+            'born_at' => now()->subDays(18),
         ];
     }
 

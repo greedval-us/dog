@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\User;
 use App\Modules\Kennel\DTO\AdoptStarterPetData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,7 @@ class AdoptStarterPetRequest extends FormRequest
         return new AdoptStarterPetData(
             dogId: (int) $this->validated('dog_id'),
             name: $this->validated('name'),
+            ageMonths: (int) $this->validated('age_months'),
         );
     }
 
@@ -29,6 +31,7 @@ class AdoptStarterPetRequest extends FormRequest
         return [
             'dog_id' => ['required', 'integer', Rule::exists('dog', 'id')->where('is_starter', true)],
             'name' => ['required', 'string', 'max:64'],
+            'age_months' => ['required', 'integer', Rule::enum(KennelPetAge::class)],
         ];
     }
 

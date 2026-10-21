@@ -15,6 +15,7 @@ import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
+import { backgroundRequestHeaders } from '@/lib/backgroundRequests';
 import { stateLabels, statLabels } from '@/lib/petLabels';
 import { index } from '@/routes/pets/history';
 import { store } from '@/routes/pets/thoughts';
@@ -60,7 +61,10 @@ let alive = false;
 let loadGeneration = 0;
 let refreshGeneration = 0;
 
-async function loadHistory(cursor: string | null = null): Promise<void> {
+async function loadHistory(
+    cursor: string | null = null,
+    background = false,
+): Promise<void> {
     const generation = ++loadGeneration;
     request.cancel();
     currentCursor.value = cursor;
@@ -79,6 +83,7 @@ async function loadHistory(cursor: string | null = null): Promise<void> {
                     cursor: cursor ?? undefined,
                 },
             }),
+            background ? { headers: backgroundRequestHeaders } : undefined,
         );
         if (!alive || generation !== loadGeneration) return;
         entries.value = response.data;
@@ -92,7 +97,10 @@ async function loadHistory(cursor: string | null = null): Promise<void> {
     }
 }
 
-async function refresh(cursor: string | null = null): Promise<void> {
+async function refresh(
+    cursor: string | null = null,
+    background = false,
+): Promise<void> {
     const generation = ++refreshGeneration;
     ++loadGeneration;
     request.cancel();
@@ -100,12 +108,16 @@ async function refresh(cursor: string | null = null): Promise<void> {
     thoughts.cancel();
     thoughtsFailed.value = false;
     try {
-        await thoughts.post(store.url(props.pet.id));
+        await thoughts.post(
+            store.url(props.pet.id),
+            background ? { headers: backgroundRequestHeaders } : undefined,
+        );
     } catch {
         if (alive && generation === refreshGeneration)
             thoughtsFailed.value = true;
     }
-    if (alive && generation === refreshGeneration) await loadHistory(cursor);
+    if (alive && generation === refreshGeneration)
+        await loadHistory(cursor, background);
 }
 
 function metricLabel(change: PetHistoryChange): string {
@@ -161,7 +173,8 @@ watch([kind, period, event, locale], () => {
 watch(
     () => props.pet,
     () => {
-        if (alive && !initializing.value) void refresh(currentCursor.value);
+        if (alive && !initializing.value)
+            void refresh(currentCursor.value, true);
     },
 );
 onMounted(async () => {

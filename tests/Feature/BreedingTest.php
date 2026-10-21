@@ -6,7 +6,9 @@ use App\Models\BreedingPartner;
 use App\Models\CurrencyTransaction;
 use App\Models\Dog;
 use App\Models\Pet;
+use App\Models\PetDisease;
 use App\Models\User;
+use App\Modules\Pets\Actions\PublishBreedingListing;
 use App\Modules\Pets\Actions\StartBreeding;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Enums\PetStat;
@@ -34,8 +36,8 @@ function breedingPair(): array
         $caps[$stat->value] = 90;
         $caps[$stat->potentialColumn()] = 100;
     }
-    $dam = Pet::factory()->female()->for($damOwner)->for($dog)->create(['born_at' => now()->subDays(8), ...$caps]);
-    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(8), ...$caps]);
+    $dam = Pet::factory()->female()->for($damOwner)->for($dog)->create(['born_at' => now()->subDays(18), ...$caps]);
+    $sire = Pet::factory()->for($sireOwner)->for($dog)->create(['born_at' => now()->subDays(18), ...$caps]);
     $listing = BreedingListing::factory()->for($sire, 'pet')->for($sireOwner)->create(['price' => 100, 'is_active' => true]);
 
     return [$damOwner, $sireOwner, $dam, $sire, $listing];
@@ -45,6 +47,27 @@ test('breeding pages and writes require authentication', function () {
     $this->get(route('breeding.index'))->assertRedirect(route('login'));
     $this->post(route('breeding.store'))->assertRedirect(route('login'));
     $this->assertDatabaseCount('breeding_litters', 0);
+});
+
+test('publishing a stud offer returns to the selected dog with the saved price', function () {
+    $owner = User::factory()->create(['experience' => '1500']);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(30)]);
+
+    $this->actingAs($owner)->post(route('breeding.listings.store'), ['pet_id' => $pet->id, 'price' => 900])
+        ->assertRedirect(route('breeding.index', ['pet' => $pet->id]));
+
+    $this->assertDatabaseHas('breeding_listings', ['pet_id' => $pet->id, 'user_id' => $owner->id, 'price' => 900, 'is_active' => true]);
+});
+
+test('withdrawing a stud offer keeps its dog selected', function () {
+    $owner = User::factory()->create(['experience' => '1500']);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(30)]);
+    $listing = BreedingListing::factory()->for($owner)->for($pet)->create(['is_active' => true]);
+
+    $this->actingAs($owner)->delete(route('breeding.listings.destroy', $listing))
+        ->assertRedirect(route('breeding.index', ['pet' => $pet->id]));
+
+    $this->assertDatabaseHas('breeding_listings', ['id' => $listing->id, 'is_active' => false]);
 });
 
 test('a paid mating stores an unborn litter and stable distribution then replays without a second charge', function () {
@@ -60,9 +83,9 @@ test('a paid mating stores an unborn litter and stable distribution then replays
 
     expect($damOwner->fresh()->coins)->toBe(900);
     expect($sireOwner->fresh()->coins)->toBe(100);
-    expect($first->born_at->format('Y-m-d H:i:s'))->toBe(now()->addHours(24)->format('Y-m-d H:i:s'));
-    expect($dam->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addDays(7)->format('Y-m-d H:i:s'));
-    expect($sire->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addDays(7)->format('Y-m-d H:i:s'));
+    expect($first->born_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
+    expect($dam->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
+    expect($sire->fresh()->breeding_available_at->format('Y-m-d H:i:s'))->toBe(now()->addSeconds(15)->format('Y-m-d H:i:s'));
     expect($first->puppies()->count())->toBeBetween(2, 5);
     expect($first->puppies()->where('user_id', $sireOwner->id)->count())->toBe(1);
     expect($first->puppies()->where('status', 'unborn')->count())->toBe(count($original));
@@ -93,7 +116,7 @@ test('a mating rejects unavailable parents without payment or litter', function 
 })->with([
     'too young' => [fn () => ['born_at' => now()->subDays(6)], 'breeding.errors.young'],
     'cooldown' => [fn () => ['breeding_available_at' => now()->addHour()], 'breeding.errors.cooldown'],
-    'retired' => [fn () => ['retired_at' => now()], 'breeding.errors.archived'],
+    'retired' => [fn () => ['retired_at' => now()], 'breeding.errors.retired'],
 ]);
 
 test('level comes from earned experience and ownership is rechecked', function () {
@@ -103,6 +126,50 @@ test('level comes from earned experience and ownership is rechecked', function (
     $this->actingAs($owner)->post(route('breeding.store'), ['pet_id' => $dam->id, 'kind' => 'listing', 'partner_id' => $listing->id, 'expected_price' => 100, 'operation_token' => (string) Str::uuid()])->assertSessionHasErrors('breeding');
     $this->assertDatabaseCount('breeding_litters', 0);
     expect($owner->fresh()->coins)->toBe(1000);
+});
+
+test('an untreated disease in either player parent refuses mating before payment', function (int $parentIndex) {
+    $this->freezeSecond();
+    [$owner, , $dam, $sire, $listing] = breedingPair();
+    $patient = [$dam, $sire][$parentIndex];
+    PetDisease::factory()->for($patient)->createOne();
+
+    expect(fn () => app(StartBreeding::class)->handle($owner, $dam->id, 'listing', $listing->id, 100, (string) Str::uuid()))
+        ->toThrow(BreedingUnavailable::class, 'breeding.errors.unhealthy');
+
+    expect($owner->fresh()->coins)->toBe(1000);
+    expect($dam->fresh()->breeding_available_at)->toBeNull();
+    expect($sire->fresh()->breeding_available_at)->toBeNull();
+    $this->assertDatabaseCount('breeding_litters', 0);
+    $this->assertDatabaseCount('puppies', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+})->with(['mother' => [0], 'father' => [1]]);
+
+test('an untreated system partner disease refuses mating before payment', function () {
+    $this->freezeSecond();
+    [$owner, , $dam] = breedingPair();
+    $partner = BreedingPartner::query()->whereHas('pet', fn ($query) => $query->where('dog_id', $dam->dog_id)->where('sex', 'male'))->firstOrFail();
+    PetDisease::factory()->for($partner->pet)->createOne();
+
+    expect(fn () => app(StartBreeding::class)->handle($owner, $dam->id, 'partner', $partner->id, 100, (string) Str::uuid()))
+        ->toThrow(BreedingUnavailable::class, 'breeding.errors.unhealthy');
+
+    expect($owner->fresh()->coins)->toBe(1000);
+    $this->assertDatabaseCount('breeding_litters', 0);
+    $this->assertDatabaseCount('puppies', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
+});
+
+test('a male dog with an untreated disease cannot publish a breeding listing', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->createOne(['experience' => '1500']);
+    $pet = Pet::factory()->for($owner)->createOne();
+    PetDisease::factory()->for($pet)->createOne();
+
+    expect(fn () => app(PublishBreedingListing::class)->handle($owner, $pet->id, 100))
+        ->toThrow(BreedingUnavailable::class, 'breeding.errors.unhealthy');
+
+    $this->assertDatabaseCount('breeding_listings', 0);
 });
 
 test('siblings and parent descendant matings are refused', function (string $relation) {
@@ -164,9 +231,20 @@ test('mating rolls back payment and parental cooldown if seller credit fails', f
 });
 
 test('the breeding board exposes the final inheritance forecast', function () {
+    $this->freezeTime();
+    config(['doglive.breeding_cooldown_seconds' => 360, 'doglive.breeding_birth_seconds' => 180]);
     [$owner, , $dam, , $listing] = breedingPair();
 
-    $this->actingAs($owner)->get(route('breeding.index', ['pet' => $dam->id, 'kind' => 'listing', 'partner' => $listing->id]))->assertInertia(fn (Assert $page) => $page->component('breeding/Index')->where('access.allowed', true)->has('preview.ranges', 6)->has('preview.colors', 4)->where('preview.reason', null));
+    $this->actingAs($owner)->get(route('breeding.index', ['pet' => $dam->id, 'kind' => 'listing', 'partner' => $listing->id]))->assertInertia(fn (Assert $page) => $page
+        ->component('breeding/Index')
+        ->where('access.allowed', true)
+        ->where('serverNow', now()->toIso8601String())
+        ->where('cooldownSeconds', 360)
+        ->where('pregnancySeconds', 180)
+        ->has('preview.ranges', 6)
+        ->where('preview.ranges.0', ['stat' => 'endurance', 'min' => 104, 'max' => 112])
+        ->has('preview.colors', 4)
+        ->where('preview.reason', null));
 });
 
 test('a player cannot breed another players female dog', function () {
@@ -210,11 +288,11 @@ test('breeding ones own pair costs no coins and all puppies belong to the same p
 test('players publish and withdraw only their own male breeding listing', function () {
     [$owner, $seller, $dam, $sire, $listing] = breedingPair();
 
-    $this->actingAs($seller)->post(route('breeding.listings.store'), ['pet_id' => $sire->id, 'price' => 350])->assertRedirect(route('breeding.index'));
+    $this->actingAs($seller)->post(route('breeding.listings.store'), ['pet_id' => $sire->id, 'price' => 350])->assertRedirect(route('breeding.index', ['pet' => $sire->id]));
     expect($listing->fresh()->price)->toBe(350);
     $this->actingAs($owner)->delete(route('breeding.listings.destroy', $listing))->assertSessionHasErrors('listing');
     expect($listing->fresh()->is_active)->toBeTrue();
-    $this->actingAs($seller)->delete(route('breeding.listings.destroy', $listing))->assertRedirect(route('breeding.index'));
+    $this->actingAs($seller)->delete(route('breeding.listings.destroy', $listing))->assertRedirect(route('breeding.index', ['pet' => $sire->id]));
     expect($listing->fresh()->is_active)->toBeFalse();
     $this->actingAs($owner)->post(route('breeding.listings.store'), ['pet_id' => $dam->id, 'price' => 100])->assertSessionHasErrors('listing');
 });
@@ -231,7 +309,7 @@ test('the mating market paginates offers and forecasts a selected offer beyond t
     [$owner, $seller, $dam] = breedingPair();
     $last = null;
     for ($index = 0; $index < 12; $index++) {
-        $pet = Pet::factory()->for($seller)->for($dam->dog)->create(['born_at' => now()->subDays(8)]);
+        $pet = Pet::factory()->for($seller)->for($dam->dog)->create(['born_at' => now()->subDays(18)]);
         $last = BreedingListing::factory()->for($pet, 'pet')->for($seller)->create(['price' => 100]);
     }
 

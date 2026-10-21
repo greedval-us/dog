@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 /**
- * @phpstan-type MemorialPet array{id: int, name: string, breed: string, portraitId: int|null, backgroundId: int|null, bornAt: string, archivedAt: string, status: 'retired'|'deceased'}
+ * @phpstan-type MemorialPet array{id: int, name: string, breed: string, portraitId: int|null, backgroundId: int|null, bornAt: string, archivedAt: string, status: 'deceased'}
  * @phpstan-type LearnedSkill array{id: int, name: string, description: string, level: int}
  */
 final class GetPetMemorial
@@ -26,14 +26,14 @@ final class GetPetMemorial
             throw new InvalidArgumentException('Page size must be between 1 and 100.');
         }
 
-        $page = $user->pets()->where(fn (Builder $query) => $query->whereNotNull('retired_at')->orWhereNotNull('died_at'))
+        $page = $user->pets()->whereNotNull('died_at')
             ->with('dog')->orderByDesc('id')->cursorPaginate($perPage);
         $pets = $page->getCollection();
         $appearance = $this->appearance($pets, $user, $locale);
 
         return [
             'data' => array_values($pets->map(function (Pet $pet) use ($appearance, $locale): array {
-                $archivedAt = $pet->died_at ?? $pet->retired_at;
+                $archivedAt = $pet->died_at;
                 assert($archivedAt !== null);
 
                 return [
@@ -44,7 +44,7 @@ final class GetPetMemorial
                     'backgroundId' => $appearance[$pet->id]->backgroundId,
                     'bornAt' => $pet->born_at->toIso8601String(),
                     'archivedAt' => $archivedAt->toIso8601String(),
-                    'status' => $pet->died_at !== null ? 'deceased' : 'retired',
+                    'status' => 'deceased',
                 ];
             })->all()),
             'nextCursor' => $page->nextCursor()?->encode(),
@@ -55,7 +55,7 @@ final class GetPetMemorial
     /** @return array{pet: PetProfileData, appearance: PetAppearanceData, learnedSkills: list<LearnedSkill>} */
     public function pet(User $user, int $petId, string $locale): array
     {
-        $pet = $user->pets()->where(fn (Builder $query) => $query->whereNotNull('retired_at')->orWhereNotNull('died_at'))
+        $pet = $user->pets()->whereNotNull('died_at')
             ->with(['dog', 'characterTraits', 'skills', 'titles'])->findOrFail($petId);
         $appearance = $this->appearance(new Collection([$pet]), $user, $locale)[$pet->id];
 

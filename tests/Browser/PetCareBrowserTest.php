@@ -25,13 +25,15 @@ test('a missing supply blocks feeding while fresh water remains available on mob
     $this->actingAs($owner->refresh());
 
     $page = visit(route('dashboard', ['pet' => $pet->id], absolute: false))
-        ->on()->mobile();
+        ->on()->mobile()->assertPresent('#pet-care');
     $page->click('button[aria-label="Wellbeing"]')
         ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
         ->keys('button[aria-label="Wellbeing"]', 'Escape')
         ->assertMissing('.help-hint-content[aria-label="Wellbeing"]');
     $page->keys('button[aria-label="Wellbeing"]', 'Tab')
+        ->assertPresent('button:focus')
         ->keys('button:focus', 'Shift+Tab')
+        ->assertPresent('button[aria-label="Wellbeing"]:focus')
         ->assertSeeIn('.help-hint-content[aria-label="Wellbeing"]', 'Below 25% — needs care.')
         ->keys('button[aria-label="Wellbeing"]', 'Tab')
         ->assertMissing('.help-hint-content[aria-label="Wellbeing"]')
@@ -43,7 +45,7 @@ test('a missing supply blocks feeding while fresh water remains available on mob
         ->assertSeeLink('Go to shop')
         ->click('[role="dialog"] input[value="water"]')
         ->assertSeeIn('[role="dialog"]', 'No items needed')
-        ->assertButtonEnabled('Start · 15 sec')
+        ->assertButtonEnabled('Start · 5 sec')
         ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
         ->assertNoJavaScriptErrors();
 
@@ -69,7 +71,7 @@ test('feeding spends the chosen supply once and the active receipt survives a pa
         ->assertSelected('.pet-care-supplies select', (string) $first->id)
         ->select('.pet-care-supplies select', (string) $selected->id)
         ->assertSelected('.pet-care-supplies select', (string) $selected->id)
-        ->press('Start · 30 sec')
+        ->press('Start · 5 sec')
         ->assertMissing('[role="dialog"]')
         ->assertSeeIn('.pet-care-progress', 'A portion of food')
         ->assertPresent('#pet-care progress');
@@ -101,8 +103,8 @@ test('the care timer applies the result automatically and reloading does not awa
     $dashboard = route('dashboard', ['pet' => $pet->id], absolute: false);
 
     [$feed, $start, $water, $hydration, $notifications, $completed] = $locale === 'ru'
-        ? ['Покормить', 'Начать · 15 сек', 'Свежая вода', 'Запас воды', 'Уведомления', 'Уход завершён. Состояние собаки обновлено.']
-        : ['Feed', 'Start · 15 sec', 'Fresh water', 'Hydration', 'Notifications', 'Care completed. Your dog’s condition has been updated.'];
+        ? ['Покормить', 'Начать · 5 сек', 'Свежая вода', 'Запас воды', 'Уведомления', 'Уход завершён. Состояние собаки обновлено.']
+        : ['Feed', 'Start · 5 sec', 'Fresh water', 'Hydration', 'Notifications', 'Care completed. Your dog’s condition has been updated.'];
     $toastIsInsideViewport = <<<'JS'
         (() => {
             const toast = document.querySelector('[data-sonner-toast][data-front="true"]');
@@ -130,10 +132,10 @@ test('the care timer applies the result automatically and reloading does not awa
         ->assertPresent('#pet-care progress');
     $page->script('window.scrollTo({ top: 0, left: 0, behavior: "instant" })');
     $page->assertScript($toastIsInsideViewport, true);
-    $this->travel(15)->seconds();
+    $this->travel(5)->seconds();
 
     /** Advance only the browser clock; its isolated context is discarded after the test. */
-    $page->script('performance.now = ((original) => () => original() + 15000)(performance.now.bind(performance))');
+    $page->script('performance.now = ((original) => () => original() + 5000)(performance.now.bind(performance))');
     $page->assertMissing('.pet-care-progress')
         ->assertSee($completed);
     $page->script('window.scrollTo({ top: 0, left: 0, behavior: "instant" })');

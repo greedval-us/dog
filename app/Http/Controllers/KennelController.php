@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Kennel\Actions\AdoptStarterPet;
 use App\Modules\Kennel\Actions\PurchaseKennelPet;
 use App\Modules\Kennel\DTO\StarterBreedData;
+use App\Modules\Kennel\Enums\KennelPetAge;
 use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
 use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
 use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
@@ -32,6 +33,10 @@ class KennelController extends Controller
             'freeSlots' => max(0, $user->pet_slots - $user->pets()->active()->count()),
             'price' => config('doglive.kennel_price'),
             'adoptionToken' => (string) Str::uuid(),
+            'ageOptions' => [
+                ['months' => (int) KennelPetAge::Puppy->value, 'label' => __('ownership.ages.puppy'), 'description' => __('ownership.ages.puppy_description')],
+                ['months' => (int) KennelPetAge::Young->value, 'label' => __('ownership.ages.young'), 'description' => __('ownership.ages.young_description')],
+            ],
             'breeds' => $getStarterBreeds->handle(app()->getLocale())
                 ->map(fn (StarterBreedData $breed): array => $breed->toArray()),
         ]);

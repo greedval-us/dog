@@ -1,7 +1,11 @@
-import type { DogSize, DogStat } from '@/types/pet';
+import type { DogSize, DogStat, PetAge } from '@/types/pet';
 import type { EventExterior, EventTitle } from '@/types/game-event';
 
-export type PetLifecycleStatus = 'active' | 'retired' | 'deceased';
+export type PetLifecycleStatus =
+    | 'active'
+    | 'retired'
+    | 'deceased'
+    | 'surrendered';
 
 export type PetPublicProfile = {
     id: number;
@@ -13,6 +17,7 @@ export type PetPublicProfile = {
     generation: number;
     description: string | null;
     bornAt: string;
+    age: PetAge;
     isPurebred: boolean;
     traits: string[];
     stats: Record<DogStat, { value: number; potential: number }>;

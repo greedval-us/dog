@@ -9,6 +9,7 @@ use App\Models\CurrencyTransaction;
 use App\Models\Pet;
 use App\Models\Puppy;
 use App\Models\User;
+use App\Modules\Pets\Calculators\GameplayTiming;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
@@ -141,13 +142,17 @@ final class StartBreeding
                     throw new BreedingUnavailable('breeding.errors.funds');
                 }
             }
-            $bornAt = $at->addHours(config('doglive.breeding_birth_hours', 24));
+            $bornAt = $at->addSeconds(config('doglive.breeding_birth_seconds', GameplayTiming::BREEDING_BIRTH_SECONDS));
             $expiresAt = $bornAt->addDays(config('doglive.puppy_decision_days', 7));
+            $breederKey = $mother->user_id === null ? 'system:'.$mother->id : 'player:'.$mother->user_id;
+            $kennelName = $mother->user_id === null ? 'DogLive System #'.$mother->id : 'DogLive #'.$mother->user_id;
             $litter = BreedingLitter::query()->create([
                 'operation_token' => $token, 'initiator_id' => $owner->id, 'own_pet_id' => $own->id,
                 'listing_id' => $kind === 'listing' ? $offer->id : null, 'partner_id' => $kind === 'partner' ? $offer->id : null,
                 'father_id' => $father->id, 'mother_id' => $mother->id, 'price' => $expectedPrice,
-                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex, 'exterior' => ['father' => $father->exterior, 'mother' => $mother->exterior]],
+                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex,
+                    'exterior' => ['father' => $father->exterior, 'mother' => $mother->exterior],
+                    'breeding_origin' => ['breeder_key' => $breederKey, 'kennel_key' => $breederKey, 'kennel_name' => $kennelName]],
                 'born_at' => $bornAt, 'expires_at' => $expiresAt,
             ]);
             foreach ($puppies as $index => $puppy) {
@@ -162,7 +167,7 @@ final class StartBreeding
                     'generation' => max($father->generation, $mother->generation) + 1, 'exterior' => $puppy['exterior'], 'expires_at' => $expiresAt, ...$caps,
                 ]);
             }
-            $own->breeding_available_at = $at->addDays(config('doglive.breeding_cooldown_days', 7));
+            $own->breeding_available_at = $at->addSeconds(config('doglive.breeding_cooldown_seconds', GameplayTiming::BREEDING_COOLDOWN_SECONDS));
             $own->save();
             if ($kind === 'listing') {
                 $other->breeding_available_at = $own->breeding_available_at;

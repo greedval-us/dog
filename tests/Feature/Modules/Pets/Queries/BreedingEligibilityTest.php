@@ -2,13 +2,14 @@
 
 use App\Models\Dog;
 use App\Models\Pet;
+use App\Models\PetDisease;
 use App\Models\User;
 use App\Modules\Pets\Queries\BreedingEligibility;
 
 test('a breeding parent becomes eligible exactly at the age and cooldown boundaries', function () {
     $this->freezeSecond();
     $at = now();
-    $pet = Pet::factory()->make(['born_at' => $at->subDays(7)->addSecond()]);
+    $pet = Pet::factory()->make(['born_at' => $at->subDays(18)->addSecond()]);
     $eligibility = app(BreedingEligibility::class);
 
     expect($eligibility->reason($pet, $at))->toBe('breeding.errors.young');
@@ -24,11 +25,43 @@ test('only explicitly selected system partners bypass age and archival restricti
     $pet = Pet::factory()->make(['retired_at' => $at, 'born_at' => $at]);
     $eligibility = app(BreedingEligibility::class);
 
-    expect($eligibility->reason($pet, $at))->toBe('breeding.errors.archived');
+    expect($eligibility->reason($pet, $at))->toBe('breeding.errors.retired');
     expect($eligibility->reason($pet, $at, true))->toBeNull();
     $pet->health = 0;
     expect($eligibility->reason($pet, $at, true))->toBe('breeding.errors.unhealthy');
 });
+
+test('breeding closes exactly at ten game years', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->make(['born_at' => now()->subDays(120)]);
+    $eligibility = app(BreedingEligibility::class);
+
+    expect($eligibility->reason($pet, now()->subSecond()))->toBeNull();
+    expect($eligibility->reason($pet, now()))->toBe('breeding.errors.retired');
+});
+
+test('an untreated disease prevents breeding despite positive health', function (bool $system) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->createOne(['health' => 100]);
+    PetDisease::factory()->for($pet)->createOne();
+
+    expect(app(BreedingEligibility::class)->reason($pet, now(), $system))->toBe('breeding.errors.unhealthy');
+})->with(['player parent' => [false], 'system parent' => [true]]);
+
+test('a recovered disease does not prevent breeding', function () {
+    $this->freezeSecond();
+    $pet = Pet::factory()->createOne();
+    PetDisease::factory()->for($pet)->recovered()->createOne();
+
+    expect(app(BreedingEligibility::class)->reason($pet, now()))->toBeNull();
+});
+
+test('non purebred parents are unavailable before choosing a mate', function (bool $system) {
+    $this->freezeSecond();
+    $pet = Pet::factory()->make(['is_purebred' => false]);
+
+    expect(app(BreedingEligibility::class)->reason($pet, now(), $system))->toBe('breeding.errors.incompatible');
+})->with(['player parent' => [false], 'system parent' => [true]]);
 
 test('breeding rejects distant direct ancestry and half siblings while allowing unrelated cousins', function () {
     $dog = Dog::factory()->createOne();

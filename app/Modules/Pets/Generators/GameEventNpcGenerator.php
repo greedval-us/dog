@@ -4,6 +4,7 @@ namespace App\Modules\Pets\Generators;
 
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\DTO\GameEventProtocol;
+use App\Modules\Pets\Enums\ExhibitionClass;
 use App\Modules\Pets\Enums\PetStat;
 
 final class GameEventNpcGenerator
@@ -18,14 +19,29 @@ final class GameEventNpcGenerator
     {
         $draws = $this->randomness->draws($key, 12);
         $tier = str_starts_with($division, 'champion') ? 2 : (str_starts_with($division, 'open') ? 1 : 0);
+        $exhibitionClass = ExhibitionClass::tryFrom($reference['exhibition_class'] ?? '');
+        if ($exhibitionClass !== null) {
+            $tier = $exhibitionClass->competesForBreedTitles() ? 1 : 0;
+        }
         $stats = [];
         foreach (PetStat::cases() as $offset => $stat) {
             $stats[$stat->value] = (int) round(25 + $tier * 35 + $draws[$offset] * 30);
         }
-        $exterior = ['type' => 60 + $draws[6] * 25, 'structure' => 60 + $draws[7] * 25, 'movement' => 60 + $draws[8] * 25];
+        $maximumExterior = isset($reference['profile'], $reference['regulation']) && ($reference['regulation']['format'] ?? null) === 'conformation' ? 100 : 85;
+        $exterior = ['type' => 60 + $draws[6] * ($maximumExterior - 60), 'structure' => 60 + $draws[7] * ($maximumExterior - 60), 'movement' => 60 + $draws[8] * ($maximumExterior - 60)];
 
         return [
             'version' => GameEventProtocol::SNAPSHOT_VERSION,
+            'age_months' => $reference['age_months'] ?? null, 'sex' => $reference['sex'] ?? null,
+            'exhibition_class' => $reference['exhibition_class'] ?? null,
+            ...(isset($reference['nosework_time_limit']) ? ['nosework_time_limit' => $reference['nosework_time_limit']] : []),
+            ...(isset($reference['show_presentation_multipliers']) ? ['show_presentation_multipliers' => $reference['show_presentation_multipliers']] : []),
+            ...(isset($reference['profile']) ? [
+                'profile' => [...$reference['profile'], 'id' => null, 'name' => 'NPC #'.($index + 1), 'championships' => match ($exhibitionClass) {
+                    ExhibitionClass::Champion => ['CH_RUS'], ExhibitionClass::ClubChampion => ['CH_CLUB'], default => [],
+                }],
+                'regulation' => $reference['regulation'] ?? [],
+            ] : []),
             'name' => 'NPC #'.($index + 1), 'breed' => $reference['breed'], 'breed_id' => $reference['breed_id'], 'size' => $reference['size'],
             'stats' => $stats, 'potentials' => array_fill_keys(array_keys($stats), 140),
             'states' => ['health' => 100, 'energy' => 90, 'satiety' => 90, 'hydration' => 90, 'mood' => 85, 'cleanliness' => 90, 'bond' => 70],

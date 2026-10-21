@@ -10,7 +10,7 @@ final class GetSystemNotifications
 {
     public function __construct(private GetSystemNotificationRecords $records, private GetUnreadSystemNotificationCount $unread) {}
 
-    /** @return array{items: list<array{id: string, kind: string, title: array<string, string>, message: array<string, string>, createdAt: string|null, readAt: string|null}>, nextCursor: string|null, unreadCount: int} */
+    /** @return array{items: list<array{id: string, kind: string, title: array<string, string>, message: array<string, string>, createdAt: string|null, readAt: string|null, actionUrl: string|null}>, nextCursor: string|null, unreadCount: int} */
     public function handle(User $user, ?string $cursor = null): array
     {
         $notifications = $this->records->handle($user)->whereNull('read_at')->orderByDesc('id')->cursorPaginate(20, cursor: $cursor);

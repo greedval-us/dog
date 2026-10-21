@@ -74,11 +74,11 @@ test('preparation exposes health energy and conflicting activity before a player
     $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 500]);
 });
 
-test('preparation and direct registration reject a dog retiring exactly when the event ends', function () {
+test('preparation and direct registration reject a dog voluntarily retired by its owner', function () {
     $owner = User::factory()->create(['coins' => 500]);
     $event = GameEvent::factory()->create();
     $pet = Pet::factory()->for($owner)->create([
-        'born_at' => $event->ends_at->subMonthsNoOverflow(6), 'health' => 100, 'health_max' => 100,
+        'born_at' => $event->starts_at->subDays(30), 'retired_at' => now(), 'health' => 100, 'health_max' => 100,
         'energy' => 100, 'energy_max' => 100,
     ]);
 
@@ -124,7 +124,7 @@ test('an activity ending before registration closes is not presented as a confli
 
 test('documentary progeny judging does not tell the player to restore the parent for admission', function () {
     $owner = User::factory()->create();
-    Pet::factory()->for($owner)->retired()->create(['health' => 40, 'energy' => 0, 'hydration' => 0, 'satiety' => 0]);
+    Pet::factory()->for($owner)->create(['health' => 40, 'energy' => 0, 'hydration' => 0, 'satiety' => 0]);
     $event = GameEvent::factory()->create(['discipline' => 'progeny']);
 
     $this->actingAs($owner)->get(route('game-events.show', $event))

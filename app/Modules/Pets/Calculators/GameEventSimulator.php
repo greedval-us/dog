@@ -65,7 +65,7 @@ final class GameEventSimulator
         $focus = $preparation['initialFocus'];
         $fatigue = $preparation['initialFatigue'];
         $careMultiplier = $preparation['careMultiplier'];
-        $consistency = min(0.08, max(0, $snapshot['career_experience'] ?? 0) * 0.001);
+        $consistency = $preparation['consistencyBonus'];
         $totalTime = 0.0;
         $totalPenalties = 0;
         $totalScore = 0.0;

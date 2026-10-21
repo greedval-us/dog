@@ -34,8 +34,8 @@ test('retrying a mating preserves offspring and ownership while charging and res
         $stats[$stat->value] = 90;
         $stats[$stat->potentialColumn()] = 100;
     }
-    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(8), ...$stats]);
-    $sire = Pet::factory()->for($seller)->for($dog)->create(['born_at' => now()->subDays(8), ...$stats]);
+    $dam = Pet::factory()->female()->for($owner)->for($dog)->create(['born_at' => now()->subDays(18), ...$stats]);
+    $sire = Pet::factory()->for($seller)->for($dog)->create(['born_at' => now()->subDays(18), ...$stats]);
     $listing = BreedingListing::factory()->for($sire, 'pet')->for($seller)->create(['price' => 100]);
     $token = (string) Str::uuid();
     $engine = new class implements Engine
@@ -99,8 +99,8 @@ test('retrying a mating preserves offspring and ownership while charging and res
         expect($litter->puppies()->where('user_id', $owner->id)->count())->toBe($litter->puppies()->count() - 1);
         expect($owner->fresh()->coins)->toBe(900);
         expect($seller->fresh()->coins)->toBe(100);
-        expect($dam->fresh()->breeding_available_at->toDateTimeString())->toBe(now()->addDays(7)->toDateTimeString());
-        expect($sire->fresh()->breeding_available_at->toDateTimeString())->toBe(now()->addDays(7)->toDateTimeString());
+        expect($dam->fresh()->breeding_available_at->toDateTimeString())->toBe(now()->addSeconds(15)->toDateTimeString());
+        expect($sire->fresh()->breeding_available_at->toDateTimeString())->toBe(now()->addSeconds(15)->toDateTimeString());
         $this->assertDatabaseCount('breeding_litters', 1);
         $this->assertDatabaseCount('puppies', count($attempts[0]['puppies']));
         $this->assertDatabaseCount('currency_transactions', 2);

@@ -53,8 +53,8 @@ final class PuppyGenerator
                 [$fatherRange, $motherRange] = $ranges[$stat->value];
                 $father = $this->drawPotential($fatherRange);
                 $mother = $this->drawPotential($motherRange);
-                $spread = $this->randomizer->getInt(9800, 10200) / 10000;
-                $potentials[$stat->value] = max(1, min(2147483647, (int) round(($father + $mother) / 2 * $spread)));
+                $spread = $this->randomizer->getInt(BreedingGeneticsCalculator::MIN_OFFSPRING_SPREAD, BreedingGeneticsCalculator::MAX_OFFSPRING_SPREAD);
+                $potentials[$stat->value] = $this->genetics->offspringPotential($father, $mother, $spread);
             }
 
             $puppies[] = [

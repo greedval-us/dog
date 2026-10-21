@@ -10,6 +10,8 @@ import PlayerAchievementController from './PlayerAchievementController'
 import PetProfileController from './PetProfileController'
 import PetPedigreeController from './PetPedigreeController'
 import RetirePetController from './RetirePetController'
+import PetSaleController from './PetSaleController'
+import PetSurrenderController from './PetSurrenderController'
 import PetHistoryController from './PetHistoryController'
 import PetThoughtController from './PetThoughtController'
 import CareItemController from './CareItemController'
@@ -29,6 +31,7 @@ import PetMemorialController from './PetMemorialController'
 import KennelController from './KennelController'
 import GameImageController from './GameImageController'
 import Settings from './Settings'
+import PetBoardingController from './PetBoardingController'
 const Controllers = {
     LocaleController: Object.assign(LocaleController, LocaleController),
 SystemNotificationController: Object.assign(SystemNotificationController, SystemNotificationController),
@@ -42,6 +45,8 @@ PlayerAchievementController: Object.assign(PlayerAchievementController, PlayerAc
 PetProfileController: Object.assign(PetProfileController, PetProfileController),
 PetPedigreeController: Object.assign(PetPedigreeController, PetPedigreeController),
 RetirePetController: Object.assign(RetirePetController, RetirePetController),
+PetSaleController: Object.assign(PetSaleController, PetSaleController),
+PetSurrenderController: Object.assign(PetSurrenderController, PetSurrenderController),
 PetHistoryController: Object.assign(PetHistoryController, PetHistoryController),
 PetThoughtController: Object.assign(PetThoughtController, PetThoughtController),
 CareItemController: Object.assign(CareItemController, CareItemController),
@@ -61,6 +66,7 @@ PetMemorialController: Object.assign(PetMemorialController, PetMemorialControlle
 KennelController: Object.assign(KennelController, KennelController),
 GameImageController: Object.assign(GameImageController, GameImageController),
 Settings: Object.assign(Settings, Settings),
+PetBoardingController: Object.assign(PetBoardingController, PetBoardingController),
 }
 
 export default Controllers

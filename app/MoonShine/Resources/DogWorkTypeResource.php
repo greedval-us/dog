@@ -3,6 +3,7 @@
 namespace App\MoonShine\Resources;
 
 use App\Models\DogWorkType;
+use App\Modules\Pets\Calculators\GameplayTiming;
 use Illuminate\Database\Eloquent\Model;
 use MoonShine\Support\Attributes\Icon;
 use MoonShine\UI\Fields\ID;
@@ -34,7 +35,7 @@ final class DogWorkTypeResource extends AdminResource
             Number::make(__('admin.fields.coins_reward'), 'coins_reward')->min(0)->max(2147483647)->required(),
             Number::make(__('admin.fields.gems_reward'), 'gems_reward')->min(0)->max(2147483647)->required(),
             Number::make(__('admin.fields.daily_limit'), 'daily_limit')->min(1)->max(100000)->required(),
-            Number::make(__('admin.fields.duration_seconds'), 'duration_seconds')->min(1)->max(86400)->required(),
+            Number::make(__('admin.fields.duration_seconds'), 'duration_seconds')->min(GameplayTiming::MIN_SECONDS)->max(GameplayTiming::MAX_SECONDS)->required(),
             Number::make(__('admin.fields.energy_cost'), 'energy_cost')->min(0)->max(100)->required(),
         ];
     }
@@ -47,7 +48,7 @@ final class DogWorkTypeResource extends AdminResource
             'coins_reward' => ['required', 'integer', 'between:0,2147483647'],
             'gems_reward' => ['required', 'integer', 'between:0,2147483647'],
             'daily_limit' => ['required', 'integer', 'between:1,100000'],
-            'duration_seconds' => ['required', 'integer', 'between:1,86400'],
+            'duration_seconds' => ['required', 'integer', 'between:'.GameplayTiming::MIN_SECONDS.','.GameplayTiming::MAX_SECONDS],
             'energy_cost' => ['required', 'integer', 'between:0,100'],
         ];
     }

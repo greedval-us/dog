@@ -103,7 +103,7 @@ test('permission groups grant only the operations assigned to each role', functi
 })->with([
     'administrator' => [StaffRole::Administrator, [
         ['viewAny', 'view', 'create', 'update'], ['viewAny', 'view'], ['viewAny', 'view', 'update'],
-        ['viewAny', 'view'], ['viewAny', 'view'], ['viewAny', 'view'], ['viewAny', 'view', 'update'],
+        ['viewAny', 'view', 'update'], ['viewAny', 'view'], ['viewAny', 'view'], ['viewAny', 'view', 'update'],
     ]],
     'analyst' => [StaffRole::Analyst, [[], [], [], [], [], ['viewAny', 'view'], ['viewAny', 'view']]],
     'moderator' => [StaffRole::Moderator, [[], [], ['viewAny', 'view', 'update'], ['viewAny', 'view'], ['viewAny', 'view'], [], []]],

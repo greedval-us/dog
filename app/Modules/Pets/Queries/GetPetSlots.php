@@ -10,15 +10,15 @@ final class GetPetSlots
     public function handle(User $user): array
     {
         $unlocked = (int) User::query()->whereKey($user->id)->value('pet_slots');
-        $pets = $user->pets()->active()->oldest('id')->limit(9)->get(['id', 'name']);
+        $pets = $user->pets()->active()->oldest('id')->get(['id', 'name']);
         $slots = [];
 
-        for ($number = 1; $number <= 9; $number++) {
+        for ($number = 1; $number <= max(9, $pets->count()); $number++) {
             $pet = $pets->get($number - 1);
             $slots[] = [
                 'number' => $number,
-                'unlocked' => $number <= $unlocked,
-                'purchasable' => $number === $unlocked + 1,
+                'unlocked' => $number <= $unlocked || $pet !== null,
+                'purchasable' => $pet === null && $number <= 9 && $number === $unlocked + 1,
                 'coins' => (int) config('pet_slots.prices.'.$number.'.coins', 0),
                 'gems' => (int) config('pet_slots.prices.'.$number.'.gems', 0),
                 'pet' => $pet === null ? null : ['id' => $pet->id, 'name' => $pet->name],

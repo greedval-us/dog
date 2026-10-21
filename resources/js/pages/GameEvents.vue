@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import FormField from '@/components/FormField.vue';
+import EventRegulationSummary from '@/components/EventRegulationSummary.vue';
 import Heading from '@/components/Heading.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
@@ -84,7 +85,7 @@ function filter() {
                                 'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
                             ),
                             t(
-                                'Daily starts build experience, weekly cups test consistency and monthly championships award prestigious titles.',
+                                'Frequency controls the calendar. The event rank and regulation determine which certificates and titles can be earned.',
                             ),
                             t(
                                 'Club dogs fill empty places and are clearly marked in the results.',
@@ -184,6 +185,10 @@ function filter() {
                         <h3>
                             {{ t(`events.discipline.${event.discipline}`) }}
                         </h3>
+                        <EventRegulationSummary
+                            :regulation="event.regulation"
+                            compact
+                        />
                         <dl class="event-facts">
                             <div>
                                 <dt>
@@ -222,16 +227,23 @@ function filter() {
                             <div>
                                 <dt>
                                     <Trophy :size="16" aria-hidden="true" />{{
-                                        t('First prize')
+                                        t(
+                                            event.regulation?.format ===
+                                                'odor_test'
+                                                ? 'Result'
+                                                : 'First prize',
+                                        )
                                     }}
                                 </dt>
                                 <dd>
                                     {{
-                                        t('{amount} coins', {
-                                            amount: number(
-                                                event.prizes[0] ?? 0,
-                                            ),
-                                        })
+                                        event.regulation?.format === 'odor_test'
+                                            ? t('Qualification')
+                                            : t('{amount} coins', {
+                                                  amount: number(
+                                                      event.prizes[0] ?? 0,
+                                                  ),
+                                              })
                                     }}
                                 </dd>
                             </div>
@@ -261,11 +273,18 @@ function filter() {
                                 </dd>
                             </div>
                         </dl>
-                        <p class="event-note">
+                        <p
+                            v-if="event.regulation?.format !== 'odor_test'"
+                            class="event-note"
+                        >
                             {{
-                                t('Up to {count} dogs per division', {
-                                    count: number(event.fieldSize),
-                                })
+                                event.regulation
+                                    ? t(
+                                          'One shared standing per class and category.',
+                                      )
+                                    : t('Up to {count} dogs per division', {
+                                          count: number(event.fieldSize),
+                                      })
                             }}
                         </p>
                         <Button

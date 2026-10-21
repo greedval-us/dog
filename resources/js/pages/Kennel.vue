@@ -18,6 +18,7 @@ import FormField from '@/components/FormField.vue';
 import Heading from '@/components/Heading.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import InputError from '@/components/InputError.vue';
+import KennelAgePicker from '@/components/KennelAgePicker.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ import { purchase, store } from '@/routes/kennel';
 import { show as player } from '@/routes/players';
 import { market as puppyMarket } from '@/routes/puppies';
 import type { StarterBreed } from '@/types/pet';
+import type { KennelAgeOption } from '@/types/pet-market';
 
 const props = defineProps<{
     breeds: StarterBreed[];
@@ -36,6 +38,7 @@ const props = defineProps<{
     freeSlots: number;
     price: number;
     adoptionToken: string;
+    ageOptions: KennelAgeOption[];
 }>();
 const { t, number } = useI18n();
 const page = usePage();
@@ -46,6 +49,7 @@ const form = useForm({
     adoption: '',
     expected_price: props.price,
     adoption_token: props.adoptionToken,
+    age_months: props.ageOptions?.[0]?.months ?? 3,
 });
 const selectedBreed = computed(() =>
     props.breeds.find((breed) => breed.id === form.dog_id),
@@ -75,10 +79,11 @@ const actionReason = computed(() => {
 const adoptionForm = useTemplateRef<HTMLFormElement>('adoptionForm');
 function submit() {
     if (form.processing || actionReason.value) return;
-    form.transform(({ dog_id, name, expected_price, adoption_token }) =>
-        props.canClaimStarterPet
-            ? { dog_id, name }
-            : { dog_id, name, expected_price, adoption_token },
+    form.transform(
+        ({ dog_id, name, expected_price, adoption_token, age_months }) =>
+            props.canClaimStarterPet
+                ? { dog_id, name, age_months }
+                : { dog_id, name, expected_price, adoption_token, age_months },
     ).submit(props.canClaimStarterPet ? store() : purchase(), {
         preserveScroll: true,
         onError: () =>
@@ -110,7 +115,7 @@ function submit() {
                 <Coins v-else :size="21" aria-hidden="true" />
                 {{
                     canClaimStarterPet
-                        ? t('Your first dog is free')
+                        ? t('A free dog is waiting for you')
                         : t('A new friend for {amount} coins', {
                               amount: number(price),
                           })
@@ -190,6 +195,12 @@ function submit() {
                                 "
                             />
                         </div>
+                        <KennelAgePicker
+                            v-model="form.age_months"
+                            :options="ageOptions"
+                            :disabled="form.processing"
+                            :error="form.errors.age_months"
+                        />
                         <FormField
                             id="pet-name"
                             :label="t('Dog name')"
@@ -284,7 +295,7 @@ function submit() {
                             {{
                                 canClaimStarterPet
                                     ? t(
-                                          'Your first dog is free. Each next dog costs {amount} coins.',
+                                          'When you have no active dogs, you can take one home for free. Additional dogs cost {amount} coins.',
                                           { amount: number(price) },
                                       )
                                     : t('One dog takes one free place.')

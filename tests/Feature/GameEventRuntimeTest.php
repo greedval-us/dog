@@ -37,15 +37,15 @@ test('running frozen events do not reacquire participant locks before settlement
         'processed' => $processed,
         'queries' => count($queries),
         'lockingQueries' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'for update'))),
-    ])->toBe(['processed' => 0, 'queries' => 1, 'lockingQueries' => 0]);
+    ])->toBe(['processed' => 0, 'queries' => 2, 'lockingQueries' => 0]);
     expect($event->fresh()->status)->toBe('frozen');
 });
 
-test('direct lifecycle and gameplay calls preserve a registration snapshot before overdue retirement', function (string $operation) {
+test('direct lifecycle and gameplay calls preserve a registration snapshot before overdue natural death', function (string $operation) {
     $this->freezeSecond();
     $owner = User::factory()->create();
     $pet = Pet::factory()->for($owner)->create([
-        'born_at' => now()->subMonthsNoOverflow(6)->subHour(),
+        'born_at' => now()->subDays(144)->subHour(), 'lifespan_months' => 144,
         'state_updated_at' => now()->subHours(3), 'stats_updated_at' => now()->subHours(3),
     ]);
     $event = GameEvent::factory()->create([
@@ -72,7 +72,7 @@ test('direct lifecycle and gameplay calls preserve a registration snapshot befor
 test('lifecycle ignores future registrations and registrations belonging to another owner', function () {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(125)]);
     $future = GameEvent::factory()->create();
     GameEventEntry::factory()->for($future, 'event')->for($owner)->for($pet)->create();
     $other = GameEvent::factory()->create([
@@ -82,7 +82,8 @@ test('lifecycle ignores future registrations and registrations belonging to anot
 
     app(PetLifecycle::class)->synchronizeOwner($owner);
 
-    expect($pet->fresh()->retired_at)->toEqual($pet->automaticRetirementAt());
+    expect($pet->fresh()->retired_at)->toBeNull();
+    expect($pet->fresh()->died_at)->toBeNull();
     expect($future->fresh()->status)->toBe('registration');
     expect($other->fresh()->status)->toBe('registration');
 });
@@ -123,7 +124,7 @@ test('direct completion cannot advance a dog when registration closes exactly no
 test('a future lifecycle cutoff cannot pass a scheduled registration before it closes', function () {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(6)->addHour()]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(144)->addHour(), 'lifespan_months' => 144]);
     $event = GameEvent::factory()->create();
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
     $before = $pet->fresh()->getAttributes();
@@ -139,7 +140,7 @@ test('a future lifecycle cutoff cannot pass a scheduled registration before it c
 test('gameplay rechecks registration when it closes while acquiring the write lock', function (string $operation) {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(4)]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(100)]);
     $event = GameEvent::factory()->create();
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
     $before = $pet->fresh()->getAttributes();
@@ -167,7 +168,7 @@ test('gameplay rechecks registration when it closes while acquiring the write lo
 test('HTTP presents a registration that closes inside the action as a processing refusal', function (bool $inertia) {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(4)]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(100)]);
     $event = GameEvent::factory()->create();
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
     $before = $pet->fresh()->getAttributes();
@@ -196,8 +197,8 @@ test('HTTP presents a registration that closes inside the action as a processing
 test('lifecycle maintenance skips a newly closed registration and continues with other owners', function () {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(7)]);
-    $other = Pet::factory()->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(125)]);
+    $other = Pet::factory()->create(['born_at' => now()->subDays(125)]);
     $event = GameEvent::factory()->create();
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
     $closed = false;
@@ -213,13 +214,14 @@ test('lifecycle maintenance skips a newly closed registration and continues with
     expect($closed)->toBeTrue();
     expect($pet->fresh()->retired_at)->toBeNull();
     expect($entry->fresh()->snapshot)->toBeNull();
-    expect($other->fresh()->retired_at)->toEqual($other->automaticRetirementAt());
+    expect($other->fresh()->retired_at)->toBeNull();
+    expect($other->fresh()->died_at)->toBeNull();
 });
 
 test('ordinary catalogues do not settle events or advance dog lifetimes', function (string $route) {
     $this->freezeSecond();
     $owner = User::factory()->create();
-    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subMonthsNoOverflow(7)]);
+    $pet = Pet::factory()->for($owner)->create(['born_at' => now()->subDays(125)]);
     $event = GameEvent::factory()->create(['closes_at' => now()->subHour(), 'starts_at' => now()->subMinutes(45), 'ends_at' => now()->subMinutes(35)]);
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
     DB::enableQueryLog();
@@ -234,15 +236,16 @@ test('ordinary catalogues do not settle events or advance dog lifetimes', functi
     expect($event->fresh()->status)->toBe('registration');
 })->with(['shop.index', 'inventory.index']);
 
-test('HTTP backlog guards preserve historical snapshots until the scheduler freezes entries before retirement', function (string $page, bool $otherViewer, int $status) {
+test('HTTP backlog guards preserve historical snapshots until the scheduler freezes entries before natural death', function (string $page, bool $otherViewer, int $status) {
     $this->freezeSecond();
     $deadline = now()->subHour();
     $owner = User::factory()->create();
     $pet = Pet::factory()->for($owner)->create([
-        'born_at' => $deadline->subMonthsNoOverflow(6), 'state_updated_at' => now()->subHours(3), 'stats_updated_at' => now()->subHours(3),
+        'born_at' => $deadline->subDays(144), 'lifespan_months' => 144,
+        'state_updated_at' => now()->subHours(3), 'stats_updated_at' => now()->subHours(3),
         'health' => 100, 'health_max' => 100, 'energy' => 100, 'energy_max' => 100, 'hydration' => 100, 'satiety' => 100,
     ]);
-    $event = GameEvent::factory()->create(['closes_at' => now()->subHours(2), 'starts_at' => now()->subMinutes(105), 'ends_at' => now()->subMinutes(95)]);
+    $event = GameEvent::factory()->create(['discipline' => 'conformation', 'closes_at' => now()->subHours(2), 'starts_at' => now()->subMinutes(105), 'ends_at' => now()->subMinutes(95)]);
     $entry = GameEventEntry::factory()->for($event, 'event')->for($owner)->for($pet)->create();
 
     $viewer = $otherViewer ? User::factory()->create() : $owner;
@@ -257,13 +260,15 @@ test('HTTP backlog guards preserve historical snapshots until the scheduler free
         ->assertHeader('Retry-After', '60')->assertJsonPath('message', __('events.errors.processing'));
 
     expect($pet->fresh()->retired_at)->toBeNull();
+    expect($pet->fresh()->died_at)->toBeNull();
     expect($entry->fresh()->snapshot)->toBeNull();
     $this->assertDatabaseCount('pet_care_actions', 0);
     $this->artisan('pets:sync-lifecycle')->assertSuccessful();
     expect($event->fresh()->status)->toBe('settled');
     expect($entry->fresh()->status)->toBe('completed');
     expect($entry->fresh()->snapshot['name'])->toBe($pet->name);
-    expect($pet->fresh()->retired_at)->toEqual($deadline);
+    expect($pet->fresh()->died_at)->toEqual($deadline);
+    expect($pet->fresh()->retired_at)->toBeNull();
 })->with([
     'dashboard' => ['dashboard', false, 200],
     'own profile' => ['players.show', false, 200],
@@ -322,10 +327,10 @@ test('standalone lifecycle maintenance freezes shared events in global chronolog
     $firstOwner = User::factory()->create();
     $secondOwner = User::factory()->create();
     $firstPet = Pet::factory()->for($firstOwner)->create([
-        'born_at' => now()->subDays(10), 'state_updated_at' => now()->subHours(4), 'stats_updated_at' => now()->subHours(4),
+        'born_at' => now()->subDays(30), 'state_updated_at' => now()->subHours(4), 'stats_updated_at' => now()->subHours(4),
     ]);
     $secondPet = Pet::factory()->for($secondOwner)->create([
-        'born_at' => now()->subDays(10), 'state_updated_at' => now()->subHours(4), 'stats_updated_at' => now()->subHours(4),
+        'born_at' => now()->subDays(30), 'state_updated_at' => now()->subHours(4), 'stats_updated_at' => now()->subHours(4),
         'hydration' => 100, 'hydration_max' => 100, 'satiety' => 100, 'satiety_max' => 100, 'health' => 100, 'health_max' => 100,
     ]);
     $early = GameEvent::factory()->create(['closes_at' => now()->subHours(3), 'starts_at' => now()->subMinutes(165), 'ends_at' => now()->subMinutes(155)]);
@@ -353,6 +358,7 @@ test('event partial polling reads state without registration catalogues or lifec
 
     $this->withHeaders([
         'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'GameEventShow', 'X-Inertia-Partial-Data' => 'event,entry,serverNow',
+        'X-DogLive-Background' => '1',
         'X-Inertia-Version' => $initial->viewData('page')['version'],
     ])->get(route('game-events.show', $event))->assertOk()
         ->assertJsonPath('props.event.id', $event->id)->assertJsonPath('props.entry', null)
@@ -393,6 +399,7 @@ test('partial calendar polling does not create upcoming schedules', function () 
 
     $this->actingAs($owner)->withHeaders([
         'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'GameEvents', 'X-Inertia-Partial-Data' => 'events,serverNow',
+        'X-DogLive-Background' => '1',
         'X-Inertia-Version' => $initial->viewData('page')['version'],
     ])->get(route('game-events.index'))->assertOk();
 

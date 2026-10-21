@@ -21,6 +21,7 @@ async function renderActions(
         generation: 1,
         description: null,
         bornAt: '2026-08-01',
+        age: { months: 18, years: 1, remainingMonths: 6, stage: 'adult' },
         isPurebred: true,
         isFavorite: true,
         hasPedigree: false,

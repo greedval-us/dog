@@ -136,21 +136,25 @@ test('new database conditions and phrases work without changing the application 
     expect(PetHistoryEntry::query()->sole()->message)->toBe(['ru' => 'Новая фраза из базы']);
 });
 
-test('retired pets and blocked owners do not produce new thoughts', function (string $case) {
+test('living retirees produce thoughts while unavailable dogs and blocked owners do not', function (string $case) {
     $this->freezeSecond();
     $pet = Pet::factory()->create(['satiety' => 5]);
     $event = PetHistoryEvent::factory()->thought()->create();
     PetHistoryPhrase::factory()->create(['pet_history_event_id' => $event->id]);
     if ($case === 'retired') {
         $pet->update(['retired_at' => now()]);
+    } elseif ($case === 'deceased') {
+        $pet->update(['died_at' => now(), 'health' => 0]);
+    } elseif ($case === 'surrendered') {
+        $pet->forceFill(['surrendered_at' => now()])->save();
     } else {
         $pet->user->forceFill(['status' => 'blocked'])->save();
     }
 
     $this->actingAs($pet->user)->postJson(route('pets.thoughts.store', $pet))->assertNoContent();
 
-    $this->assertDatabaseCount('pet_history_entries', 0);
-})->with(['retired', 'blocked']);
+    expect(PetHistoryEntry::query()->where('kind', 'thought')->count())->toBe($case === 'retired' ? 1 : 0);
+})->with(['retired', 'blocked', 'deceased', 'surrendered']);
 
 test('inactive and malformed thought rules are skipped instead of breaking the scheduler', function () {
     $this->freezeSecond();

@@ -2,6 +2,7 @@
 
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\GameEventSimulator;
+use App\Modules\Pets\Calculators\RegulatedEventSimulator;
 use App\Modules\Pets\Generators\GameEventNpcGenerator;
 
 test('event receipt tokens keep their established deterministic format', function () {
@@ -40,6 +41,86 @@ test('club participants are reproducible and use the class rather than copying h
         expect($champion['stats'][$stat] - $value)->toBe(70);
     }
 });
+
+test('regulated show fields include independently generated elite and ordinary exterior without copying the entrant', function () {
+    $generator = new GameEventNpcGenerator(new GameEventRandomness);
+    $reference = ['breed' => ['en' => 'Beagle'], 'breed_id' => 7, 'size' => 'medium',
+        'profile' => ['breed_id' => 7], 'regulation' => ['format' => 'conformation'], 'exhibition_class' => 'open',
+        'exterior' => ['type' => 100, 'structure' => 100, 'movement' => 100]];
+    $qualities = [];
+    foreach (range(0, 63) as $index) {
+        $snapshot = $generator->generate($reference, 'open:breed-7:male', 'show-field:'.$index, $index);
+        array_push($qualities, ...array_values($snapshot['exterior']));
+    }
+
+    expect(max($qualities))->toBeGreaterThan(95.0)->toBeLessThanOrEqual(100.0);
+    expect(min($qualities))->toBeLessThan(75.0)->toBeGreaterThanOrEqual(60.0);
+    expect(count(array_unique($qualities)))->toBeGreaterThan(3);
+    expect($generator->generate([...$reference, 'exterior' => ['type' => 0, 'structure' => 0, 'movement' => 0]],
+        'open:breed-7:male', 'show-field:0', 0))
+        ->toBe($generator->generate($reference, 'open:breed-7:male', 'show-field:0', 0));
+});
+
+test('legacy club opponents and regulated sports retain their original exterior generation', function (array $metadata) {
+    $generator = new GameEventNpcGenerator(new GameEventRandomness);
+    $reference = ['breed' => ['en' => 'Beagle'], 'breed_id' => 7, 'size' => 'medium'];
+    $legacy = $generator->generate($reference, 'open:all', 'fixed-club-seed', 0);
+
+    $snapshot = $generator->generate([...$reference, ...$metadata], 'open:all', 'fixed-club-seed', 0);
+
+    expect($snapshot['exterior'])->toBe($legacy['exterior']);
+    expect(max($snapshot['exterior']))->toBeLessThanOrEqual(85.0);
+})->with([
+    'legacy show' => [[]],
+    'unregulated show' => [['regulation' => ['format' => 'conformation']]],
+    'regulated nosework' => [['profile' => ['breed_id' => 7], 'regulation' => ['format' => 'nosework']]],
+]);
+
+test('perfect inherited exterior does not guarantee victory against a strong generated show opponent after handling errors', function () {
+    $generator = new GameEventNpcGenerator(new GameEventRandomness);
+    $simulator = new RegulatedEventSimulator(require dirname(__DIR__, 2).'/config/event_regulations.php');
+    $reference = ['breed' => ['en' => 'Beagle'], 'breed_id' => 7, 'size' => 'medium',
+        'profile' => ['breed_id' => 7], 'regulation' => ['format' => 'conformation'], 'exhibition_class' => 'open'];
+    $perfect = [...$reference, 'version' => 1,
+        'stats' => array_fill_keys(['speed', 'strength', 'agility', 'endurance', 'obedience', 'intelligence'], 100),
+        'states' => array_fill_keys(['health', 'energy', 'satiety', 'hydration', 'cleanliness', 'mood', 'bond'], 100),
+        'exterior' => ['type' => 100, 'structure' => 100, 'movement' => 100]];
+    $plan = ['exhibition_class' => 'open', 'stages' => array_fill(0, 3, 'balanced')];
+    $rules = ['version' => 3, 'stages' => ['type', 'structure', 'movement']];
+    $faulted = $simulator->simulate('conformation', $perfect, $plan, $rules, array_fill(0, 6, 0.0));
+    $bestOpponent = null;
+    foreach (range(0, 255) as $index) {
+        $snapshot = $generator->generate($reference, 'open:breed-7:male', 'show-field:'.$index, $index);
+        $result = $simulator->simulate('conformation', $snapshot, $plan, $rules, array_fill(0, 6, 0.99));
+        if ($bestOpponent === null || $simulator->compareResults('conformation', $result, $bestOpponent) < 0) {
+            $bestOpponent = $result;
+        }
+    }
+
+    expect($faulted['penalties'])->toBe(6);
+    expect($bestOpponent['score'])->toBeGreaterThan($faulted['score']);
+    expect($simulator->compareResults('conformation', $faulted, $bestOpponent))->toBe(1);
+});
+
+test('club participants use the same frozen event policy as the human reference after balance changes', function (string $discipline, array $policy, array $plan, string $stage) {
+    $reference = ['breed' => ['en' => 'Beagle'], 'breed_id' => 7, 'size' => 'medium', ...$policy];
+    $snapshot = (new GameEventNpcGenerator(new GameEventRandomness))->generate($reference, 'open:all', 'frozen-policy', 0);
+    $balance = require dirname(__DIR__, 2).'/config/event_regulations.php';
+    $balance['regulations']['nosework']['time_limits']['nw_0'] = 999;
+    $balance['simulation']['show_presentation'] = ['careful' => 0.5, 'balanced' => 0.5, 'bold' => 0.5];
+
+    $result = (new RegulatedEventSimulator($balance))->simulate($discipline, $snapshot,
+        [...$plan, 'stages' => ['balanced']], ['version' => 3, 'stages' => [$stage]], [0.99, 0.99]);
+
+    if ($discipline === 'nosework') {
+        expect($result['stages'][0]['timeLimit'])->toBe(120);
+    } else {
+        expect($result['stages'][0]['factors']['presentationMultiplier'])->toBe(1.0);
+    }
+})->with([
+    'nosework search deadline' => ['nosework', ['nosework_time_limit' => 120], ['sport_class' => 'nw_0'], 'interior'],
+    'show presentation' => ['conformation', ['show_presentation_multipliers' => ['careful' => 0.9, 'balanced' => 1.0, 'bold' => 1.15]], ['exhibition_class' => 'open'], 'movement'],
+]);
 
 test('club descendants have distinct bounded profiles and reproduce independently of generation order', function (string $division) {
     $generator = new GameEventNpcGenerator(new GameEventRandomness);

@@ -17,6 +17,7 @@ import DogStats from '@/components/DogStats.vue';
 import GameAssetArtwork from '@/components/GameAssetArtwork.vue';
 import Heading from '@/components/Heading.vue';
 import HelpHint from '@/components/HelpHint.vue';
+import PetAge from '@/components/PetAge.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
@@ -104,6 +105,7 @@ const traits: Record<string, string> = {
                     >
                     <span v-else>{{ t('Mixed breed') }}</span>
                 </div>
+                <PetAge :age="profile.age" :status="profile.lifecycle.status" />
                 <span
                     v-if="profile.lifecycle.status !== 'active'"
                     class="pet-lifecycle-status"
@@ -111,9 +113,9 @@ const traits: Record<string, string> = {
                 >
                     <component
                         :is="
-                            profile.lifecycle.status === 'retired'
-                                ? Leaf
-                                : Flower2
+                            profile.lifecycle.status === 'deceased'
+                                ? Flower2
+                                : Leaf
                         "
                         :size="16"
                         aria-hidden="true"
@@ -121,7 +123,9 @@ const traits: Record<string, string> = {
                         t(
                             profile.lifecycle.status === 'retired'
                                 ? 'Retired'
-                                : 'In loving memory',
+                                : profile.lifecycle.status === 'surrendered'
+                                  ? 'Passed on to a shelter'
+                                  : 'In loving memory',
                         )
                     }}
                 </span>
@@ -161,8 +165,8 @@ const traits: Record<string, string> = {
                         <dt>
                             {{
                                 t(
-                                    profile.lifecycle.status === 'retired'
-                                        ? 'Retirement date'
+                                    profile.lifecycle.status === 'surrendered'
+                                        ? 'Passed on to a shelter'
                                         : 'Date of passing',
                                 )
                             }}

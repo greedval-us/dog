@@ -11,11 +11,13 @@ use App\Models\User;
 use App\Modules\Inventory\Services\InventoryConsumption;
 use App\Modules\Pets\Calculators\GameEventRandomness;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\DTO\GameEventAdmissionData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetActivity;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Generators\GameEventNpcGenerator;
+use App\Modules\Pets\Queries\GetShowGroup;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Services\PlayerWallet;
 use Carbon\CarbonImmutable;
@@ -33,6 +35,7 @@ final class GameEventFreezing
         private DogWorkCompletion $workCompletion,
         private GameEventRandomness $randomness,
         private GameEventNpcGenerator $npcs,
+        private GetShowGroup $groups,
     ) {}
 
     /**
@@ -46,15 +49,27 @@ final class GameEventFreezing
     public function freeze(GameEvent $event, Collection $entries, Collection $owners, Collection $pets, CarbonImmutable $at, array &$thresholds): void
     {
         $discipline = GameEventDiscipline::from($event->discipline);
+        $physical = ! EventRegulationData::isDocumentary($event);
+        $source = EventRegulationData::isGroupRing($event) ? $this->groups->source($event) : null;
+        $closedAt = $source === null ? $event->closes_at : $this->groups->freezeAt($event);
         foreach ($entries->where('status', 'registered') as $entry) {
             $owner = $owners->get($entry->user_id);
             $pet = $pets->get($entry->pet_id);
-            if ($owner !== null && $owner->status === PlayerStatus::Active && $pet !== null && ! $discipline->isDocumentary()) {
-                $this->completePriorActivity($owner, $pet, $event->closes_at, $thresholds);
+            if ($owner !== null && $owner->status === PlayerStatus::Active && $pet !== null && $physical) {
+                $this->completePriorActivity($owner, $pet, $closedAt, $thresholds);
+                if (EventRegulationData::isGroupRing($event)) {
+                    foreach (array_diff(EventRegulationData::memberIds($event, $entry->plan, $entry->pet_id), [$entry->pet_id]) as $id) {
+                        $child = $pets->get($id);
+                        $childOwner = $child === null ? null : $owners->get($child->user_id);
+                        if ($child !== null && $childOwner !== null) {
+                            $this->completePriorActivity($childOwner, $child, $closedAt, $thresholds);
+                        }
+                    }
+                }
             }
             $reason = $owner === null || $owner->status !== PlayerStatus::Active || $pet === null || $pet->user_id !== $owner->id
-                ? 'events.errors.unavailable' : $this->admission->reason($event, $pet, $event->closes_at);
-            if ($reason === null && ! $discipline->isDocumentary() && $pet->isBusy()) {
+                ? 'events.errors.unavailable' : $this->admission->reason($event, $pet, $closedAt);
+            if ($reason === null && $physical && $pet->isBusy() && ! (EventRegulationData::isGroupRing($event) && $this->groups->reservedHere($event, $pet))) {
                 $reason = 'events.errors.busy';
             }
             $preparation = null;
@@ -71,22 +86,37 @@ final class GameEventFreezing
                 continue;
             }
             $this->freezeEntry($event, $entry, $owner, $pet, $preparation);
+            if (EventRegulationData::isGroupRing($event)) {
+                foreach (array_diff(EventRegulationData::memberIds($event, $entry->plan, $entry->pet_id), [$entry->pet_id]) as $id) {
+                    if (($child = $pets->get($id)) !== null) {
+                        $this->reserveRingMember($event, $entry, $child, $closedAt);
+                    }
+                }
+            }
         }
 
         $groups = $event->entries()->where('status', 'frozen')->orderBy('id')->get()->groupBy('division');
         foreach ($groups as $division => $humans) {
-            if ($humans->count() > $event->rules['field_size']) {
+            if (! EventRegulationData::isRegulated($event) && $event->discipline !== GameEventDiscipline::Conformation->value && $humans->count() > $event->rules['field_size']) {
                 foreach ($humans->slice($event->rules['field_size']) as $entry) {
                     $this->withdraw($entry, $owners->get($entry->user_id), 'events.errors.full', $at, $pets->get($entry->pet_id));
                 }
             }
             $reference = $humans->first()->snapshot;
-            for ($index = min($humans->count(), $event->rules['field_size']); $index < $event->rules['field_size']; $index++) {
+            if (EventRegulationData::isGroupRing($event)) {
+                continue;
+            }
+            if (EventRegulationData::isRegulated($event) && (EventRegulationData::rules($event)['format'] ?? null) === 'odor_test') {
+                continue;
+            }
+            for ($index = $humans->count(); $index < $event->rules['field_size']; $index++) {
                 $key = $event->seed.':npc:'.$division.':'.$index;
                 GameEventEntry::query()->create([
                     'game_event_id' => $event->id, 'is_npc' => true, 'operation_token' => $this->randomness->token($key.':event:'.$event->id),
                     'registration_hash' => hash('sha256', $key), 'division' => $division, 'status' => 'frozen',
-                    'fee' => 0, 'gear_ids' => [], 'plan' => ['stages' => ['balanced', 'careful', 'bold']],
+                    'fee' => 0, 'gear_ids' => [], 'plan' => EventRegulationData::isRegulated($event)
+                        ? [...$humans->first()->plan, 'stages' => array_fill(0, count($event->rules['stages']), 'balanced')]
+                        : ['stages' => ['balanced', 'careful', 'bold']],
                     'snapshot' => $this->npcs->generate($reference, $division, $key, $index),
                 ]);
             }
@@ -117,6 +147,10 @@ final class GameEventFreezing
 
     private function freezeEntry(GameEvent $event, GameEventEntry $entry, User $owner, Pet $pet, GameEventAdmissionData $preparation): void
     {
+        if ($event->discipline === GameEventDiscipline::Conformation->value || EventRegulationData::isRegulated($event)) {
+            $entry->division = $this->admission->division($event, $pet, $preparation->plan);
+            $entry->plan = $preparation->plan;
+        }
         $entry->snapshot = $this->admission->snapshot($event, $pet, $preparation->plan, $preparation->gear);
         $entry->status = 'frozen';
         $entry->save();
@@ -124,7 +158,12 @@ final class GameEventFreezing
             $this->inventory->handle($owner, $item['id'], $this->randomness->token($event->seed.':usage:'.$entry->id.':'.$item['id']));
         }
         $discipline = GameEventDiscipline::from($event->discipline);
-        if (! $discipline->isDocumentary()) {
+        if (! EventRegulationData::isDocumentary($event)) {
+            if (EventRegulationData::isGroupRing($event)) {
+                $this->reserveRingMember($event, $entry, $pet, $this->groups->freezeAt($event));
+
+                return;
+            }
             $pet->energy = max(0, $pet->energy - $event->rules['energy_cost']);
             $pet->activity = $discipline->isExhibition() ? PetActivity::Exhibition : PetActivity::Competition;
             $pet->activity_token = $entry->operation_token;
@@ -132,6 +171,19 @@ final class GameEventFreezing
             $pet->activity_ends_at = $event->ends_at;
             $pet->save();
         }
+    }
+
+    private function reserveRingMember(GameEvent $event, GameEventEntry $entry, Pet $pet, CarbonImmutable $at): void
+    {
+        if ($this->groups->reservedHere($event, $pet)) {
+            return;
+        }
+        $pet->energy = max(0, $pet->energy - $event->rules['energy_cost']);
+        $pet->activity = PetActivity::Exhibition;
+        $pet->activity_token = $entry->operation_token;
+        $pet->activity_started_at = $at;
+        $pet->activity_ends_at = $event->ends_at;
+        $pet->save();
     }
 
     private function withdraw(GameEventEntry $entry, ?User $owner, string $reason, CarbonImmutable $at, ?Pet $pet): void

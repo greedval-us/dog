@@ -13,6 +13,10 @@ use InvalidArgumentException;
  */
 final class GameEventPerformance
 {
+    private const float MAX_CAREER_CONSISTENCY = 0.08;
+
+    private const float CAREER_CONSISTENCY_PER_EXPERIENCE = 0.001;
+
     public function normalizedStat(int|float $value): float
     {
         $value = max(0, $this->finite($value));
@@ -122,11 +126,14 @@ final class GameEventPerformance
             $normalizedStats[$stat->value] = $this->normalizedStat($snapshot['stats'][$stat->value] ?? 0);
         }
         $modifiers = $this->modifiers($snapshot['modifiers'] ?? []);
+        $careerExperience = max(0.0, $this->finite($snapshot['career_experience'] ?? 0));
 
         return [
             'careMultiplier' => $kind->isDocumentary() ? 1.0 : $this->careMultiplier($states),
             'initialFatigue' => $kind->isDocumentary() ? 0.0 : $this->startingFatigue($states),
             'initialFocus' => $kind->isDocumentary() ? 100.0 : $this->startingFocus($snapshot['stats'], $states, $modifiers),
+            'careerExperience' => $careerExperience,
+            'consistencyBonus' => $kind->isDocumentary() ? 0.0 : min(self::MAX_CAREER_CONSISTENCY, $careerExperience * self::CAREER_CONSISTENCY_PER_EXPERIENCE),
             'states' => $states, 'normalizedStats' => $normalizedStats, 'modifiers' => $modifiers,
         ];
     }

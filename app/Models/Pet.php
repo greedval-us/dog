@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Modules\Pets\Calculators\PetAgeRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\Calculators\PetEventProfileRules;
 use App\Modules\Pets\Calculators\StatePercentageCalculator;
 use App\Modules\Pets\Enums\DogSize;
 use App\Modules\Pets\Enums\PetActivity;
@@ -23,9 +25,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @phpstan-import-type Effect from \App\Modules\Pets\Calculators\PetStatusRules
+ * @phpstan-import-type BoardingPeriod from \App\Modules\Pets\Calculators\PetBoardingRules
  *
  * @property list<Effect>|null $buffs
  * @property list<Effect>|null $debuffs
+ * @property list<BoardingPeriod>|null $boarding_periods
  * @property int $id
  * @property int|null $user_id
  * @property int $dog_id
@@ -46,11 +50,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property Collection<int, PetDisease> $activeDiseaseEpisodes
  * @property int $generation
  * @property array{type: int, structure: int, movement: int} $exterior
+ * @property array<string,mixed>|null $event_profile
  * @property Collection<int, PetTitle> $titles
  * @property Collection<int, PetSportRecord> $sportRecords
  * @property CarbonImmutable $born_at
  * @property CarbonImmutable|null $retired_at
  * @property CarbonImmutable|null $died_at
+ * @property CarbonImmutable|null $surrendered_at
+ * @property int|null $lifespan_months
  * @property CarbonImmutable $state_updated_at
  * @property array<string, float>|null $stat_decay_remainders
  * @property CarbonImmutable $stats_updated_at
@@ -96,6 +103,24 @@ class Pet extends Model
 {
     /** @use HasFactory<PetFactory> */
     use HasFactory;
+
+    protected $attributes = ['is_purebred' => true];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $pet): void {
+            $identity = implode(':', [$pet->dog_id, $pet->born_at->getTimestamp(), $pet->name, $pet->sex->value]);
+            $pet->event_profile = (new PetEventProfileRules)->initialSnapshot($identity, $pet->sex->value, $pet->is_purebred, $pet->dog->eventProfileDefaults(), $pet->event_profile ?? []);
+            if ($pet->lifespan_months === null) {
+                $pet->lifespan_months = (new PetAgeRules)->lifespanMonths(
+                    $identity,
+                    $pet->size->value,
+                    $pet->dog->breed,
+                    config('pet_age'),
+                );
+            }
+        });
+    }
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -189,27 +214,42 @@ class Pet extends Model
 
     public function isActive(): bool
     {
-        return $this->retired_at === null && $this->died_at === null && $this->health > 0;
+        return $this->surrendered_at === null && $this->died_at === null && $this->health > 0;
     }
 
     public function archivedAt(): ?CarbonImmutable
     {
-        return $this->died_at ?? $this->retired_at;
+        return $this->died_at ?? $this->surrendered_at;
     }
 
     public function retirementEligibleAt(): CarbonImmutable
     {
-        return $this->born_at->addMonthsNoOverflow(3);
+        return $this->born_at;
     }
 
-    public function automaticRetirementAt(): CarbonImmutable
+    public function automaticRetirementAt(): ?CarbonImmutable
     {
-        return $this->born_at->addMonthsNoOverflow(6);
+        return null;
+    }
+
+    public function sportRetirementAt(): ?CarbonImmutable
+    {
+        return null;
+    }
+
+    public function naturalDeathAt(): CarbonImmutable
+    {
+        return $this->born_at->addSeconds(($this->lifespan_months ?? PetAgeRules::DEFAULT_LIFESPAN_MONTHS) * PetAgeRules::SECONDS_PER_MONTH);
+    }
+
+    public function ageMonthsAt(CarbonImmutable $at): int
+    {
+        return (new PetAgeRules)->monthsAt($this->born_at, $at);
     }
 
     public function canRetire(CarbonImmutable $at): bool
     {
-        return $this->isActive() && $at->greaterThanOrEqualTo($this->retirementEligibleAt());
+        return $this->isActive() && $this->retired_at === null && $at->greaterThanOrEqualTo($this->retirementEligibleAt());
     }
 
     public function clearActivity(): void
@@ -221,7 +261,7 @@ class Pet extends Model
     #[Scope]
     protected function active(Builder $query): void
     {
-        $query->whereNull('retired_at')->whereNull('died_at')->where('health', '>', 0);
+        $query->whereNull('surrendered_at')->whereNull('died_at')->where('health', '>', 0);
     }
 
     /** @param Builder<Pet> $query */
@@ -231,7 +271,11 @@ class Pet extends Model
         $query->active()->whereNull('activity');
     }
 
-    /** Advance the in-memory snapshot; callers persist it only inside a locked transaction. */
+    /**
+     * Advance the in-memory snapshot; callers persist it only inside a locked transaction.
+     *
+     * @phpstan-impure
+     */
     public function advanceTo(CarbonImmutable $at, PetDecayCalculator $calculator): void
     {
         $requestedAt = $at->startOfSecond();
@@ -240,8 +284,8 @@ class Pet extends Model
             return;
         }
 
-        $automaticRetirementAt = $this->automaticRetirementAt()->startOfSecond();
-        $at = $requestedAt->min($automaticRetirementAt);
+        $naturalDeathAt = $this->naturalDeathAt()->max($this->state_updated_at)->max($this->stats_updated_at)->startOfSecond();
+        $at = $requestedAt->min($naturalDeathAt);
 
         $values = [];
         $maximums = [];
@@ -252,9 +296,10 @@ class Pet extends Model
         }
 
         $effects = [...($this->buffs ?? []), ...($this->debuffs ?? [])];
+        $age = ['born_at' => $this->born_at->getTimestamp(), 'lifespan_months' => $this->lifespan_months ?? PetAgeRules::DEFAULT_LIFESPAN_MONTHS];
         $diedAt = $this->health <= 0 ? $this->state_updated_at->min($at) : null;
         if ($at->greaterThan($this->state_updated_at)) {
-            $result = $calculator->statesUntilDeath($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $result = $calculator->statesUntilDeath($values, $maximums, $this->state_updated_at->getTimestamp(), $at->getTimestamp(), $effects, $this->boarding_periods ?? [], $age);
             $this->fill($result['values']);
             if ($result['diedAt'] !== null) {
                 $diedAt = CarbonImmutable::createFromTimestampUTC($result['diedAt']);
@@ -268,18 +313,23 @@ class Pet extends Model
             foreach (PetStat::cases() as $stat) {
                 $stats[$stat->value] = (int) $this->getAttribute($stat->value);
             }
-            $result = $calculator->stats($stats, $this->stat_decay_remainders ?? [], $this->stats_updated_at->getTimestamp(), $at->getTimestamp(), $effects);
+            $result = $calculator->stats($stats, $this->stat_decay_remainders ?? [], $this->stats_updated_at->getTimestamp(), $at->getTimestamp(), $effects, $this->boarding_periods ?? [], $age);
             $this->fill($result['values']);
             $this->stat_decay_remainders = $result['remainders'];
             $this->stats_updated_at = $at;
         }
+        if ($this->boarding_periods !== null) {
+            $consumedThrough = min($this->state_updated_at->getTimestamp(), $this->stats_updated_at->getTimestamp());
+            $this->boarding_periods = array_values(array_filter($this->boarding_periods,
+                fn (array $period): bool => $period['ends_at'] > $consumedThrough));
+        }
 
+        if ($diedAt === null && $requestedAt->greaterThanOrEqualTo($naturalDeathAt)) {
+            $diedAt = $naturalDeathAt;
+        }
         if ($diedAt !== null) {
             $this->died_at = $diedAt;
             $this->health = 0;
-            $this->clearActivity();
-        } elseif ($requestedAt->greaterThanOrEqualTo($automaticRetirementAt)) {
-            $this->retired_at = $automaticRetirementAt;
             $this->clearActivity();
         }
     }
@@ -307,11 +357,14 @@ class Pet extends Model
         return [
             'buffs' => 'array',
             'debuffs' => 'array',
+            'boarding_periods' => 'array',
             'sex' => PetSex::class,
             'size' => DogSize::class,
             'born_at' => 'datetime',
             'retired_at' => 'datetime',
             'died_at' => 'datetime',
+            'surrendered_at' => 'datetime',
+            'lifespan_months' => 'integer',
             'state_updated_at' => 'datetime',
             'stats_updated_at' => 'datetime',
             'stat_decay_remainders' => 'array',
@@ -324,6 +377,7 @@ class Pet extends Model
             'background_asset_id' => 'integer',
             'generation' => 'integer',
             'exterior' => 'array',
+            'event_profile' => 'array',
             'is_purebred' => 'boolean',
             'is_favorite' => 'boolean',
             'endurance' => 'integer',

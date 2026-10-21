@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/composables/useI18n';
 import { usePetCareActivity } from '@/composables/usePetCareActivity';
 import { stateLabels, statLabels } from '@/lib/petLabels';
-import { careOptionReason } from '@/lib/petCareAvailability';
+import { careGroupReason, careOptionReason } from '@/lib/petCareAvailability';
 import { careModifiers } from '@/lib/petCarePreview';
 import {
     careActions as actions,
@@ -72,22 +72,18 @@ const optionReason = (option: CareOption) =>
         modifiers.value.energy_cost_percent ?? 0,
     );
 function groupReason(value: CareGroup, option?: CareOption): string | null {
-    if (props.care.blocked)
-        return t('Care is unavailable for this dog or account.');
-    if (props.care.working) return t('Your dog is working.');
-    if (props.care.busy) return t(busyMessage.value);
-    const remaining = secondsLeft(props.care.cooldowns[value]);
-    if (remaining)
-        return t('Available in {time}', { time: countdown(remaining) });
-    if (option) {
-        const reason = optionReason(option);
-        return reason ? t(reason) : null;
-    }
-    const variants = props.care.options.filter((item) => item.group === value);
-    if (!variants.length) return t('No options are available yet.');
-    return variants.every((item) => optionReason(item))
-        ? t(optionReason(variants[0])!)
-        : null;
+    return careGroupReason(
+        {
+            care: props.care,
+            group: value,
+            now: now.value,
+            energy: props.pet.energy.value,
+            modifier: modifiers.value.energy_cost_percent ?? 0,
+            busyMessage: busyMessage.value,
+            option,
+        },
+        t,
+    );
 }
 const actionHints = computed(() => {
     if (props.care.blocked || props.care.busy || props.care.working) return [];

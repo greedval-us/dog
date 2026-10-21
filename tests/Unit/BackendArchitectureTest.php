@@ -17,6 +17,7 @@ use App\Modules\Pets\Services\PetStateSynchronizer;
 use App\Modules\Pets\Services\PetTrainingPreparation;
 use App\Modules\Pets\Services\PuppyPlacementService;
 use App\Modules\Pets\Services\VeterinaryCare;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 
@@ -27,6 +28,7 @@ $publicOperations = [
     PetLifecycle::class,
     PlayerWallet::class,
     PlayerProgress::class,
+    PlayerNotifications::class,
     InventoryConsumption::class,
 ];
 

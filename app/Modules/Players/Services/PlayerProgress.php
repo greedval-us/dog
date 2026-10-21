@@ -19,9 +19,9 @@ final class PlayerProgress
     public function __construct(private PlayerAchievements $achievements) {}
 
     /** @param list<AchievementMetric>|null $affectedMetrics */
-    public function refreshAchievements(User $user, ?array $affectedMetrics = null): void
+    public function refreshAchievements(User $user, ?array $affectedMetrics = null, bool $notifyOnUnlock = false): void
     {
-        $this->achievements->synchronize($user, $affectedMetrics);
+        $this->achievements->synchronize($user, $affectedMetrics, $notifyOnUnlock);
     }
 
     /**
@@ -88,7 +88,7 @@ final class PlayerProgress
 
             $completed->forceFill(['experience_awarded' => $experience])->save();
             $receipt->setAttribute('experience_awarded', $experience);
-            $this->achievements->synchronize($owner, $onlyAffectedAchievements ? $this->affectedMetrics($fact) : null);
+            $this->achievements->synchronize($owner, $onlyAffectedAchievements ? $this->affectedMetrics($fact) : null, notifyOnUnlock: true);
 
             return $experience;
         }, attempts: 3);
