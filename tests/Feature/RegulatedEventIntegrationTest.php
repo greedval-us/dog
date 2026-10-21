@@ -93,6 +93,8 @@ test('agility freezes discipline experience and effective warm up gear once and 
     expect($gear->fresh()->remaining_uses)->toBe(2);
     $this->assertDatabaseCount('item_usages', 1);
     expect($entry->fresh()->snapshot)->toBe($frozen);
+    expect($pet->user->notifications()->get()->where('data.kind', 'competition_result')->sole()->data['actionUrl'])
+        ->toBe(route('game-events.show', $event->id, absolute: false));
 });
 
 test('prohibited agility course equipment is rejected without charging or spending an item use', function () {
@@ -186,6 +188,8 @@ test('a show freezes its presentation policy and records the actual handling con
     expect(array_column(array_column($result['stages'], 'factors'), 'presentationMultiplier'))->toBe([1, 1, 1.07]);
     expect($result['stages'][2]['factors']['exterior'])->toBe($frozen['exterior']['movement']);
     expect($result['stages'][2]['factors']['presentationContribution'])->toBeLessThanOrEqual(20);
+    expect($pet->user->notifications()->get()->where('data.kind', 'show_result')->sole()->data['actionUrl'])
+        ->toBe(route('game-events.show', $event->id, absolute: false));
     expect($gear->fresh()->remaining_uses)->toBe(4);
     $this->assertDatabaseCount('item_usages', 1);
 });

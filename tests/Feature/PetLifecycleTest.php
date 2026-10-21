@@ -41,6 +41,7 @@ test('an owner can voluntarily retire a young dog without marking death', functi
     expect($pet->fresh()->retired_at)->toEqual(now());
     expect($pet->fresh()->died_at)->toBeNull();
     expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.retirement')->sole()->details['automatic'])->toBeFalse();
+    expect($pet->user->notifications()->get()->where('data.kind', 'pet_death')->isNotEmpty())->toBeFalse();
 });
 
 test('manual retirement preserves the slot and pending care and records retirement once', function () {
@@ -106,6 +107,9 @@ test('offline death freezes states and attributes at the first second health rea
 
     expect($pet->fresh()->getAttributes())->toBe($snapshot);
     expect(PetHistoryEntry::query()->where('pet_id', $pet->id)->where('event_code', 'life.death')->count())->toBe(1);
+    $notification = $pet->user->notifications()->get()->where('data.kind', 'pet_death')->sole();
+    expect($notification->data['message']['en'])->toBe($pet->name.' has passed away. Their memory is preserved in your memorial.');
+    expect($notification->data['actionUrl'])->toBe(route('players.memorial.show', ['user' => $pet->user->username, 'pet' => $pet->id], absolute: false));
     expect(app(GetPetSlots::class)->handle($pet->user)[0]['pet'])->toBeNull();
 });
 

@@ -398,8 +398,11 @@ test('bounded event progress avoids unrelated achievement history scans for a fi
             DB::disableQueryLog();
             DB::flushQueryLog();
         }
+        $notificationWrites = count(array_filter($queries, fn (array $query): bool => str_starts_with($query['query'], 'insert into "notifications"')));
         $measurements[$mode] = [
             'queries' => count($queries),
+            'progressQueries' => count($queries) - $notificationWrites,
+            'notificationWrites' => $notificationWrites,
             'sqlMilliseconds' => round(array_sum(array_column($queries, 'time')), 2),
             'mealHistoryScans' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'daily_feeding'))),
             'eventLoads' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from "game_events"'))),
@@ -409,14 +412,15 @@ test('bounded event progress avoids unrelated achievement history scans for a fi
     expect($measurements['full']['mealHistoryScans'])->toBe(8);
     expect($measurements['bounded']['mealHistoryScans'])->toBe(0);
     expect($measurements['bounded']['eventLoads'])->toBe(0);
-    expect($measurements['bounded']['queries'])->toBeLessThanOrEqual(72);
-    expect($measurements['full']['queries'] - $measurements['bounded']['queries'])->toBeGreaterThanOrEqual(24);
+    expect($measurements['bounded']['progressQueries'])->toBeLessThanOrEqual(72);
+    expect($measurements['full']['progressQueries'] - $measurements['bounded']['progressQueries'])->toBeGreaterThanOrEqual(24);
     foreach ($fields as $participants) {
         foreach ($participants as [$player, $entry]) {
             $this->assertDatabaseHas('users', ['id' => $player->id, 'experience' => '20', 'competition_wins' => 1, 'active_days' => 1]);
             $this->assertDatabaseHas('game_event_entries', ['id' => $entry->id, 'experience_awarded' => 20]);
             $this->assertDatabaseHas('player_achievements', ['user_id' => $player->id, 'achievement_id' => $winnerAchievement->id, 'progress' => 1]);
             expect(achievementProgress($player, 'first-dog')->unlocked_at)->not->toBeNull();
+            expect($player->notifications()->count())->toBe(PlayerAchievement::query()->where('user_id', $player->id)->whereNotNull('unlocked_at')->count());
         }
     }
     fwrite(STDERR, PHP_EOL.'Player progress query measurements: '.json_encode($measurements, JSON_THROW_ON_ERROR).PHP_EOL);

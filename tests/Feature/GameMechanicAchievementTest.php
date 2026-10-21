@@ -78,6 +78,7 @@ test('ammunition purchases unlock preparation achievements using durable receipt
     app(PurchaseItem::class)->handle($owner, $data[1]);
     expect(mechanicAchievement($owner, 'ammunition-prepared')->progress)->toBe(2);
     expect(mechanicAchievement($owner, 'ammunition-prepared')->unlocked_at)->toBeNull();
+    expect($owner->notifications()->get()->where('data.kind', 'achievement')->isEmpty())->toBeTrue();
 
     $purchase = app(PurchaseItem::class)->handle($owner, $data[2]);
 
@@ -89,6 +90,10 @@ test('ammunition purchases unlock preparation achievements using durable receipt
     expect($achievement->fresh()->unlocked_at)->toEqual($achievement->unlocked_at);
     $this->assertDatabaseCount('item_purchases', 3);
     expect($owner->fresh()->experience)->toBe('0');
+    $notification = $owner->notifications()->get()->where('data.kind', 'achievement')->sole();
+    expect($notification->data['title']['en'])->toBe('Achievement unlocked');
+    expect($notification->data['message']['en'])->toBe('You unlocked the achievement “Gear with personality”.');
+    expect($notification->data['actionUrl'])->toBe(route('players.achievements', $owner->username, absolute: false));
 });
 
 test('a titled puppy unlocks its original breeders achievement while competing for another owner', function () {

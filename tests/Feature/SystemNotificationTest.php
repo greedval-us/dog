@@ -40,6 +40,7 @@ test('players only receive their own unread system notifications', function () {
         ->assertJsonPath('items.1.message.ru', 'Ты вошёл в свой аккаунт DogLive. IP-адрес: 192.0.2.10.')
         ->assertJsonPath('items.1.message.en', 'You signed in to your DogLive account. IP address: 192.0.2.10.')
         ->assertJsonPath('items.1.readAt', null)
+        ->assertJsonPath('items.1.actionUrl', null)
         ->assertJsonPath('unreadCount', 2)
         ->assertJsonPath('nextCursor', null)
         ->assertJsonMissing(['id' => $read->id])

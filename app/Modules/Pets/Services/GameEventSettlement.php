@@ -15,6 +15,7 @@ use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Players\DTO\PlayerProgressFact;
 use App\Modules\Players\Enums\AchievementMetric;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerProgress;
 use App\Modules\Players\Services\PlayerWallet;
 use Carbon\CarbonImmutable;
@@ -30,6 +31,7 @@ final class GameEventSettlement
         private GameEventRandomness $randomness,
         private ExhibitionAwards $exhibitionAwards,
         private RegulatedEventSettlement $regulated,
+        private PlayerNotifications $notifications,
     ) {}
 
     /**
@@ -40,8 +42,10 @@ final class GameEventSettlement
      */
     public function settle(GameEvent $event, Collection $owners, Collection $pets, CarbonImmutable $at): void
     {
+        $entryIds = array_values($event->entries()->where('status', 'frozen')->get(['id'])
+            ->map(static fn (GameEventEntry $entry): int => $entry->id)->all());
         if (EventRegulationData::isRegulated($event)) {
-            $this->finish($event, $owners, $this->regulated->settle($event, $owners, $pets), $at);
+            $this->finish($event, $owners, $pets, $this->regulated->settle($event, $owners, $pets), $at, $entryIds);
 
             return;
         }
@@ -99,14 +103,16 @@ final class GameEventSettlement
         if ($event->discipline === GameEventDiscipline::Conformation->value) {
             $this->exhibitionAwards->recordBreedTitles($event);
         }
-        $this->finish($event, $owners, $winningPetIds, $at);
+        $this->finish($event, $owners, $pets, $winningPetIds, $at, $entryIds);
     }
 
     /**
      * @param  Collection<int,User>  $owners
+     * @param  Collection<int,Pet>  $pets
      * @param  list<int>  $winningPetIds
+     * @param  list<int>  $entryIds
      */
-    private function finish(GameEvent $event, Collection $owners, array $winningPetIds, CarbonImmutable $at): void
+    private function finish(GameEvent $event, Collection $owners, Collection $pets, array $winningPetIds, CarbonImmutable $at, array $entryIds): void
     {
         if ($winningPetIds !== []) {
             $breederIds = BreedingLitter::query()->whereNotNull('delivered_at')
@@ -115,11 +121,20 @@ final class GameEventSettlement
             foreach ($breederIds as $breederId) {
                 $breeder = $owners->get($breederId);
                 if ($breeder !== null) {
-                    $this->progress->refreshAchievements($breeder, [AchievementMetric::TitledOffspring]);
+                    $this->progress->refreshAchievements($breeder, [AchievementMetric::TitledOffspring], notifyOnUnlock: true);
                 }
             }
         }
         $event->update(['status' => 'settled', 'settled_at' => $at]);
+        foreach ($event->entries()->whereKey($entryIds)->where('status', 'completed')->where('is_npc', false)->whereIn('user_id', $owners->keys())->orderBy('id')->get() as $entry) {
+            $owner = $owners->get($entry->user_id);
+            if ($owner !== null) {
+                $savedName = $entry->snapshot['name'] ?? null;
+                $petName = is_string($savedName) && $savedName !== '' ? $savedName : $pets->get($entry->pet_id)?->name;
+                $this->notifications->eventCompleted($owner, $event->id, $event->discipline,
+                    GameEventDiscipline::from($event->discipline)->isExhibition(), $petName);
+            }
+        }
     }
 
     private function recordCareer(GameEvent $event, GameEventEntry $entry, Pet $pet): void

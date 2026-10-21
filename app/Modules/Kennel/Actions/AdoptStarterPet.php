@@ -63,7 +63,7 @@ final class AdoptStarterPet
             $pet->user()->associate($user);
             $pet->born_at = now()->subDays($data->ageMonths);
             $pet->save();
-            $this->progress->refreshAchievements($owner);
+            $this->progress->refreshAchievements($owner, notifyOnUnlock: true);
 
             return $pet;
         }, attempts: 3);

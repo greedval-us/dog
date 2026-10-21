@@ -13,22 +13,22 @@ use Illuminate\Support\Facades\DB;
 
 final class PlayerAchievements
 {
-    public function __construct(private GetPlayerGameStatistics $gameStatistics) {}
+    public function __construct(private GetPlayerGameStatistics $gameStatistics, private PlayerNotifications $notifications) {}
 
     /**
      * Call within the gameplay transaction to preserve unlocks alongside their completed action.
      *
      * @param  list<AchievementMetric>|null  $affectedMetrics  Null preserves the complete backfill.
      */
-    public function synchronize(User $user, ?array $affectedMetrics = null): void
+    public function synchronize(User $user, ?array $affectedMetrics = null, bool $notifyOnUnlock = false): void
     {
-        DB::transaction(function () use ($user, $affectedMetrics): void {
+        DB::transaction(function () use ($user, $affectedMetrics, $notifyOnUnlock): void {
             $owner = User::query()->lockForUpdate()->findOrFail($user->id);
             $query = Achievement::query()->where('is_active', true)->orderBy('id');
             if ($affectedMetrics !== null) {
                 $query->whereIn('rules->metric', array_map(fn (AchievementMetric $metric): string => $metric->value, $affectedMetrics));
             }
-            $catalogue = $query->get(['id', 'rules']);
+            $catalogue = $query->get(['id', 'rules', 'name']);
 
             if ($catalogue->isEmpty()) {
                 return;
@@ -102,6 +102,16 @@ final class PlayerAchievements
 
             if ($updates !== []) {
                 PlayerAchievement::query()->upsert($updates, ['user_id', 'achievement_id'], ['progress', 'unlocked_at', 'updated_at']);
+                if ($notifyOnUnlock) {
+                    foreach ($updates as $update) {
+                        if ($update['unlocked_at'] !== null) {
+                            $achievement = $catalogue->find($update['achievement_id']);
+                            if ($achievement !== null) {
+                                $this->notifications->achievementUnlocked($owner, $achievement->name);
+                            }
+                        }
+                    }
+                }
             }
         }, attempts: 3);
     }

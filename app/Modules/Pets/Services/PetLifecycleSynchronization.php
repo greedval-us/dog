@@ -10,6 +10,7 @@ use App\Modules\Pets\Calculators\PetDecayCalculator;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Queries\GetPendingEventRegistrations;
 use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Services\PlayerNotifications;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +23,7 @@ final class PetLifecycleSynchronization
         private PetCareCompletion $careCompletion,
         private GetPendingEventRegistrations $registrations,
         private PetBoarding $boarding,
+        private PlayerNotifications $notifications,
     ) {}
 
     /** @return list<int> Care receipts settled before a possible lifecycle transition. */
@@ -91,6 +93,7 @@ final class PetLifecycleSynchronization
     /** The caller must hold the owner and pet row locks in that order. */
     public function persist(Pet $pet): void
     {
+        $died = $pet->isDirty('died_at') && $pet->died_at !== null;
         $retired = $pet->isDirty('retired_at') && $pet->retired_at !== null;
         $archivedAt = $pet->archivedAt();
         if ($archivedAt !== null) {
@@ -101,6 +104,10 @@ final class PetLifecycleSynchronization
                 ->update(['cancelled_at' => $archivedAt]);
         }
         $pet->save();
+
+        if ($died && $pet->user !== null) {
+            $this->notifications->petDied($pet->user, $pet->id, $pet->name);
+        }
 
         if ($archivedAt !== null) {
             $code = $pet->died_at === null ? 'life.surrender' : 'life.death';

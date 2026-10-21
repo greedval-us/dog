@@ -10,11 +10,12 @@ use App\Modules\Pets\DTO\NewPetData;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Players\Enums\AchievementMetric;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerProgress;
 
 final class PuppyPlacementService
 {
-    public function __construct(private PlayerProgress $progress) {}
+    public function __construct(private PlayerProgress $progress, private PlayerNotifications $notifications) {}
 
     public function replay(User $owner, int $puppyId, string $name, string $token, string $kind, int $price): ?PuppyPlacement
     {
@@ -49,10 +50,11 @@ final class PuppyPlacementService
             'user_id' => $owner->id, 'seller_id' => $sellerId, 'puppy_id' => $puppy->id, 'pet_id' => $pet->id,
             'operation_token' => $token, 'kind' => $kind, 'price' => $price, 'name' => $name,
         ]);
-        $this->progress->refreshAchievements($owner);
+        $this->progress->refreshAchievements($owner, notifyOnUnlock: true);
         if ($sellerId !== null && $sellerId !== $owner->id) {
             $seller = User::query()->findOrFail($sellerId);
-            $this->progress->refreshAchievements($seller, [AchievementMetric::PuppiesSold]);
+            $this->progress->refreshAchievements($seller, [AchievementMetric::PuppiesSold], notifyOnUnlock: true);
+            $this->notifications->petSold($seller, $pet->id, $puppy->name, $price);
         }
 
         return $placement;

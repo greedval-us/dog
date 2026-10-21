@@ -114,7 +114,7 @@
     "Close notifications": "Закрыть уведомления",
     "{count} unread": "Непрочитанных: {count}",
     "Mark all as read": "Прочитать все",
-    "Mark as read": "Прочитано",
+    "Mark as read": "Прочитать",
     "Mark as read: {title}": "Отметить как прочитанное: {title}",
     "Unread": "Новое",
     "Loading notifications": "Загружаем уведомления…",
@@ -1480,5 +1480,8 @@
     "{humans} entered groups": "Заявлено групп: {humans}",
     "{humans} entered dogs · {clubs} club dogs": "Заявлено собак: {humans} · собак клуба: {clubs}",
     "Group final placements": "Места в финале групп",
-    "Progeny group awards": "Награды групп производителей"
+    "Progeny group awards": "Награды групп производителей",
+    "Achievements, dog updates, event results and sales will appear here.": "Здесь появятся достижения, новости о собаках, результаты мероприятий и продажи.",
+    "Gameplay and account updates": "События игры и аккаунта",
+    "View details: {title}": "Подробнее: {title}"
 }

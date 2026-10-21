@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\Vite;
 
@@ -10,6 +11,30 @@ beforeEach(function () {
     config(['inertia.ssr.enabled' => false]);
     $this->freezeSecond();
 });
+
+test('gameplay notifications show localized context and open the related page on a phone', function (string $locale) {
+    $owner = User::factory()->create(['locale' => $locale]);
+    app(PlayerNotifications::class)->achievementUnlocked($owner, ['ru' => 'Заботливый хозяин', 'en' => 'Caring owner']);
+    $this->actingAs($owner);
+    $russian = $locale === 'ru';
+    $title = $russian ? 'Достижение получено' : 'Achievement unlocked';
+    $achievement = $russian ? 'Заботливый хозяин' : 'Caring owner';
+    $path = route('players.achievements', $owner->username, absolute: false);
+
+    $page = visit(route('dashboard', absolute: false), ['viewport' => ['width' => 320, 'height' => 700]]);
+    $page->click('.notification-bell')
+        ->assertSeeIn('.notification-panel', $title)
+        ->assertSeeIn('.notification-panel', $achievement)
+        ->assertAttribute('.notification-action', 'href', $path)
+        ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->screenshot(fullPage: false, filename: 'gameplay-notification-'.$locale.'-320.png')
+        ->click('.notification-action')
+        ->assertPathIs($path)
+        ->assertMissing('.notification-panel')
+        ->assertNoJavaScriptErrors();
+
+    expect($owner->unreadNotifications()->count())->toBe(1);
+})->with(['en', 'ru']);
 
 test('reading one or all notifications removes them from the bell and preserves the records', function (string $locale) {
     $owner = User::factory()->create(['locale' => $locale]);

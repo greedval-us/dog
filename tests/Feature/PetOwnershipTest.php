@@ -39,6 +39,10 @@ test('a retired dog can be sold once without changing its identity or age', func
         ->and($seller->fresh()->coins)->toBe(157)->and($buyer->fresh()->coins)->toBe(363)
         ->and($listing->fresh()->is_active)->toBeFalse();
     $this->assertDatabaseCount('pet_sale_purchases', 1);
+    $notification = $seller->notifications()->get()->where('data.kind', 'pet_sold')->sole();
+    expect($notification->data['message']['en'])->toBe($pet->name.' was sold for 137 coins. The payment has been added to your balance.');
+    expect($notification->data['actionUrl'])->toBe(route('pets.show', $pet->id, absolute: false));
+    expect($buyer->notifications()->get()->where('data.kind', 'pet_sold')->isNotEmpty())->toBeFalse();
     $this->assertDatabaseCount('currency_transactions', 2);
     expect(fn () => app(PurchasePetSale::class)->handle($buyer, $listing->id, 138, $token))->toThrow(PetUnavailable::class);
 });
@@ -54,6 +58,7 @@ test('insufficient funds and occupied slots cannot transfer a dog or pay its sel
     expect(fn () => app(PurchasePetSale::class)->handle($buyer, $listing->id, 100, (string) Str::uuid()))->toThrow(PetUnavailable::class);
     expect($pet->fresh()->user_id)->toBe($seller->id)->and($seller->fresh()->coins)->toBe(20);
     $this->assertDatabaseCount('pet_sale_purchases', 0);
+    expect($seller->notifications()->get()->where('data.kind', 'pet_sold')->isNotEmpty())->toBeFalse();
     $this->assertDatabaseCount('currency_transactions', 0);
 })->with(['funds', 'slots']);
 
@@ -74,6 +79,7 @@ test('surrender releases a pensioners slot without coins or death', function () 
     $listing = app(PublishPetSale::class)->handle($owner, $pet->id, 100);
     app(SurrenderPet::class)->handle($owner, $pet->id);
     app(SurrenderPet::class)->handle($owner, $pet->id);
+    expect($owner->notifications()->get()->where('data.kind', 'pet_death')->isNotEmpty())->toBeFalse();
     expect($pet->fresh()->surrendered_at)->not->toBeNull()->and($pet->fresh()->died_at)->toBeNull()
         ->and($owner->pets()->active()->exists())->toBeFalse()
         ->and($owner->fresh()->canClaimStarterPet())->toBeTrue()->and($owner->fresh()->coins)->toBe(17)

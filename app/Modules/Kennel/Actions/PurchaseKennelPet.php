@@ -107,7 +107,7 @@ final class PurchaseKennelPet
                 'age_months' => $data->ageMonths,
                 'currency_transaction_id' => $entry->id,
             ]);
-            $this->progress->refreshAchievements($owner);
+            $this->progress->refreshAchievements($owner, notifyOnUnlock: true);
 
             return $purchase;
         }, attempts: 3);

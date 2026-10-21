@@ -15,13 +15,14 @@ use App\Modules\Pets\Queries\PetOwnershipEligibility;
 use App\Modules\Pets\Services\PetLifecycle;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerWallet;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class PurchasePetSale
 {
-    public function __construct(private PetLifecycle $lifecycle, private PetOwnershipEligibility $eligibility, private PlayerWallet $wallet, private PetDecayCalculator $decay) {}
+    public function __construct(private PetLifecycle $lifecycle, private PetOwnershipEligibility $eligibility, private PlayerWallet $wallet, private PetDecayCalculator $decay, private PlayerNotifications $notifications) {}
 
     public function handle(User $user, int $listingId, int $expectedPrice, string $token): PetSalePurchase
     {
@@ -93,6 +94,7 @@ final class PurchasePetSale
                 'details' => ['sellerId' => $seller->id, 'buyerId' => $buyer->id, 'coins' => $listing->price],
                 'occurred_at' => now(),
             ]);
+            $this->notifications->petSold($seller, $pet->id, $pet->name, $listing->price);
 
             return $receipt;
         }, attempts: 3);

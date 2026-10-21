@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Lang;
 class SystemNotification extends Notification
 {
     /**
-     * @param  'login'|'password_changed'|'password_reset'|'site_update'  $kind
      * @param  array{ru: string, en: string}  $title
      * @param  array{ru: string, en: string}  $message
      */
@@ -16,6 +15,7 @@ class SystemNotification extends Notification
         private readonly string $kind,
         private readonly array $title,
         private readonly array $message,
+        private readonly ?string $actionUrl = null,
     ) {}
 
     public static function login(?string $ipAddress): self
@@ -42,19 +42,35 @@ class SystemNotification extends Notification
         return new self('site_update', $title, $message);
     }
 
+    /**
+     * @param  'achievement'|'pet_death'|'show_result'|'competition_result'|'breeding_success'|'pet_sold'  $kind
+     * @param  array{ru: array<string, string>, en: array<string, string>}  $replacements
+     */
+    public static function gameplay(string $kind, array $replacements, string $actionUrl): self
+    {
+        return new self($kind, [
+            'ru' => Lang::get("notifications.{$kind}.title", [], 'ru'),
+            'en' => Lang::get("notifications.{$kind}.title", [], 'en'),
+        ], [
+            'ru' => Lang::get("notifications.{$kind}.message", $replacements['ru'], 'ru'),
+            'en' => Lang::get("notifications.{$kind}.message", $replacements['en'], 'en'),
+        ], $actionUrl);
+    }
+
     /** @return list<string> */
     public function via(object $notifiable): array
     {
         return ['database'];
     }
 
-    /** @return array{kind: string, title: array{ru: string, en: string}, message: array{ru: string, en: string}} */
+    /** @return array{kind: string, title: array{ru: string, en: string}, message: array{ru: string, en: string}, actionUrl?: string} */
     public function toDatabase(object $notifiable): array
     {
         return [
             'kind' => $this->kind,
             'title' => $this->title,
             'message' => $this->message,
+            ...($this->actionUrl === null ? [] : ['actionUrl' => $this->actionUrl]),
         ];
     }
 

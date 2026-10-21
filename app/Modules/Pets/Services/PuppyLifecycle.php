@@ -7,6 +7,7 @@ use App\Models\Puppy;
 use App\Models\User;
 use App\Modules\Players\Enums\AchievementMetric;
 use App\Modules\Players\Enums\PlayerStatus;
+use App\Modules\Players\Services\PlayerNotifications;
 use App\Modules\Players\Services\PlayerProgress;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,7 +16,7 @@ use InvalidArgumentException;
 
 final class PuppyLifecycle
 {
-    public function __construct(private PlayerProgress $progress) {}
+    public function __construct(private PlayerProgress $progress, private PlayerNotifications $notifications) {}
 
     /** Births and handoffs commit independently of a subsequent placement or listing refusal. */
     public function synchronize(?int $puppyId = null): int
@@ -65,9 +66,15 @@ final class PuppyLifecycle
                     ])->save();
                 }
                 $birth->forceFill(['delivered_at' => $at])->save();
+                foreach ($puppies->where('status', 'pending')->groupBy('user_id') as $puppyOwnerId => $ownedPuppies) {
+                    $puppyOwner = $owners->get($puppyOwnerId);
+                    if ($puppyOwner !== null) {
+                        $this->notifications->litterBorn($puppyOwner, $ownedPuppies->count());
+                    }
+                }
                 $initiator = $owners->get($birth->initiator_id);
                 if ($initiator !== null) {
-                    $this->progress->refreshAchievements($initiator, [AchievementMetric::LittersBorn, AchievementMetric::PuppiesBorn]);
+                    $this->progress->refreshAchievements($initiator, [AchievementMetric::LittersBorn, AchievementMetric::PuppiesBorn], notifyOnUnlock: true);
                 }
 
                 return $puppies->count();

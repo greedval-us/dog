@@ -84,6 +84,8 @@ test('freeze fills a human division with marked NPCs and settlement is durable a
     expect(GameEventEntry::query()->where('is_npc', true)->whereNotNull('user_id')->exists())->toBeFalse();
     expect($entry->fresh()->snapshot['name'])->toBe($pet->name);
     expect($pet->fresh()->isBusy())->toBeTrue();
+    $previousPet = Pet::factory()->for($pet->user)->create();
+    GameEventEntry::factory()->for($event, 'event')->for($previousPet)->for($pet->user)->create(['status' => 'completed']);
     $this->travelTo($event->ends_at);
     $processor->processForOwner($pet->user);
     $completed = $entry->fresh();
@@ -101,6 +103,10 @@ test('freeze fills a human division with marked NPCs and settlement is durable a
     $this->assertDatabaseHas('pet_sport_records', ['pet_id' => $pet->id, 'starts' => 1]);
     expect(GameEventEntry::query()->where('is_npc', true)->sum('prize'))->toBe(0);
     expect(GameEventEntry::query()->where('is_npc', true)->whereNotNull('experience_awarded')->count())->toBe(0);
+    $notification = $pet->user->notifications()->get()->where('data.kind', 'competition_result')->sole();
+    expect($notification->data['message']['en'])->toBe($pet->name.' finished participating in Agility. View the results.');
+    expect($notification->data['actionUrl'])->toBe(route('game-events.show', $event->id, absolute: false));
+    $this->assertDatabaseCount('notifications', 1);
 });
 
 test('illness or retirement before freeze withdraws and refunds without NPC only tournaments', function () {
@@ -119,6 +125,7 @@ test('illness or retirement before freeze withdraws and refunds without NPC only
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 500]);
     $this->assertDatabaseCount('game_event_entries', 1);
     $this->assertDatabaseCount('pet_sport_records', 0);
+    expect($pet->user->notifications()->get()->whereIn('data.kind', ['competition_result', 'show_result'])->isNotEmpty())->toBeFalse();
 });
 
 test('a completed sleep is settled before the frozen competition snapshot', function () {
@@ -378,6 +385,8 @@ test('a show winner receives durable class and breed titles without lowering its
     $this->assertDatabaseCount('pet_titles', 3);
     $this->assertDatabaseHas('pet_sport_records', ['pet_id' => $pet->id, 'tier' => 2, 'wins' => 1]);
     $this->assertDatabaseHas('users', ['id' => $pet->user_id, 'coins' => 575, 'exhibition_wins' => 1]);
+    expect($pet->user->notifications()->get()->where('data.kind', 'show_result')->sole()->data['message']['en'])
+        ->toBe($pet->name.' finished participating in Conformation show. View the results.');
 });
 
 test('water finished before freeze unlocks energy recovery during the remaining preparation time', function () {

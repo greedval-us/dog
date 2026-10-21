@@ -10,6 +10,7 @@ use App\Modules\Pets\Actions\CancelGameEventEntry;
 use App\Modules\Pets\Actions\RegisterGameEvent;
 use App\Modules\Pets\DTO\GameEventDivisionData;
 use App\Modules\Pets\Services\GameEventProcessor;
+use App\Modules\Players\Services\PlayerNotifications;
 use Illuminate\Support\Str;
 
 function registerDogInHeat(Pet $pet, GameEvent $event): GameEventEntry
@@ -113,7 +114,26 @@ test('equal documentary results use a reproducible secret draw instead of token 
     expect($processor->processDue())->toBe(0);
     expect($event->entries()->orderBy('id')->pluck('rank')->all())->toBe($ranks);
     expect($entries[$winnerIndex]->user->fresh()->coins)->toBe($balance);
+    foreach ($entries as $entry) {
+        $notification = $entry->user->notifications()->get()->where('data.kind', 'show_result')->sole();
+        expect($notification->data['message']['en'])->toBe($entry->pet->name.' finished participating in Progeny competition. View the results.');
+        expect($notification->data['actionUrl'])->toBe(route('game-events.show', $event->id, absolute: false));
+    }
 })->with(['higher token wins' => ['seed-a', 1], 'another seed changes the winner' => ['seed-b', 0]]);
+
+test('an event result without a remaining pet name uses a localized participant label', function () {
+    $this->freezeSecond();
+    $owner = User::factory()->create();
+    $event = GameEvent::factory()->create(['discipline' => 'progeny', 'status' => 'settled']);
+
+    app(PlayerNotifications::class)->eventCompleted($owner, $event->id, 'progeny', true, null);
+
+    $notification = $owner->notifications()->sole();
+    expect($notification->data['message'])->toBe([
+        'ru' => 'Твой питомец завершил участие в событии «Конкурс производителей». Посмотри результаты.',
+        'en' => 'Your dog finished participating in Progeny competition. View the results.',
+    ]);
+});
 
 test('heat labels preserve the class and localized breed name', function () {
     $breed = Dog::factory()->make(['name' => ['en' => 'Test breed', 'ru' => 'Тестовая порода']]);
