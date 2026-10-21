@@ -4,12 +4,43 @@ namespace App\Modules\Pets\DTO;
 
 use App\Models\Dog;
 use App\Models\GameEvent;
+use App\Modules\Pets\Enums\GameEventDiscipline;
 
 final readonly class EventRegulationData
 {
     public static function isRegulated(GameEvent $event): bool
     {
         return ($event->rules['version'] ?? 0) === 3;
+    }
+
+    public static function isProgenyRing(GameEvent $event): bool
+    {
+        return self::isRegulated($event) && $event->discipline === 'progeny' && (self::rules($event)['format'] ?? '') === 'progeny_ring';
+    }
+
+    public static function isGroupRing(GameEvent $event): bool
+    {
+        return self::isProgenyRing($event) || (self::isRegulated($event)
+            && in_array($event->discipline, ['couple', 'breeders'], true)
+            && (self::rules($event)['format'] ?? '') === $event->discipline.'_ring');
+    }
+
+    /** @param array<string,mixed> $plan
+     * @return list<int>
+     */
+    public static function memberIds(GameEvent $event, array $plan, ?int $anchor): array
+    {
+        $ids = $anchor === null ? [] : [$anchor];
+        if (self::isGroupRing($event)) {
+            $ids = [...$ids, ...($plan[self::isProgenyRing($event) ? 'offspring_ids' : 'member_ids'] ?? [])];
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    public static function isDocumentary(GameEvent $event): bool
+    {
+        return GameEventDiscipline::from($event->discipline)->isDocumentary() && ! self::isProgenyRing($event);
     }
 
     /** @return array<string, mixed> */
@@ -56,7 +87,7 @@ final readonly class EventRegulationData
         if ($references === []) {
             $international = ($rules['system'] ?? 'rkf') === 'fci';
             $references[] = match ($event->discipline) {
-                'conformation', 'progeny' => $international ? 'fci_shows_2026' : 'rkf_shows_2026',
+                'conformation', 'progeny', 'couple', 'breeders' => $international ? 'fci_shows_2026' : 'rkf_shows_2026',
                 'agility' => $international ? 'fci_agility' : 'rkf_agility_2026',
                 'nosework' => 'rkf_nosework_2026_09', 'canicross' => 'rkf_racing_2026_06',
                 default => '',

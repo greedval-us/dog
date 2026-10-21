@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Modules\Pets\Actions\CancelGameEventEntry;
 use App\Modules\Pets\Actions\RegisterGameEvent;
 use App\Modules\Pets\Actions\UpdateGameEventEntry;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Pets\Queries\GetGameEvents;
@@ -68,12 +69,14 @@ class GameEventController extends Controller
         };
         $state = null;
         $showState = function () use ($events, $user, $gameEvent, $locale, $filters, &$state): array {
-            return $state ??= $events->showState($user, $gameEvent->refresh(), $locale, $filters['division'] ?? null);
+            return $state ??= $events->showState($user, $gameEvent->refresh(), $locale, $filters['division'] ?? null,
+                isset($filters['pet']) ? (int) $filters['pet'] : null);
         };
 
         return Inertia::render('GameEventShow', [
             'event' => fn () => $showState()['event'],
             'entry' => fn () => $showState()['entry'],
+            'ownEntries' => fn () => $showState()['ownEntries'],
             'dogs' => $registrationDogs,
             'selectedPetId' => fn () => $selection()['petId'],
             'selectedEntryOptionKey' => fn () => $selection()['optionKey'],
@@ -95,7 +98,7 @@ class GameEventController extends Controller
     public function update(UpdateGameEventRequest $request, GameEvent $gameEvent, UpdateGameEventEntry $update): RedirectResponse
     {
         $user = $this->player($request);
-        $entry = $gameEvent->entries()->where('user_id', $user->id)->firstOrFail();
+        $entry = $this->ownedEntry($gameEvent, $user, $request->validated('pet_id'));
 
         return $this->respondToEntryChange($gameEvent, 'events.updated', fn (): GameEventEntry => $update->handle(
             $user, $entry->id, $request->validated('plan'), $request->validated('gear_ids'),
@@ -105,7 +108,8 @@ class GameEventController extends Controller
     public function cancel(Request $request, GameEvent $gameEvent, CancelGameEventEntry $cancel): RedirectResponse
     {
         $user = $this->player($request);
-        $entry = $gameEvent->entries()->where('user_id', $user->id)->firstOrFail();
+        $selection = $request->validate(['pet_id' => ['sometimes', 'integer', 'min:1']]);
+        $entry = $this->ownedEntry($gameEvent, $user, $selection['pet_id'] ?? null);
 
         return $this->respondToEntryChange($gameEvent, 'events.cancelled', fn (): GameEventEntry => $cancel->handle($user, $entry->id));
     }
@@ -118,17 +122,31 @@ class GameEventController extends Controller
         return $user;
     }
 
+    private function ownedEntry(GameEvent $event, User $user, mixed $petId): GameEventEntry
+    {
+        $entries = $event->entries()->where('user_id', $user->id)->orderBy('id');
+        if ($petId !== null) {
+            return $entries->where('pet_id', (int) $petId)->firstOrFail();
+        }
+        if ((clone $entries)->count() > 1) {
+            throw ValidationException::withMessages(['pet_id' => __('events.errors.select_dog')]);
+        }
+
+        return $entries->firstOrFail();
+    }
+
     /** @param Closure(): GameEventEntry $change */
     private function respondToEntryChange(GameEvent $gameEvent, string $message, Closure $change): RedirectResponse
     {
         try {
-            $change();
+            $entry = $change();
         } catch (PetUnavailable|GameEventUnavailable $exception) {
             throw ValidationException::withMessages(['event' => $this->error($exception)]);
         }
         Inertia::flash('toast', ['type' => 'success', 'message' => __($message)]);
 
-        return to_route('game-events.show', $gameEvent);
+        return to_route('game-events.show', ($gameEvent->discipline === 'conformation' && EventRegulationData::isRegulated($gameEvent)) || EventRegulationData::isGroupRing($gameEvent)
+            ? ['gameEvent' => $gameEvent, 'pet' => $entry->pet_id] : $gameEvent);
     }
 
     private function error(PetUnavailable|GameEventUnavailable $exception): string

@@ -11,6 +11,8 @@ export type PlayerCareerStatistics = {
     conformationWins: number;
     progenyStarts: number;
     progenyWins: number;
+    coupleWins: number;
+    breedersWins: number;
     weeklyEventWins: number;
     monthlyEventWins: number;
     titlesCount: number;

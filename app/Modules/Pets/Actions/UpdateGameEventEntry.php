@@ -26,7 +26,10 @@ final class UpdateGameEventEntry
 
         return DB::transaction(function () use ($user, $candidate, $plan, $gearIds): GameEventEntry {
             $event = GameEvent::query()->lockForUpdate()->findOrFail($candidate->game_event_id);
-            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+            if (EventRegulationData::isGroupRing($event)) {
+                $candidate->refresh();
+            }
+            $owner = $this->admission->lockRegistrationParticipants($user, $event, $candidate->pet_id, $plan, $candidate->plan);
             $pet = Pet::query()->where('user_id', $owner->id)->lockForUpdate()->findOrFail($candidate->pet_id);
             $entry = GameEventEntry::query()->lockForUpdate()->findOrFail($candidate->id);
             if ($owner->status !== PlayerStatus::Active || $entry->status !== 'registered' || $event->status !== 'registration' || now()->greaterThanOrEqualTo($event->closes_at)) {

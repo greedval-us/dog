@@ -3,6 +3,7 @@
 namespace App\Modules\Pets\Services;
 
 use App\Models\GameEvent;
+use App\Models\GameEventEntry;
 use App\Models\InventoryItem;
 use App\Models\Pet;
 use App\Models\PetSportRecord;
@@ -20,8 +21,11 @@ use App\Modules\Pets\DTO\PetCompetitionSnapshot;
 use App\Modules\Pets\Enums\ExhibitionClass;
 use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
+use App\Modules\Pets\Queries\GetGameEventParticipation;
 use App\Modules\Pets\Queries\GetPetEventProfile;
+use App\Modules\Pets\Queries\GetShowGroup;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * @phpstan-import-type Plan from GameEventProtocol
@@ -30,7 +34,41 @@ use Carbon\CarbonImmutable;
  */
 final class GameEventAdmission
 {
-    public function __construct(private PetDecayCalculator $decay, private SkillRules $skills, private CompetitionAmmunitionRules $ammunition, private GameEventAdmissionRules $admissionRules, private RegulatedEventRules $regulatedRules, private GetPetEventProfile $profiles) {}
+    public function __construct(private PetDecayCalculator $decay, private SkillRules $skills, private CompetitionAmmunitionRules $ammunition, private GameEventAdmissionRules $admissionRules, private RegulatedEventRules $regulatedRules, private GetPetEventProfile $profiles, private GetShowGroup $groups, private GetGameEventParticipation $participation) {}
+
+    /**
+     * The caller holds the event lock; owners and pets are locked in ascending order.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $previousPlan
+     */
+    public function lockRegistrationParticipants(User $user, GameEvent $event, int $anchorId, array $plan, array $previousPlan = []): User
+    {
+        if (! EventRegulationData::isGroupRing($event)) {
+            return User::query()->lockForUpdate()->findOrFail($user->id);
+        }
+        $ids = [$anchorId];
+        $key = EventRegulationData::isProgenyRing($event) ? 'offspring_ids' : 'member_ids';
+        foreach ([$plan, $previousPlan] as $selection) {
+            $members = $selection[$key] ?? [];
+            if (is_array($members) && array_is_list($members) && count($members) <= 5
+                && count(array_filter($members, static fn (mixed $id): bool => is_int($id) && $id > 0)) === count($members)) {
+                $ids = [...$ids, ...$members];
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        $initial = Pet::query()->whereIn('id', $ids)->get(['id', 'user_id'])->keyBy('id');
+        $ownerIds = $initial->pluck('user_id')->filter()->push($user->id)->unique();
+        $owners = User::query()->whereIn('id', $ownerIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        $pets = Pet::query()->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get(['id', 'user_id']);
+        foreach ($pets as $member) {
+            if ($member->user_id !== $initial->get($member->id)?->user_id || ($member->user_id !== null && ! $owners->has($member->user_id))) {
+                throw new GameEventUnavailable('events.errors.unavailable');
+            }
+        }
+
+        return $owners->get($user->id) ?? throw new GameEventUnavailable('events.errors.unavailable');
+    }
 
     /**
      * @param  array<string, mixed>  $plan
@@ -86,6 +124,15 @@ final class GameEventAdmission
         } elseif (array_key_exists('exhibition_class', $plan)) {
             throw new GameEventUnavailable('events.errors.exhibition_class');
         }
+        if (EventRegulationData::isGroupRing($event) && ! EventRegulationData::isProgenyRing($event)) {
+            $ids = $plan['member_ids'] ?? [];
+            if ($decisions !== array_fill(0, $stageCount, 'balanced')) {
+                throw new GameEventUnavailable('events.errors.plan');
+            }
+            sort($ids);
+            $result['member_ids'] = $ids;
+            $this->ringMembers($event, $pet, $ids);
+        }
         if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
             $ids = $plan['offspring_ids'] ?? [];
             if (! is_array($ids) || ! array_is_list($ids) || count($ids) < 3 || count($ids) > 5
@@ -99,6 +146,12 @@ final class GameEventAdmission
             }
             sort($ids);
             $result['offspring_ids'] = $ids;
+            if (EventRegulationData::isGroupRing($event)) {
+                if ($decisions !== array_fill(0, $stageCount, 'balanced')) {
+                    throw new GameEventUnavailable('events.errors.plan');
+                }
+                $this->ringMembers($event, $pet, $ids);
+            }
         }
 
         return $result;
@@ -108,14 +161,18 @@ final class GameEventAdmission
     {
         $pet->advanceTo($at, $this->decay);
         $states = $pet->statePercentages(null);
+        if (EventRegulationData::isGroupRing($event) && $this->groups->reservedHere($event, $pet)) {
+            return ! $pet->isActive() || $pet->retired_at !== null ? 'events.errors.archived'
+                : ($states['health'] < 60 || $pet->activeDiseaseEpisodes()->exists() ? 'events.errors.health' : null);
+        }
 
-        return $this->admissionRules->blockingReasons(GameEventDiscipline::from($event->discipline), [
+        return $this->admissionRules->blockingReasons(EventRegulationData::isGroupRing($event) ? GameEventDiscipline::Conformation : GameEventDiscipline::from($event->discipline), [
             'active' => $pet->isActive(), 'retired' => $pet->retired_at !== null, 'ageMonths' => $pet->ageMonthsAt($event->starts_at),
             'health' => $states['health'], 'hasDisease' => $pet->activeDiseaseEpisodes()->exists(),
             'energyPercentage' => $states['energy'], 'energy' => $pet->energy,
             'busy' => $pet->isBusy(), 'activityEndsAt' => $pet->activity_ends_at,
         ], [
-            'startsAt' => $event->starts_at, 'closesAt' => $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
+            'startsAt' => $event->starts_at, 'closesAt' => EventRegulationData::isGroupRing($event) ? $event->starts_at : $event->closes_at, 'energyCost' => $event->rules['energy_cost'] ?? 0,
             ...($this->minimumAge($event)),
         ])[0] ?? null;
     }
@@ -126,7 +183,7 @@ final class GameEventAdmission
      */
     public function gear(User $user, GameEvent $event, Pet $pet, array $ids, bool $lock = false): array
     {
-        if (GameEventDiscipline::from($event->discipline)->isDocumentary() && $ids !== []) {
+        if ((GameEventDiscipline::from($event->discipline)->isDocumentary() || EventRegulationData::isGroupRing($event)) && $ids !== []) {
             throw new GameEventUnavailable('events.errors.gear');
         }
         if (! array_is_list($ids) || count($ids) > 4 || count(array_unique($ids)) !== count($ids)
@@ -202,7 +259,8 @@ final class GameEventAdmission
             $modifiers[$key] = max(-0.2, min(0.2, $value));
         }
         $offspring = [];
-        if (GameEventDiscipline::from($event->discipline)->isDocumentary()) {
+        $members = [];
+        if (EventRegulationData::isDocumentary($event)) {
             $children = Pet::query()->whereIn('id', $plan['offspring_ids'] ?? throw new GameEventUnavailable('events.errors.offspring'))->orderBy('id')
                 ->with(['titles' => fn ($query) => $query->reorder()->orderBy('id')->select(['pet_id', 'discipline', 'frequency', 'code'])])->get();
             foreach ($children as $child) {
@@ -212,12 +270,29 @@ final class GameEventAdmission
                 ];
             }
         }
+        if (EventRegulationData::isGroupRing($event)) {
+            $source = $this->groups->source($event) ?? throw new GameEventUnavailable('events.errors.progeny_entry');
+            $frozenMembers = $this->groups->frozenMembers($event);
+            foreach ($this->ringMembers($event, $pet, $plan[EventRegulationData::isProgenyRing($event) ? 'offspring_ids' : 'member_ids'] ?? []) as $individual) {
+                $member = $individual->pet ?? throw new GameEventUnavailable('events.errors.progeny_entry');
+                $member->loadMissing(['dog', 'skills', 'sportRecords']);
+                $member->advanceTo($this->groups->freezeAt($event), $this->decay);
+                $members[] = $frozenMembers[$member->id] ?? [...PetCompetitionSnapshot::fromPet($member, $this->skills, 'conformation'),
+                    'id' => $member->id, 'exhibition_class' => $individual->plan['exhibition_class'], 'grade' => $individual->result['grade'],
+                    'gear' => $individual->snapshot['gear'] ?? [], 'modifiers' => $individual->snapshot['modifiers'] ?? [],
+                    'age_months' => $member->ageMonthsAt($event->starts_at), 'show_entry_id' => $individual->id];
+                if (EventRegulationData::isProgenyRing($event) && $member->id !== $pet->id) {
+                    $offspring[] = ['id' => $member->id, 'name' => $member->name, 'exterior' => $member->exterior ?? [], 'titles' => []];
+                }
+            }
+        }
 
         return [
             ...PetCompetitionSnapshot::fromPet($pet, $this->skills, $event->discipline),
             'age_months' => $pet->ageMonthsAt($event->starts_at), 'sex' => $pet->sex->value,
             'exhibition_class' => $plan['exhibition_class'] ?? null,
             'gear' => $gear, 'modifiers' => $modifiers, 'offspring' => $offspring,
+            ...($members !== [] ? ['members' => $members] : []),
             ...(EventRegulationData::isRegulated($event) ? [
                 'profile' => $this->profiles->forPet($pet), 'regulation' => EventRegulationData::rules($event),
                 ...($event->discipline === 'nosework' ? ['nosework_time_limit' => $this->regulatedRules->noseworkTimeLimit(EventRegulationData::rules($event), $plan)] : []),
@@ -229,10 +304,57 @@ final class GameEventAdmission
     /** @return array{minimumMonths?:int} */
     private function minimumAge(GameEvent $event): array
     {
+        if (EventRegulationData::isGroupRing($event)) {
+            return ['minimumMonths' => 0];
+        }
         if (! EventRegulationData::isRegulated($event)) {
             return [];
         }
 
         return ['minimumMonths' => $this->regulatedRules->minimumMonths($event->discipline, EventRegulationData::rules($event), [])];
+    }
+
+    /** @param list<int> $ids
+     * @return Collection<int,GameEventEntry>
+     */
+    private function ringMembers(GameEvent $event, Pet $parent, array $ids): Collection
+    {
+        $error = EventRegulationData::isProgenyRing($event) ? 'events.errors.progeny_entry' : 'events.errors.group_entry';
+        $source = $this->groups->source($event);
+        if ($source === null || $source->status === 'cancelled') {
+            throw new GameEventUnavailable($error);
+        }
+        $entries = $this->groups->entries($event, [$parent->id, ...$ids]);
+        foreach ([$parent->id, ...$ids] as $id) {
+            $individual = $entries->get($id);
+            if ($individual === null || $individual->pet === null) {
+                throw new GameEventUnavailable($error);
+            }
+            if (($reason = $this->groups->member($event, $individual, $source->status === 'settled', $source->status === 'settled' ? $this->groups->freezeAt($event) : null)['reason']) !== null) {
+                throw new GameEventUnavailable($reason);
+            }
+            if (($reason = $this->reason($event, $individual->pet, $source->status === 'settled' ? $this->groups->freezeAt($event) : CarbonImmutable::now())) !== null) {
+                throw new GameEventUnavailable($reason);
+            }
+            if (($reason = $this->participation->petReason($individual->pet, $event)) !== null) {
+                throw new GameEventUnavailable($reason);
+            }
+        }
+        if (! EventRegulationData::isProgenyRing($event)) {
+            if (($reason = $this->groups->compositionReason($event, array_values($entries->pluck('pet')->all()))) !== null) {
+                throw new GameEventUnavailable($reason);
+            }
+            $identity = [$parent->id, ...$ids];
+            sort($identity);
+            foreach ($event->entries()->where('pet_id', '!=', $parent->id)->whereNotIn('status', ['cancelled', 'withdrawn'])->get() as $other) {
+                $otherIds = EventRegulationData::memberIds($event, $other->plan, $other->pet_id);
+                sort($otherIds);
+                if ($otherIds === $identity) {
+                    throw new GameEventUnavailable('events.errors.group_duplicate');
+                }
+            }
+        }
+
+        return $entries;
     }
 }

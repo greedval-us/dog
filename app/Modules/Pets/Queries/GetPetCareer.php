@@ -30,12 +30,14 @@ final class GetPetCareer
     {
         $pet = $user->pets()->with('dog')->findOrFail($petId);
         $titleProgress = $this->titleProgress->handle($user, $pet, $locale);
-        $entries = GameEventEntry::query()->where('game_event_entries.pet_id', $pet->id)
+        $entries = GameEventEntry::query()->involvingPets([$pet->id])
+            ->where(fn (Builder $visible) => $visible->where('game_event_entries.pet_id', $pet->id)
+                ->orWhereHas('event', fn (Builder $events) => $events->whereIn('discipline', ['couple', 'breeders'])))
             ->where('game_event_entries.is_npc', false)->where('game_event_entries.status', 'completed')
             ->whereNotNull('game_event_entries.completed_at')->whereNotNull('game_event_entries.result')
             ->whereHas('event', fn (Builder $events) => $events->where('status', 'settled'));
         $page = (clone $entries)->with('event:id,discipline,frequency')
-            ->select(['id', 'game_event_id', 'division', 'rank', 'prize', 'completed_at'])
+            ->select(['id', 'game_event_id', 'pet_id', 'division', 'rank', 'prize', 'completed_at', 'result'])
             ->selectRaw("snapshot->>'name' AS historical_name")
             ->selectRaw("result->>'eliminated' AS was_eliminated")
             ->orderByDesc('completed_at')->orderByDesc('id')->cursorPaginate(20, ['*'], 'career_cursor', $cursor);
@@ -51,15 +53,34 @@ final class GetPetCareer
                     'kind' => GameEventDiscipline::from($entry->event->discipline)->isExhibition() ? 'exhibition' : 'competition',
                     'discipline' => $entry->event->discipline, 'frequency' => $entry->event->frequency,
                     'divisionLabel' => GameEventDivisionData::label($entry->division, $locale, $pet->dog),
-                    'division' => $entry->division, 'rank' => $entry->rank, 'prize' => $entry->prize,
+                    'division' => $entry->division, 'rank' => $entry->rank, 'prize' => $entry->pet_id === $pet->id ? $entry->prize : 0,
                     'completedAt' => $entry->completed_at->toIso8601String(),
-                    'petName' => (string) ($entry->getAttribute('historical_name') ?? $pet->name),
+                    'petName' => $this->historicalMemberName($entry, $pet),
                     'eliminated' => $entry->getAttribute('was_eliminated') !== 'false',
                 ], $page->items())),
                 'nextCursor' => $page->nextCursor()?->encode(),
                 'previousCursor' => $page->previousCursor()?->encode(),
             ],
         ];
+    }
+
+    private function historicalMemberName(GameEventEntry $entry, Pet $pet): string
+    {
+        if ($entry->pet_id === $pet->id) {
+            $name = $entry->getAttribute('historical_name');
+
+            return is_string($name) ? $name : $pet->name;
+        }
+        $members = $entry->result['members'] ?? [];
+        if (is_array($members)) {
+            foreach ($members as $member) {
+                if (is_array($member) && ($member['id'] ?? null) === $pet->id && is_string($member['name'] ?? null)) {
+                    return $member['name'];
+                }
+            }
+        }
+
+        return $pet->name;
     }
 
     /**
@@ -82,7 +103,12 @@ final class GetPetCareer
             'award_race_category' => "details->>'race_category'",
         ];
         $partition = implode(', ', [...$identity, ...array_values($context)]);
-        $query = $pet->titles()->whereIn('game_event_entry_id', (clone $entries)->select('game_event_entries.id'))
+        $groupEntries = (clone $entries)->whereHas('event', fn (Builder $events) => $events->whereIn('discipline', ['couple', 'breeders'])
+            ->where('rules->version', 3)->whereIn('rules->regulation->format', ['couple_ring', 'breeders_ring']));
+        $query = PetTitle::query()->where(fn (Builder $titles) => $titles->where('pet_id', $pet->id)
+            ->orWhere(fn (Builder $groupAwards) => $groupAwards->whereIn('game_event_entry_id', (clone $groupEntries)->select('game_event_entries.id'))
+                ->whereIn('discipline', ['couple', 'breeders'])->whereIn('kind', ['comparison', 'placement'])))
+            ->whereIn('game_event_entry_id', (clone $entries)->select('game_event_entries.id'))
             ->where(fn (Builder $awards) => $awards->whereIn('kind', ['championship', 'qualification'])
                 ->orWhereIn('game_event_entry_id', $validResults->select('game_event_entries.id')))
             ->select('pet_titles.*')->selectRaw('count(*) over (partition by '.$partition.') AS awards_count');

@@ -19,13 +19,22 @@ import SurfaceCard from '@/components/SurfaceCard.vue';
 import { Button } from '@/components/ui/button';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import { useI18n } from '@/composables/useI18n';
-import { index } from '@/routes/game-events';
+import { index, show as eventShow } from '@/routes/game-events';
+import { isGroupRing } from '@/lib/gameEventEntries';
 import type { GameEventEntryProps } from '@/types/game-event';
 
 const props = defineProps<GameEventEntryProps>();
 const { t, number } = useI18n();
 const { date } = useGameEventPresentation();
 const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
+const groupRing = computed(() => isGroupRing(props.event.regulation?.format));
+const groupDescription = computed(() =>
+    props.event.discipline === 'couple'
+        ? 'One male + one female of the same breed and owner'
+        : props.event.discipline === 'breeders'
+          ? '3–5 dogs of one breed from the same breeder or kennel'
+          : 'Parent + 3–5 direct offspring',
+);
 </script>
 
 <template>
@@ -40,9 +49,11 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                 <HelpHint
                     :text="
                         t(
-                            event.discipline === 'progeny'
-                                ? 'Choose the offspring group before registration closes. It will be evaluated at the scheduled time, even when you are offline.'
-                                : 'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
+                            groupRing
+                                ? 'Enter the dogs and their group before the same show deadline. Final admission is checked after their individual assessments.'
+                                : event.discipline === 'progeny'
+                                  ? 'Choose the offspring group before registration closes. It will be evaluated at the scheduled time, even when you are offline.'
+                                  : 'Register before the deadline and save your plan. Your dog performs at the scheduled time, even when you are offline.',
                         )
                     "
                 />
@@ -65,6 +76,77 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                 }}</span>
             </div>
             <EventRegulationSummary :regulation="event.regulation" />
+            <template v-if="groupRing">
+                <p v-if="event.linkedShow" class="event-note">
+                    {{ t('Linked exhibition') }}:
+                    <Link
+                        :href="eventShow(event.linkedShow.id)"
+                        class="text-link"
+                        >{{ event.linkedShow.name }}</Link
+                    >
+                </p>
+                <ol class="event-title-list">
+                    <li>
+                        <span
+                            >1. {{ t('Individual entries') }} —
+                            {{
+                                t('Enter every member in the linked show.')
+                            }}</span
+                        >
+                    </li>
+                    <li>
+                        <span
+                            >2. {{ t(groupDescription) }} —
+                            {{
+                                t('Save the group before the common deadline.')
+                            }}</span
+                        >
+                    </li>
+                    <li>
+                        <span
+                            >3. {{ t('Breed selection → final ring') }} —
+                            {{
+                                t(
+                                    'Only eligible groups enter the ring after individual assessments.',
+                                )
+                            }}</span
+                        >
+                    </li>
+                </ol>
+            </template>
+            <div
+                v-else-if="event.groupContests?.length"
+                class="event-title-list"
+            >
+                <p
+                    v-for="contest in event.groupContests"
+                    :key="contest.id"
+                    class="event-note"
+                >
+                    <Link :href="eventShow(contest.id)" class="text-link">{{
+                        t(`events.discipline.${contest.discipline}`)
+                    }}</Link>
+                    ·
+                    {{
+                        t(
+                            'Enter every member here first, then save the group before the common deadline.',
+                        )
+                    }}
+                </p>
+            </div>
+            <p v-else-if="event.progenyContest" class="event-note">
+                <Link
+                    :href="eventShow(event.progenyContest.id)"
+                    class="text-link"
+                    >{{ t('Producer group ring') }}</Link
+                >
+                ·
+                {{
+                    t(
+                        'Enter the parent and offspring here first, then save their group.',
+                    )
+                }}
+            </p>
             <dl class="event-overview-facts">
                 <div>
                     <dt>
@@ -120,10 +202,17 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                         {{ number(event.entryCount)
                         }}<HelpHint
                             :text="
-                                t('{humans} players · {clubs} club dogs', {
-                                    humans: number(event.humanCount),
-                                    clubs: number(event.clubCount),
-                                })
+                                t(
+                                    groupRing
+                                        ? '{humans} entered groups'
+                                        : event.discipline === 'conformation'
+                                          ? '{humans} entered dogs · {clubs} club dogs'
+                                          : '{humans} players · {clubs} club dogs',
+                                    {
+                                        humans: number(event.humanCount),
+                                        clubs: number(event.clubCount),
+                                    },
+                                )
                             "
                         />
                     </dd>
@@ -150,6 +239,26 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                 }}
             </p>
         </SurfaceCard>
+        <nav
+            v-if="ownEntries && ownEntries.length > 1"
+            class="event-plan-presets"
+            :aria-label="t('Your show entries')"
+        >
+            <Button
+                v-for="entry in ownEntries"
+                :key="entry.id"
+                as-child
+                variant="outline"
+                size="sm"
+                ><Link
+                    :href="eventShow(event.id, { query: { pet: entry.petId } })"
+                    :aria-current="
+                        entry.id === ownEntry?.id ? 'page' : undefined
+                    "
+                    >{{ entry.name }}</Link
+                ></Button
+            >
+        </nav>
 
         <template v-if="event.status !== 'scheduled'">
             <GameEventResults :event="event" :entry="ownEntry" />
@@ -164,6 +273,7 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                     :dogs="dogs"
                     :equipment="equipment"
                     :entry="ownEntry"
+                    :own-entries="ownEntries"
                     :selected-pet-id="selectedPetId"
                     :selected-entry-option-key="selectedEntryOptionKey"
                 />
@@ -176,6 +286,7 @@ const ownEntry = computed(() => props.entry ?? props.event.ownEntry ?? null);
                 :dogs="dogs"
                 :equipment="equipment"
                 :entry="ownEntry"
+                :own-entries="ownEntries"
                 :selected-pet-id="selectedPetId"
                 :selected-entry-option-key="selectedEntryOptionKey"
             />

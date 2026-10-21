@@ -27,7 +27,8 @@ final class GameEventNpcGenerator
         foreach (PetStat::cases() as $offset => $stat) {
             $stats[$stat->value] = (int) round(25 + $tier * 35 + $draws[$offset] * 30);
         }
-        $exterior = ['type' => 60 + $draws[6] * 25, 'structure' => 60 + $draws[7] * 25, 'movement' => 60 + $draws[8] * 25];
+        $maximumExterior = isset($reference['profile'], $reference['regulation']) && ($reference['regulation']['format'] ?? null) === 'conformation' ? 100 : 85;
+        $exterior = ['type' => 60 + $draws[6] * ($maximumExterior - 60), 'structure' => 60 + $draws[7] * ($maximumExterior - 60), 'movement' => 60 + $draws[8] * ($maximumExterior - 60)];
 
         return [
             'version' => GameEventProtocol::SNAPSHOT_VERSION,

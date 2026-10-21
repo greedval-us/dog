@@ -2,7 +2,7 @@
 
 namespace App\Modules\Players\DTO;
 
-/** @phpstan-type GameStatistics array{competitionStarts: int, competitionPodiums: int, competitionWins: int, exhibitionStarts: int, exhibitionPodiums: int, exhibitionWins: int, agilityWins: int, noseworkWins: int, canicrossWins: int, conformationWins: int, progenyStarts: int, progenyWins: int, weeklyEventWins: int, monthlyEventWins: int, titlesCount: int, titledDogsCount: int, eventPrizeCoins: int, eventFeesCoins: int, littersStarted: int, littersBorn: int, puppiesBorn: int, puppiesKept: int, puppiesPurchased: int, puppiesSold: int, puppySalesCoins: int, titledOffspring: int, ammunitionPurchases: int} */
+/** @phpstan-type GameStatistics array{competitionStarts: int, competitionPodiums: int, competitionWins: int, exhibitionStarts: int, exhibitionPodiums: int, exhibitionWins: int, agilityWins: int, noseworkWins: int, canicrossWins: int, conformationWins: int, progenyStarts: int, progenyWins: int, coupleWins: int, breedersWins: int, weeklyEventWins: int, monthlyEventWins: int, titlesCount: int, titledDogsCount: int, eventPrizeCoins: int, eventFeesCoins: int, littersStarted: int, littersBorn: int, puppiesBorn: int, puppiesKept: int, puppiesPurchased: int, puppiesSold: int, puppySalesCoins: int, titledOffspring: int, ammunitionPurchases: int} */
 final readonly class PlayerGameStatisticsData
 {
     public function __construct(
@@ -18,6 +18,8 @@ final readonly class PlayerGameStatisticsData
         public int $conformationWins = 0,
         public int $progenyStarts = 0,
         public int $progenyWins = 0,
+        public int $coupleWins = 0,
+        public int $breedersWins = 0,
         public int $weeklyEventWins = 0,
         public int $monthlyEventWins = 0,
         public int $titlesCount = 0,
@@ -51,6 +53,8 @@ final readonly class PlayerGameStatisticsData
             'conformationWins' => $this->conformationWins,
             'progenyStarts' => $this->progenyStarts,
             'progenyWins' => $this->progenyWins,
+            'coupleWins' => $this->coupleWins,
+            'breedersWins' => $this->breedersWins,
             'weeklyEventWins' => $this->weeklyEventWins,
             'monthlyEventWins' => $this->monthlyEventWins,
             'titlesCount' => $this->titlesCount,

@@ -5,6 +5,8 @@ import { computed, ref } from 'vue';
 import DogCompetitionCredentials from '@/components/DogCompetitionCredentials.vue';
 import EventEntryClassification from '@/components/EventEntryClassification.vue';
 import GameEventPreparation from '@/components/GameEventPreparation.vue';
+import GameEventProgenyGroup from '@/components/GameEventProgenyGroup.vue';
+import GameEventShowGroup from '@/components/GameEventShowGroup.vue';
 import HelpHint from '@/components/HelpHint.vue';
 import FormField from '@/components/FormField.vue';
 import InputError from '@/components/InputError.vue';
@@ -23,6 +25,9 @@ const { stageLabel, optionLabel, phaseLabel, gearDescription, modifierEffect } =
     useGameEventPresentation();
 const {
     ownEntry,
+    multipleOwnedShow,
+    groupRing,
+    selectedMemberGroup,
     form,
     cancelForm,
     errorPanel,
@@ -35,6 +40,7 @@ const {
     selectedEntryOption,
     selectedEntryOptionKey,
     missingEntryOption,
+    registrationOpen,
     withdrawn,
     editable,
     errors,
@@ -43,6 +49,7 @@ const {
     validEquipment,
     missingKit,
     missingOffspring,
+    missingGroupMembers,
     missingExhibitionClass,
     blockedDog,
     applyStagePreset: preset,
@@ -70,6 +77,9 @@ const oneStageOdorTest = computed(
     () =>
         props.event.regulation?.format === 'odor_test' &&
         props.event.stages.length === 1,
+);
+const progenyRing = computed(
+    () => props.event.regulation?.format === 'progeny_ring',
 );
 function refreshPreparation() {
     if (refreshingPreparation.value || pending.value) return;
@@ -134,9 +144,11 @@ function stageWeights(key: string): string {
             >
                 <Check :size="18" aria-hidden="true" />{{
                     t(
-                        event.discipline === 'progeny'
-                            ? 'Evaluation completed. See the scores for the selected offspring below.'
-                            : 'Performance completed. Open the replay below to see every stage.',
+                        groupRing
+                            ? 'The group ring is complete. See breed selection and final results below.'
+                            : event.discipline === 'progeny'
+                              ? 'Evaluation completed. See the scores for the selected offspring below.'
+                              : 'Performance completed. Open the replay below to see every stage.',
                     )
                 }}
             </p>
@@ -167,7 +179,12 @@ function stageWeights(key: string): string {
                         v-bind="field"
                         v-model="form.pet_id"
                         class="events-select"
-                        :disabled="!editable || pending || Boolean(ownEntry)"
+                        :disabled="
+                            (!editable &&
+                                !(multipleOwnedShow && registrationOpen)) ||
+                            pending ||
+                            (Boolean(ownEntry) && !multipleOwnedShow)
+                        "
                     >
                         <option :value="null" disabled>
                             {{ t('Choose a dog') }}
@@ -286,7 +303,7 @@ function stageWeights(key: string): string {
                     }}
                 </p>
                 <GameEventPreparation
-                    v-if="selectedDog && editable"
+                    v-if="selectedDog && editable && !groupRing"
                     :dog="selectedDog"
                     :exhibition-class-label="selectedExhibitionClass?.label"
                     :classification-label="selectedEntryOption?.label"
@@ -302,6 +319,13 @@ function stageWeights(key: string): string {
                     class="event-exterior"
                 >
                     <h3>{{ t('Breed conformation') }}</h3>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'Exterior is inherited and cannot be trained: breed type, structure and movement. Care and handling help the dog show its qualities; even 100/100 does not guarantee a win.',
+                            )
+                        }}
+                    </p>
                     <dl class="event-exterior-values">
                         <div
                             v-for="(value, key) in selectedDog.exterior"
@@ -321,8 +345,28 @@ function stageWeights(key: string): string {
                         }}
                     </p>
                 </div>
+                <GameEventShowGroup
+                    v-if="
+                        selectedMemberGroup &&
+                        selectedDog &&
+                        (event.discipline === 'couple' ||
+                            event.discipline === 'breeders')
+                    "
+                    v-model="form.plan.member_ids"
+                    :dog="selectedDog"
+                    :discipline="event.discipline"
+                    :system="event.regulation!.system"
+                    :disabled="!editable || pending"
+                />
+                <GameEventProgenyGroup
+                    v-if="progenyRing && selectedDog"
+                    v-model="form.plan.offspring_ids"
+                    :dog="selectedDog"
+                    :system="event.regulation!.system"
+                    :disabled="!editable || pending"
+                />
                 <fieldset
-                    v-if="event.discipline === 'progeny' && selectedDog"
+                    v-else-if="event.discipline === 'progeny' && selectedDog"
                     class="event-offspring"
                     :disabled="!editable || pending"
                 >
@@ -368,7 +412,7 @@ function stageWeights(key: string): string {
                     </p>
                 </fieldset>
 
-                <template v-if="event.discipline !== 'progeny'">
+                <template v-if="event.discipline !== 'progeny' && !groupRing">
                     <div class="event-plan-heading surface-heading-help">
                         <h3>{{ t('Your performance plan') }}</h3>
                         <HelpHint
@@ -478,6 +522,23 @@ function stageWeights(key: string): string {
                         </p>
                     </fieldset>
                 </template>
+                <section v-else-if="groupRing" class="event-exterior">
+                    <h3>{{ t('Judging criteria') }}</h3>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'The judge compares breed type, uniformity and movement of the group in the ring. Past titles add no judging bonus.',
+                            )
+                        }}
+                    </p>
+                    <p class="event-note">
+                        {{
+                            t(
+                                'The best group of each breed reaches the final. Places 1–3 and coin prizes are awarded in the final only; this contest does not award CAC or CACIB.',
+                            )
+                        }}
+                    </p>
+                </section>
                 <section v-else class="event-exterior">
                     <h3>{{ t('Judging criteria') }}</h3>
                     <p class="event-note">
@@ -510,7 +571,7 @@ function stageWeights(key: string): string {
                     </ol>
                 </section>
 
-                <template v-if="event.discipline !== 'progeny'">
+                <template v-if="event.discipline !== 'progeny' && !groupRing">
                     <div class="event-gear-heading">
                         <div class="surface-heading-help">
                             <h3>{{ t('Competition equipment') }}</h3>
@@ -661,7 +722,19 @@ function stageWeights(key: string): string {
                 <p v-if="editable && missingOffspring" class="event-note">
                     {{
                         t(
-                            'Select at least three direct offspring before entering.',
+                            progenyRing &&
+                                (form.plan.offspring_ids?.length ?? 0) >= 3
+                                ? 'Remove ineligible members and select 3–5 admitted offspring.'
+                                : 'Select at least three direct offspring before entering.',
+                        )
+                    }}
+                </p>
+                <p v-if="editable && missingGroupMembers" class="event-note">
+                    {{
+                        t(
+                            event.discipline === 'couple'
+                                ? 'Remove ineligible members and select one admitted partner of the opposite sex.'
+                                : 'Remove ineligible members and select 2–4 admitted companions from the same breeder or kennel.',
                         )
                     }}
                 </p>
@@ -692,9 +765,11 @@ function stageWeights(key: string): string {
                 >
                     {{
                         t(
-                            event.discipline === 'progeny'
-                                ? 'Your offspring group has been saved.'
-                                : 'Your performance plan has been saved.',
+                            selectedMemberGroup
+                                ? 'Your group has been saved.'
+                                : event.discipline === 'progeny'
+                                  ? 'Your offspring group has been saved.'
+                                  : 'Your performance plan has been saved.',
                         )
                     }}
                 </p>
@@ -707,6 +782,7 @@ function stageWeights(key: string): string {
                             insufficientFunds ||
                             missingKit ||
                             missingOffspring ||
+                            missingGroupMembers ||
                             missingExhibitionClass ||
                             missingEntryOption ||
                             blockedDog
@@ -717,9 +793,11 @@ function stageWeights(key: string): string {
                                 ? t('Saving…')
                                 : ownEntry
                                   ? t(
-                                        event.discipline === 'progeny'
-                                            ? 'Save offspring group'
-                                            : 'Save performance plan',
+                                        selectedMemberGroup
+                                            ? 'Save group'
+                                            : event.discipline === 'progeny'
+                                              ? 'Save offspring group'
+                                              : 'Save performance plan',
                                     )
                                   : t('Enter for {amount} coins', {
                                         amount: number(event.fee),
@@ -769,7 +847,16 @@ function stageWeights(key: string): string {
                             )
                         }}
                     </p>
-                    <p v-if="event.discipline === 'progeny'">
+                    <p v-if="groupRing">
+                        {{
+                            t(
+                                selectedMemberGroup
+                                    ? 'The individual ring and group contests count as one exhibition visit for daily limits and rest.'
+                                    : 'The individual ring and producer group count as one exhibition visit for daily limits and rest.',
+                            )
+                        }}
+                    </p>
+                    <p v-else-if="event.discipline === 'progeny'">
                         {{
                             t(
                                 'Progeny judging does not count toward the dog’s physical event limit and does not require event rest. The player’s daily limit still applies.',
@@ -806,7 +893,15 @@ function stageWeights(key: string): string {
                     </template>
                 </SurfaceCard>
                 <SurfaceCard :title="t('How judging works')"
-                    ><p>{{ t(`events.judging.${event.discipline}`) }}</p>
+                    ><p>
+                        {{
+                            groupRing
+                                ? t(
+                                      'The judge compares breed type, uniformity and movement of the group in the ring. Past titles add no judging bonus.',
+                                  )
+                                : t(`events.judging.${event.discipline}`)
+                        }}
+                    </p>
                     <template v-if="regulated">
                         <p>
                             {{
@@ -829,7 +924,7 @@ function stageWeights(key: string): string {
                                 )
                             }}
                         </p>
-                        <p v-else>
+                        <p v-else-if="!groupRing">
                             {{
                                 t(
                                     'Each class and category has one shared standing. A podium finish alone does not guarantee a certificate or a championship title.',
@@ -860,14 +955,19 @@ function stageWeights(key: string): string {
                             }}
                         </p>
                     </template>
-                    <p v-if="event.regulation?.format !== 'odor_test'">
+                    <p
+                        v-if="
+                            event.regulation?.format !== 'odor_test' &&
+                            !groupRing
+                        "
+                    >
                         {{
                             t(
                                 'Compete within your division. Club dogs fill empty places and follow the same rules.',
                             )
                         }}
                     </p>
-                    <p v-if="event.discipline !== 'progeny'">
+                    <p v-if="event.discipline !== 'progeny' && !groupRing">
                         {{
                             t(
                                 'A title records an achievement. Experience helps in its own discipline, with a limited effect.',
@@ -878,7 +978,8 @@ function stageWeights(key: string): string {
                 <SurfaceCard
                     v-if="
                         selectedDog?.titles.length &&
-                        event.discipline !== 'progeny'
+                        event.discipline !== 'progeny' &&
+                        !groupRing
                     "
                     :title="t('Dog titles')"
                     ><ul class="event-title-list">

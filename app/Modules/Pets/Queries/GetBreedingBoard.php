@@ -10,8 +10,8 @@ use App\Models\User;
 use App\Modules\Pets\Calculators\BreedingGeneticsCalculator;
 use App\Modules\Pets\Calculators\PetAgeRules;
 use App\Modules\Pets\Calculators\PetDecayCalculator;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\DTO\PetTitleData;
-use App\Modules\Pets\Enums\GameEventDiscipline;
 use App\Modules\Pets\Enums\PetSex;
 use App\Modules\Pets\Enums\PetStat;
 use App\Modules\Players\Calculators\PlayerLevelRules;
@@ -153,12 +153,23 @@ final class GetBreedingBoard
             return [];
         }
 
-        $reserved = GameEventEntry::query()->whereIn('pet_id', $petIds)->whereIn('status', ['registered', 'frozen'])
+        $entries = GameEventEntry::query()->involvingPets($petIds)->physical()->whereIn('status', ['registered', 'frozen'])
             ->whereHas('event', fn (Builder $events) => $events->whereIn('status', ['registration', 'frozen'])
-                ->where('discipline', '!=', GameEventDiscipline::Progeny->value)
                 ->where('closes_at', '<=', $at->addSecond())->where('ends_at', '>', $at))
-            ->distinct()->pluck('pet_id')->all();
+            ->with('event:id,discipline,rules')->get(['pet_id', 'plan', 'game_event_id']);
+        $reserved = [];
+        foreach ($entries as $entry) {
+            $members = [$entry->pet_id];
+            if (EventRegulationData::isGroupRing($entry->event)) {
+                $members = EventRegulationData::memberIds($entry->event, $entry->plan, $entry->pet_id);
+            }
+            foreach ($members as $id) {
+                if (is_int($id) && in_array($id, $petIds, true)) {
+                    $reserved[$id] = true;
+                }
+            }
+        }
 
-        return array_fill_keys($reserved, true);
+        return $reserved;
     }
 }

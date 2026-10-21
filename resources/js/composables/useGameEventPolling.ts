@@ -14,7 +14,7 @@ export function useGameEventPolling(
     const poll = usePoll(
         30_000,
         {
-            only: ['event', 'entry', 'serverNow'],
+            only: ['event', 'entry', 'ownEntries', 'serverNow'],
             headers: backgroundRequestHeaders,
         },
         { mode: 'rest', autoStart: active.value && !pending() },

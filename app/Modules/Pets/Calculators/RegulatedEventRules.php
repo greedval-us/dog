@@ -19,7 +19,7 @@ final class RegulatedEventRules
     {
         $plans = match ($discipline) {
             'conformation' => array_map(fn (ExhibitionClass $class): array => ['exhibition_class' => $class->value], ExhibitionClass::cases()),
-            'progeny' => [[]],
+            'progeny', 'couple', 'breeders' => [[]],
             'agility' => array_map(fn (int $level): array => ['sport_class' => 'agility_'.$level], [1, 2, 3]),
             'canicross' => [['sport_class' => 'canicross_open', 'handler_category' => 'open']],
             'nosework' => $this->noseworkPlans($regulation),
@@ -28,12 +28,12 @@ final class RegulatedEventRules
         $options = [];
         foreach ($plans as $plan) {
             $plan['stages'] = array_fill(0, count($this->stages($discipline, $regulation, $plan)), 'balanced');
-            $key = $plan['exhibition_class'] ?? $plan['sport_class'] ?? 'progeny';
+            $key = $plan['exhibition_class'] ?? $plan['sport_class'] ?? $discipline;
             if (isset($plan['program'])) {
                 $key .= ':'.$plan['program'].(isset($plan['test_type']) ? ':'.$plan['test_type'] : '');
             }
             $reason = $this->ineligibility($discipline, $regulation, $profile, $ageMonths, $plan);
-            $options[] = ['key' => $key, 'labelKey' => 'events.regulations.classes.'.($plan['exhibition_class'] ?? $plan['sport_class'] ?? 'progeny'),
+            $options[] = ['key' => $key, 'labelKey' => 'events.regulations.classes.'.($plan['exhibition_class'] ?? $plan['sport_class'] ?? $discipline),
                 'plan' => $plan, 'categoryKey' => $this->division($discipline, $regulation, $profile, $plan), 'eligible' => $reason === null, 'reason' => $reason,
                 ...($discipline === 'nosework' ? ['timeLimitSeconds' => $this->noseworkTimeLimit($regulation, $plan)] : [])];
         }
@@ -71,7 +71,8 @@ final class RegulatedEventRules
     {
         return match ($discipline) {
             'conformation' => ['type', 'structure', 'movement'],
-            'progeny' => ['type', 'uniformity', 'achievements'],
+            'progeny' => ($regulation['format'] ?? '') === 'progeny_ring' ? ['type', 'uniformity', 'movement'] : ['type', 'uniformity', 'achievements'],
+            'couple', 'breeders' => ['type', 'uniformity', 'movement'],
             'agility' => ($regulation['version'] ?? 1) >= 2 && ($regulation['format'] ?? '') === 'agility_combined' && ($regulation['system'] ?? 'rkf') === 'rkf'
                 ? ['agility_opening', 'agility_technical', 'agility_finish', 'jumping_opening', 'jumping_technical', 'jumping_finish']
                 : ['opening', 'technical', 'finish'],
@@ -97,6 +98,7 @@ final class RegulatedEventRules
                 '', 'baby' => 3, 'puppy' => 6, 'junior' => 9, 'veteran' => 96, default => 15,
             },
             'progeny' => 15,
+            'couple', 'breeders' => ($regulation['system'] ?? 'rkf') === 'fci' ? 3 : 9,
             default => PHP_INT_MAX,
         };
     }
@@ -111,6 +113,7 @@ final class RegulatedEventRules
         $allowed = match ($discipline) {
             'conformation' => ['stages', 'exhibition_class'],
             'progeny' => ['stages', 'offspring_ids'],
+            'couple', 'breeders' => ['stages', 'member_ids'],
             'agility' => ['stages', 'sport_class'],
             'nosework' => ($regulation['format'] ?? '') === 'odor_test'
                 ? ['stages', 'sport_class', 'program', 'test_type']
@@ -144,6 +147,17 @@ final class RegulatedEventRules
                 return false;
             }
         }
+        if (in_array($discipline, ['couple', 'breeders'], true)) {
+            $companions = $plan['member_ids'] ?? null;
+            $minimum = $discipline === 'couple' ? 1 : 2;
+            $maximum = $discipline === 'couple' ? 1 : 4;
+            if (! is_array($companions) || ! array_is_list($companions) || count($companions) < $minimum || count($companions) > $maximum
+                || count(array_filter($companions, static fn (mixed $id): bool => is_int($id) && $id > 0)) !== count($companions)
+                || count(array_unique($companions)) !== count($companions) || in_array($profile['id'] ?? null, $companions, true)
+                || ($plan['stages'] ?? []) !== array_fill(0, 3, 'balanced')) {
+                return false;
+            }
+        }
         $decisions = $plan['stages'] ?? null;
         if (! is_array($decisions) || ! array_is_list($decisions)
             || count($decisions) !== count($this->stages($discipline, $regulation, $plan))
@@ -164,6 +178,7 @@ final class RegulatedEventRules
         return match ($discipline) {
             'conformation' => ($plan['exhibition_class'] ?? 'open').':breed-'.($profile['breed_id'] ?? 0).':'.($profile['sex'] ?? 'male'),
             'progeny' => 'progeny:breed-'.($profile['breed_id'] ?? 0),
+            'couple', 'breeders' => $discipline.':breed-'.($profile['breed_id'] ?? 0),
             'agility' => ($plan['sport_class'] ?? 'agility_1').':'.$this->heightCategory($profile),
             'nosework' => ($plan['sport_class'] ?? 'nw_0').':'.($plan['program'] ?? 'pr1').(isset($plan['test_type']) ? ':'.$plan['test_type'] : ''),
             'canicross' => 'canicross_open:'.(($regulation['version'] ?? 1) >= 2 && ($regulation['sportScope'] ?? '') === 'breed'
@@ -224,7 +239,7 @@ final class RegulatedEventRules
         if ($ageMonths < $this->minimumMonths($discipline, $regulation, $plan)) {
             return $reason.'age';
         }
-        if ($discipline === 'conformation' || $discipline === 'progeny') {
+        if (in_array($discipline, ['conformation', 'progeny', 'couple', 'breeders'], true)) {
             $recognized = $profile[($regulation['system'] ?? 'rkf') === 'fci' ? 'recognized_fci' : 'recognized_rkf'] ?? false;
             if (! $recognized || ! ($profile['registered'] ?? false)) {
                 return $reason.'registry';
@@ -232,7 +247,7 @@ final class RegulatedEventRules
             if (isset($regulation['breedId']) && $regulation['breedId'] !== ($profile['breed_id'] ?? null)) {
                 return $reason.'breed';
             }
-            if ($discipline === 'progeny') {
+            if ($discipline !== 'conformation') {
                 return null;
             }
             $class = ExhibitionClass::tryFrom($plan['exhibition_class'] ?? '');

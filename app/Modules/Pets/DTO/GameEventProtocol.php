@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 /**
  * @phpstan-type Decision 'careful'|'balanced'|'bold'
- * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>, exhibition_class?:string, sport_class?:string, program?:string, test_type?:string, handler_category?:string}
+ * @phpstan-type Plan array{stages:list<Decision>, offspring_ids?:list<int>, member_ids?:list<int>, exhibition_class?:string, sport_class?:string, program?:string, test_type?:string, handler_category?:string}
  * @phpstan-type Pedigree array{generation:int, knownParents:int<0, 2>}
  * @phpstan-type BaseSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree?:Pedigree}
  * @phpstan-type PetSnapshot array{version:int, name:string, breed:string, breed_id:int, size:string, stats:array<string, int>, potentials:array<string, int>, states:array<string, int|float>, skills:array<string, int>, exterior:array<string, int|float>, career_experience:int, pedigree:Pedigree}

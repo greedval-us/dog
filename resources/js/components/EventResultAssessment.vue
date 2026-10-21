@@ -3,7 +3,11 @@ import { useI18n } from '@/composables/useI18n';
 import { useGameEventPresentation } from '@/composables/useGameEventPresentation';
 import type { EventAssessment, EventStanding } from '@/types/game-event';
 
-defineProps<{ assessment?: EventAssessment; standings?: EventStanding[] }>();
+defineProps<{
+    assessment?: EventAssessment;
+    standings?: EventStanding[];
+    ring?: boolean;
+}>();
 const { t, number } = useI18n();
 const { decimal } = useGameEventPresentation();
 </script>
@@ -26,10 +30,14 @@ const { decimal } = useGameEventPresentation();
                 </caption>
                 <thead>
                     <tr>
-                        <th scope="col">{{ t('Category') }}</th>
+                        <th scope="col">
+                            {{ t(ring ? 'Ring stage' : 'Category') }}
+                        </th>
                         <th scope="col">{{ t('Place') }}</th>
                         <th scope="col">{{ t('Result') }}</th>
-                        <th scope="col">{{ t('Qualification') }}</th>
+                        <th v-if="!ring" scope="col">
+                            {{ t('Qualification') }}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,7 +50,14 @@ const { decimal } = useGameEventPresentation();
                                     : number(standing.rank)
                             }}
                         </td>
-                        <td>
+                        <td v-if="ring">
+                            {{
+                                t('{score} points', {
+                                    score: decimal(standing.score),
+                                })
+                            }}
+                        </td>
+                        <td v-else>
                             {{
                                 t(
                                     '{score} points · {time} s · {count} penalties',
@@ -54,7 +69,7 @@ const { decimal } = useGameEventPresentation();
                                 )
                             }}
                         </td>
-                        <td>
+                        <td v-if="!ring">
                             {{
                                 t(
                                     standing.qualified

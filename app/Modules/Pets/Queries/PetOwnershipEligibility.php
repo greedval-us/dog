@@ -16,7 +16,7 @@ final class PetOwnershipEligibility
         if ($pet->isBusy()) {
             return 'ownership.errors.busy';
         }
-        if (GameEventEntry::query()->where('pet_id', $pet->id)->whereIn('status', ['registered', 'frozen'])->exists()) {
+        if (GameEventEntry::query()->involvingPets([$pet->id])->whereIn('status', ['registered', 'frozen'])->exists()) {
             return 'ownership.errors.event';
         }
         if (BreedingLitter::query()->whereNull('delivered_at')->where(function ($query) use ($pet): void {

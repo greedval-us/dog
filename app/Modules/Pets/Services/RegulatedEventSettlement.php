@@ -11,6 +11,7 @@ use App\Modules\Pets\Calculators\RegionalSportAwards;
 use App\Modules\Pets\Calculators\RegulatedEventSimulator;
 use App\Modules\Pets\Calculators\RegulatedExhibitionAwards;
 use App\Modules\Pets\Calculators\RegulatedSportAwards;
+use App\Modules\Pets\Calculators\ShowGroupRules;
 use App\Modules\Pets\Calculators\SpecialExhibitionAwards;
 use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Enums\GameEventDiscipline;
@@ -32,6 +33,7 @@ final class RegulatedEventSettlement
         private RegulatedEventProgress $career,
         private PlayerWallet $wallet,
         private PlayerProgress $progress,
+        private ShowGroupRules $groups,
     ) {}
 
     /**
@@ -61,9 +63,9 @@ final class RegulatedEventSettlement
         $regulation = EventRegulationData::rules($event);
         $protocol = array_values($protocol);
         $expanded = ($regulation['version'] ?? 1) >= 2;
-        $awards = $event->discipline === 'conformation'
+        $awards = EventRegulationData::isGroupRing($event) ? $this->rankGroups($entries, $protocol, $regulation['format']) : ($event->discipline === 'conformation'
             ? ($expanded ? $this->specialShows : $this->shows)->calculate($regulation, $protocol)
-            : ($expanded ? $this->regionalSports : $this->sports)->calculate($event->discipline, $regulation, $protocol);
+            : ($expanded ? $this->regionalSports : $this->sports)->calculate($event->discipline, $regulation, $protocol));
         if ($event->discipline === 'canicross') {
             $qualifiedEntries = array_fill_keys(array_column(array_filter($awards, static fn (array $award): bool => $award['code'] === 'RACE_QUALIFICATION'), 'entry_id'), true);
             foreach ($entries as $entry) {
@@ -86,16 +88,40 @@ final class RegulatedEventSettlement
             $entry->prize = ! $entry->is_npc && $owner !== null && $entry->rank !== null
                 ? ($event->rules['prizes'][$entry->rank - 1] ?? 0) : 0;
             $entry->save();
+            if (EventRegulationData::isGroupRing($event)) {
+                foreach (EventRegulationData::memberIds($event, $entry->plan, $entry->pet_id) as $id) {
+                    $member = $pets->get($id);
+                    if ($member !== null && $member->activity_token === $entry->operation_token) {
+                        $member->clearActivity();
+                        $member->last_activity_at = $event->ends_at;
+                        $member->save();
+                    }
+                }
+            }
+            $won = $entry->rank === 1 && ($entry->result['qualified'] ?? false);
+            $memberCareer = in_array($event->discipline, ['couple', 'breeders'], true) && EventRegulationData::isGroupRing($event);
+            if (! $entry->is_npc && $memberCareer) {
+                foreach ($entry->snapshot['members'] as $savedMember) {
+                    $member = $pets->get($savedMember['id']);
+                    if ($member !== null) {
+                        $this->career->record($event, $entry, $member);
+                        if ($won) {
+                            $winners[] = $member->id;
+                        }
+                    }
+                }
+            }
             if ($entry->is_npc || $owner === null || $pet === null) {
                 continue;
             }
             if ($entry->prize > 0) {
                 $this->wallet->change($owner, 'coins', $entry->prize, 'event-entry:'.$entry->id.':prize', 'event_prize');
             }
-            $this->career->record($event, $entry, $pet);
-            $won = $entry->rank === 1 && ($entry->result['qualified'] ?? false);
-            if ($won) {
-                $winners[] = $pet->id;
+            if (! $memberCareer) {
+                $this->career->record($event, $entry, $pet);
+                if ($won) {
+                    $winners[] = $pet->id;
+                }
             }
             $show = GameEventDiscipline::from($event->discipline)->isExhibition();
             $this->progress->award($owner, $entry, fn (GameEventEntry $completed): PlayerProgressFact => new PlayerProgressFact(
@@ -110,6 +136,26 @@ final class RegulatedEventSettlement
         }
 
         return $winners;
+    }
+
+    /** @param Collection<int,GameEventEntry> $entries
+     * @param  list<array<string,mixed>>  $protocol
+     * @return list<array<string,mixed>>
+     */
+    private function rankGroups(Collection $entries, array $protocol, string $format): array
+    {
+        $placements = $this->groups->placements($protocol, $format);
+        foreach ($entries as $entry) {
+            $ranking = $placements['rankings'][$entry->id] ?? null;
+            $entry->rank = $ranking['final'] ?? null;
+            $result = $entry->result;
+            $entry->result = [...$result, 'standings' => array_map(static fn (string $key): array => [
+                'key' => $key, 'rank' => $ranking[$key] ?? null, 'qualified' => $key === 'breed' ? $ranking !== null : ($ranking['breed'] ?? 0) === 1,
+                'score' => $result['score'], 'time' => 0, 'penalties' => $result['penalties'],
+            ], ['breed', 'final'])];
+        }
+
+        return $placements['awards'];
     }
 
     /** @param Collection<int,GameEventEntry> $participants */

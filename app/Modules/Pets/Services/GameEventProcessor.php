@@ -6,8 +6,10 @@ use App\Models\BreedingLitter;
 use App\Models\GameEvent;
 use App\Models\Pet;
 use App\Models\User;
+use App\Modules\Pets\DTO\EventRegulationData;
 use App\Modules\Pets\Enums\PetBoardingPlan;
 use App\Modules\Pets\Queries\GetPendingEventRegistrations;
+use App\Modules\Pets\Queries\GetShowGroup;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,7 +18,7 @@ use InvalidArgumentException;
 
 final class GameEventProcessor
 {
-    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement, private GetPendingEventRegistrations $registrations, private PetBoarding $boarding) {}
+    public function __construct(private GameEventFreezing $freezing, private GameEventSettlement $settlement, private GetPendingEventRegistrations $registrations, private PetBoarding $boarding, private GetShowGroup $groups) {}
 
     public function processDue(?CarbonImmutable $at = null, ?User $owner = null, ?int $limit = null): int
     {
@@ -52,10 +54,13 @@ final class GameEventProcessor
     private function dueEvents(CarbonImmutable $at, ?User $owner): Builder
     {
         $query = GameEvent::query()->where(fn (Builder $query) => $query
-            ->where(fn (Builder $registration) => $registration->where('status', 'registration')->where('closes_at', '<=', $at))
+            ->where(fn (Builder $registration) => $registration->where('status', 'registration')->where('closes_at', '<=', $at)
+                ->where(fn (Builder $ready) => $ready->whereNull('rules->group_freezes_at')->orWhere('rules->group_freezes_at', '<=', $at->utc()->toIso8601String())))
             ->orWhere(fn (Builder $frozen) => $frozen->where('status', 'frozen')->where('ends_at', '<=', $at)));
         if ($owner !== null) {
-            $query->whereHas('entries', fn (Builder $entries) => $entries->where('user_id', $owner->id)->whereIn('status', ['registered', 'frozen']));
+            $petIds = array_values($owner->pets()->get(['id'])->map(static fn (Pet $pet): int => $pet->id)->all());
+            $query->whereHas('entries', fn (Builder $entries) => $entries->where(fn (Builder $participants) => $participants->where('user_id', $owner->id)
+                ->orWhere(fn (Builder $members) => $members->involvingPets($petIds)))->whereIn('status', ['registered', 'frozen']));
         }
 
         return $query;
@@ -73,7 +78,21 @@ final class GameEventProcessor
                 return false;
             }
             $entries = $event->entries()->whereIn('status', ['registered', 'frozen'])->orderBy('id')->get();
+            if (EventRegulationData::isGroupRing($event) && $event->status === 'registration') {
+                $source = $this->groups->source($event);
+                if ($source !== null && (! in_array($source->status, ['settled', 'cancelled'], true) || $this->groups->freezeAt($event)->isAfter($at))) {
+                    return false;
+                }
+            }
+            $memberIds = $entries->pluck('pet_id')->filter();
+            if (EventRegulationData::isGroupRing($event)) {
+                $memberIds = $entries->flatMap(static fn ($entry): array => EventRegulationData::memberIds($event, $entry->plan, $entry->pet_id))->unique();
+            }
             $ownerIds = $entries->pluck('user_id')->filter();
+            if (EventRegulationData::isGroupRing($event)) {
+                $ownerIds = $ownerIds->merge(Pet::query()->whereIn('id', $memberIds)->pluck('user_id'))->unique();
+            }
+            $ownerIds = $ownerIds->filter()->unique();
             if ($at->greaterThanOrEqualTo($event->ends_at)) {
                 $breeders = BreedingLitter::query()->whereNotNull('initiator_id')->whereNotNull('delivered_at')
                     ->whereHas('puppies', fn (Builder $puppies): Builder => $puppies->whereIn('pet_id', $entries->pluck('pet_id')->filter()))
@@ -81,14 +100,14 @@ final class GameEventProcessor
                 $ownerIds = $ownerIds->merge($breeders);
             }
             $owners = User::query()->whereIn('id', $ownerIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $boardingOwners = $owners->only($entries->pluck('user_id')->filter()->all())
+            $boardingOwners = $owners->only($ownerIds->all())
                 ->filter(fn (User $owner): bool => $owner->boarding_plan !== PetBoardingPlan::Off);
-            $pets = Pet::query()->where(fn (Builder $query) => $query->whereIn('id', $entries->pluck('pet_id')->filter())
+            $pets = Pet::query()->where(fn (Builder $query) => $query->whereIn('id', $memberIds)
                 ->orWhere(fn (Builder $boardingPets) => $boardingPets->whereIn('user_id', $boardingOwners->keys())
                     ->active()))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($event->status === 'registration') {
-                $this->coverBoardingOwners($boardingOwners, $pets, $event->closes_at, $thresholds);
+                $this->coverBoardingOwners($boardingOwners, $pets, EventRegulationData::isGroupRing($event) ? $this->groups->freezeAt($event) : $event->closes_at, $thresholds);
                 $this->freezing->freeze($event, $entries, $owners, $pets, $at, $thresholds);
             }
             if ($event->status === 'frozen' && $at->greaterThanOrEqualTo($event->ends_at)) {

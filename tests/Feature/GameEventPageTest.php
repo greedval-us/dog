@@ -36,7 +36,7 @@ test('the calendar filters monthly shows and does not expose the event random se
     $events = collect($response->viewData('page')['props']['events']);
     expect($events)->not->toBeEmpty();
     expect($events->every(fn (array $event): bool => $event['frequency'] === 'monthly'
-        && in_array($event['discipline'], ['conformation', 'progeny'], true)))->toBeTrue();
+        && in_array($event['discipline'], ['conformation', 'progeny', 'couple', 'breeders'], true)))->toBeTrue();
 });
 
 test('event participation rules use server configuration and remain present during partial polling', function () {

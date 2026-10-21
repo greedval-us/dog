@@ -7,7 +7,7 @@ use DateTimeInterface;
 use DateTimeZone;
 
 /**
- * @phpstan-type Event array{id:int,discipline:string,status:string,startsAt:DateTimeInterface,closesAt:DateTimeInterface,endsAt:DateTimeInterface}
+ * @phpstan-type Event array{id:int,discipline:string,status:string,startsAt:DateTimeInterface,closesAt:DateTimeInterface,endsAt:DateTimeInterface,documentary?:bool,attendanceId?:int}
  * @phpstan-type Participation array{userId:int|null,petId:int|null,status:string,isNpc:bool,event:Event}
  */
 final class GameEventParticipationRules
@@ -29,11 +29,19 @@ final class GameEventParticipationRules
     public function playerReason(int $ownerId, array $event, array $entries): ?string
     {
         [$from, $until] = $this->day($event['startsAt']);
-        $count = count(array_filter($entries, fn (array $entry): bool => $entry['userId'] === $ownerId && $entry['event']['id'] !== $event['id']
-            && ! in_array($entry['status'], ['cancelled', 'withdrawn'], true)
-            && $entry['event']['startsAt'] >= $from && $entry['event']['startsAt'] < $until));
+        $eventIds = [];
+        foreach ($entries as $entry) {
+            if ($entry['userId'] !== $ownerId || in_array($entry['status'], ['cancelled', 'withdrawn'], true)
+                || $entry['event']['startsAt'] < $from || $entry['event']['startsAt'] >= $until) {
+                continue;
+            }
+            if (($entry['event']['attendanceId'] ?? $entry['event']['id']) === ($event['attendanceId'] ?? $event['id'])) {
+                return null;
+            }
+            $eventIds[$entry['event']['attendanceId'] ?? $entry['event']['id']] = true;
+        }
 
-        return $count >= $this->balance['daily_limit'] ? 'events.errors.daily_limit' : null;
+        return count($eventIds) >= $this->balance['daily_limit'] ? 'events.errors.daily_limit' : null;
     }
 
     /** @param Event $event
@@ -41,16 +49,27 @@ final class GameEventParticipationRules
      */
     public function petReason(int $petId, array $event, array $entries): ?string
     {
-        if ($event['discipline'] === 'progeny') {
+        if ($event['documentary'] ?? $event['discipline'] === 'progeny') {
             return null;
         }
+        $alreadyAttending = count(array_filter($entries, fn (array $entry): bool => $entry['petId'] === $petId && ! $entry['isNpc']
+            && ($entry['event']['attendanceId'] ?? $entry['event']['id']) === ($event['attendanceId'] ?? $event['id'])
+            && in_array($entry['status'], ['registered', 'frozen', 'completed'], true)
+            && in_array($entry['event']['status'], ['registration', 'frozen', 'settled'], true))) > 0;
         $physical = array_values(array_filter($entries, fn (array $entry): bool => $entry['petId'] === $petId && ! $entry['isNpc']
-            && $entry['event']['id'] !== $event['id'] && $entry['event']['discipline'] !== 'progeny'
+            && ($entry['event']['attendanceId'] ?? $entry['event']['id']) !== ($event['attendanceId'] ?? $event['id'])
+            && ! ($entry['event']['documentary'] ?? $entry['event']['discipline'] === 'progeny')
             && in_array($entry['status'], ['registered', 'frozen', 'completed'], true)
             && in_array($entry['event']['status'], ['registration', 'frozen', 'settled'], true)));
         [$from, $until] = $this->day($event['startsAt']);
-        $count = count(array_filter($physical, fn (array $entry): bool => $entry['event']['startsAt'] >= $from && $entry['event']['startsAt'] < $until));
-        if ($count >= $this->balance['pet_daily_limit']) {
+        $eventIds = [];
+        foreach ($physical as $entry) {
+            if ($entry['event']['startsAt'] >= $from && $entry['event']['startsAt'] < $until) {
+                $eventIds[$entry['event']['attendanceId'] ?? $entry['event']['id']] = true;
+            }
+        }
+        $count = count($eventIds);
+        if (! $alreadyAttending && $count >= $this->balance['pet_daily_limit']) {
             return 'events.errors.pet_daily_limit';
         }
         $hours = $this->balance['pet_rest_hours'];

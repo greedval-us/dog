@@ -5,7 +5,9 @@ export type EventDiscipline =
     | 'nosework'
     | 'canicross'
     | 'conformation'
-    | 'progeny';
+    | 'progeny'
+    | 'couple'
+    | 'breeders';
 
 export type EventFrequency = 'daily' | 'weekly' | 'monthly';
 export type GameEventFilters = {
@@ -114,13 +116,47 @@ export type EventDog = {
     profile?: { heightCm: number | null; heightCategory: string | null };
     exterior: EventExterior;
     titles: EventTitle[];
+    kennelName?: string | null;
+    groupEligibility?: EventGroupEligibility;
+    groupMembers?: EventGroupMember[];
+    progenyEligibility?: {
+        eligible: boolean;
+        reason: string | null;
+        grade: string | null;
+        gradeLabel?: string | null;
+        pending?: boolean;
+    };
     offspring: {
         id: number;
         name: string;
         exterior: EventExterior;
         titlesCount: number;
+        eligible?: boolean;
+        reason?: string | null;
+        grade?: string | null;
+        gradeLabel?: string | null;
+        pending?: boolean;
+        showEntryId?: number | null;
     }[];
     preparation?: EventPreparation;
+};
+
+export type EventGroupEligibility = {
+    eligible: boolean;
+    reason?: string | null;
+    grade?: string | null;
+    gradeLabel?: string | null;
+    pending?: boolean;
+};
+
+export type EventGroupMember = EventGroupEligibility & {
+    id: number;
+    name: string;
+    sex?: 'male' | 'female';
+    ownerName?: string | null;
+    breederName?: string | null;
+    kennelName?: string | null;
+    showEntryId?: number | null;
 };
 
 export type EventEquipment = CompetitionGear & {
@@ -142,6 +178,25 @@ export type GameEventSummary = {
     entryCount: number;
     calculationVersion: number;
     regulation?: EventRegulation | null;
+    linkedShow?: {
+        id: number;
+        name: string;
+        startsAt: string;
+        status: string;
+    };
+    progenyContest?: {
+        id: number;
+        name: string;
+        startsAt: string;
+        status: string;
+    };
+    groupContests?: {
+        id: number;
+        name: string;
+        discipline: 'progeny' | 'couple' | 'breeders';
+        startsAt: string;
+        status: string;
+    }[];
     fieldSize: number;
     humanCount: number;
     clubCount: number;
@@ -157,6 +212,7 @@ export type GameEventSummary = {
 export type GameEventPlan = {
     stages: EventDecision[];
     offspring_ids?: number[];
+    member_ids?: number[];
     exhibition_class?: string;
     sport_class?: string;
     program?: string;
@@ -166,7 +222,7 @@ export type GameEventPlan = {
 export type EventEntryOption = {
     key: string;
     label: string;
-    plan: Omit<GameEventPlan, 'stages' | 'offspring_ids'>;
+    plan: Omit<GameEventPlan, 'stages' | 'offspring_ids' | 'member_ids'>;
     categoryLabel?: string;
     eligible?: boolean;
     reason?: string | null;
@@ -193,6 +249,7 @@ export type GameEventEntryProps = {
     dogs: EventDog[];
     equipment: EventEquipment[];
     entry: GameEventEntry | null;
+    ownEntries?: GameEventEntry[];
     selectedPetId?: number | null;
     selectedEntryOptionKey?: string | null;
 };
@@ -213,6 +270,7 @@ export type GameEventEntry = {
     awards?: EventTitle[];
     ageMonths?: number | null;
     result: {
+        format?: 'progeny_ring' | 'couple_ring' | 'breeders_ring';
         time: number;
         penalties: number;
         score: number;
@@ -221,6 +279,13 @@ export type GameEventEntry = {
         assessment?: EventAssessment;
         standings?: EventStanding[];
         preparation?: EventPreparationSnapshot;
+        members?: {
+            id: number;
+            name: string;
+            grade: string;
+            gradeLabel?: string | null;
+            exhibitionClass: string;
+        }[];
         stages: {
             key: string;
             decision: EventDecision;

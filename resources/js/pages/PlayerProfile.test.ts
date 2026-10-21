@@ -45,6 +45,8 @@ function playerFixture(): PlayerProfile {
             conformationWins: 0,
             progenyStarts: 0,
             progenyWins: 0,
+            coupleWins: 0,
+            breedersWins: 0,
             weeklyEventWins: 0,
             monthlyEventWins: 0,
             titlesCount: 0,

@@ -8,6 +8,7 @@ return [
     'pet_rest_hours' => 2,
     'duration_minutes' => 10,
     'closing_minutes' => 15,
+    'progeny_ring' => ['delay_minutes' => 10, 'energy_cost' => 5, 'disciplines' => ['progeny', 'couple', 'breeders']],
     'career' => ['experience_cap' => 1000000, 'eliminated_experience' => 2, 'win_experience' => 10, 'finish_experience' => 5],
     'special_calendar' => [
         'epoch' => '2026-01-01', 'first_year' => 2026, 'months_per_year' => 12,

@@ -37,7 +37,7 @@ test('running frozen events do not reacquire participant locks before settlement
         'processed' => $processed,
         'queries' => count($queries),
         'lockingQueries' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'for update'))),
-    ])->toBe(['processed' => 0, 'queries' => 1, 'lockingQueries' => 0]);
+    ])->toBe(['processed' => 0, 'queries' => 2, 'lockingQueries' => 0]);
     expect($event->fresh()->status)->toBe('frozen');
 });
 

@@ -20,6 +20,9 @@ final class GameEventSchedule
         $at = ($at ?? CarbonImmutable::now())->setTimezone(config('game-events.timezone'));
         foreach (config('game-events.disciplines') as $discipline => $settings) {
             $discipline = GameEventDiscipline::from($discipline)->value;
+            if ($discipline === 'progeny') {
+                continue;
+            }
             foreach (range(0, 7) as $offset) {
                 $this->create($discipline, 'daily', $at->startOfDay()->addDays($offset)->setTimeFromTimeString($settings['daily_time']), $at, $settings);
                 if ($discipline === 'nosework') {
@@ -41,6 +44,31 @@ final class GameEventSchedule
             }
         }
         $this->specialExhibitions($at);
+        $this->groupRings($at);
+    }
+
+    private function groupRings(CarbonImmutable $at): void
+    {
+        GameEvent::query()->where('discipline', 'progeny')->where('status', 'registration')->where('closes_at', '>', $at->utc())
+            ->where(fn ($query) => $query->whereNull('rules->regulation->format')->orWhere('rules->regulation->format', '!=', 'progeny_ring'))
+            ->whereDoesntHave('entries')->update(['status' => 'cancelled']);
+        foreach (GameEvent::query()->where('discipline', 'conformation')->where('status', 'registration')->where('closes_at', '>', $at->utc())
+            ->where('rules->version', RegulatedEventSimulator::VERSION)->orderBy('id')->get() as $show) {
+            $freezeAt = $show->ends_at;
+            foreach (config('game-events.progeny_ring.disciplines', ['progeny', 'couple', 'breeders']) as $discipline) {
+                $startsAt = $freezeAt->addMinutes(config('game-events.progeny_ring.delay_minutes', 10));
+                $endsAt = $startsAt->addMinutes(config('game-events.duration_minutes', 10));
+                $rules = ['version' => RegulatedEventSimulator::VERSION, 'fee' => $show->rules['fee'], 'prizes' => $show->rules['prizes'],
+                    'energy_cost' => config('game-events.progeny_ring.energy_cost', 5), 'field_size' => $show->rules['field_size'], 'linked_show_id' => $show->id,
+                    'group_freezes_at' => $freezeAt->utc()->toIso8601String(), 'stages' => ['type', 'uniformity', 'movement'],
+                    'regulation' => [...$show->rules['regulation'], 'rank' => $discipline, 'format' => $discipline.'_ring']];
+                GameEvent::query()->firstOrCreate(['discipline' => $discipline, 'frequency' => $show->frequency, 'starts_at' => $startsAt], [
+                    'status' => 'registration', 'registration_opens_at' => $show->registration_opens_at, 'closes_at' => $show->closes_at,
+                    'ends_at' => $endsAt, 'rules' => $rules, 'seed' => bin2hex(random_bytes(16)),
+                ]);
+                $freezeAt = $endsAt;
+            }
+        }
     }
 
     /**

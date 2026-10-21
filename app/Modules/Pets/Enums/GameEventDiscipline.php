@@ -9,10 +9,12 @@ enum GameEventDiscipline: string
     case Canicross = 'canicross';
     case Conformation = 'conformation';
     case Progeny = 'progeny';
+    case Couple = 'couple';
+    case Breeders = 'breeders';
 
     public function isExhibition(): bool
     {
-        return $this === self::Conformation || $this === self::Progeny;
+        return in_array($this, [self::Conformation, self::Progeny, self::Couple, self::Breeders], true);
     }
 
     public function isDocumentary(): bool
@@ -29,7 +31,7 @@ enum GameEventDiscipline: string
     {
         return match ($this) {
             self::Agility => $size,
-            self::Conformation, self::Progeny => 'breed-'.$breedId,
+            self::Conformation, self::Progeny, self::Couple, self::Breeders => 'breed-'.$breedId,
             default => 'all',
         };
     }

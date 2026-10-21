@@ -144,11 +144,15 @@ final class StartBreeding
             }
             $bornAt = $at->addSeconds(config('doglive.breeding_birth_seconds', GameplayTiming::BREEDING_BIRTH_SECONDS));
             $expiresAt = $bornAt->addDays(config('doglive.puppy_decision_days', 7));
+            $breederKey = $mother->user_id === null ? 'system:'.$mother->id : 'player:'.$mother->user_id;
+            $kennelName = $mother->user_id === null ? 'DogLive System #'.$mother->id : 'DogLive #'.$mother->user_id;
             $litter = BreedingLitter::query()->create([
                 'operation_token' => $token, 'initiator_id' => $owner->id, 'own_pet_id' => $own->id,
                 'listing_id' => $kind === 'listing' ? $offer->id : null, 'partner_id' => $kind === 'partner' ? $offer->id : null,
                 'father_id' => $father->id, 'mother_id' => $mother->id, 'price' => $expectedPrice,
-                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex, 'exterior' => ['father' => $father->exterior, 'mother' => $mother->exterior]],
+                'snapshots' => ['father' => $fatherStats, 'mother' => $motherStats, 'colors' => $weights, 'sirePuppyIndex' => $sirePuppyIndex,
+                    'exterior' => ['father' => $father->exterior, 'mother' => $mother->exterior],
+                    'breeding_origin' => ['breeder_key' => $breederKey, 'kennel_key' => $breederKey, 'kennel_name' => $kennelName]],
                 'born_at' => $bornAt, 'expires_at' => $expiresAt,
             ]);
             foreach ($puppies as $index => $puppy) {

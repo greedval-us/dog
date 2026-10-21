@@ -45,7 +45,7 @@ final class RegisterGameEvent
 
         return DB::transaction(function () use ($user, $eventId, $petId, $plan, $gearIds, $expectedFee, $token, $hash, $pendingRegistration): GameEventEntry {
             $event = GameEvent::query()->lockForUpdate()->findOrFail($eventId);
-            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+            $owner = $this->admission->lockRegistrationParticipants($user, $event, $petId, $plan);
             if ($owner->status !== PlayerStatus::Active) {
                 throw new GameEventUnavailable('events.errors.blocked');
             }
@@ -67,7 +67,12 @@ final class RegisterGameEvent
             if (($event->rules['fee'] ?? null) !== $expectedFee) {
                 throw new GameEventUnavailable('events.errors.fee');
             }
-            if ($event->entries()->where('user_id', $owner->id)->exists()) {
+            $multipleDogs = ($event->discipline === 'conformation' && EventRegulationData::isRegulated($event)) || EventRegulationData::isGroupRing($event);
+            $duplicates = $event->entries()->where('user_id', $owner->id);
+            if ($multipleDogs) {
+                $duplicates->where('pet_id', $petId);
+            }
+            if ($duplicates->exists()) {
                 throw new GameEventUnavailable('events.errors.entered');
             }
             if (CurrencyTransaction::query()->where('user_id', $owner->id)->whereRaw('LOWER(operation_key) = ?', ['event-registration:'.$token])->exists()) {

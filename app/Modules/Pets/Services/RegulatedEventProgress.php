@@ -36,6 +36,9 @@ final class RegulatedEventProgress
         $record->save();
         $pet->unsetRelation('sportRecords');
         $pet->unsetRelation('titles');
+        if (in_array($event->discipline, ['couple', 'breeders'], true)) {
+            return;
+        }
         $profile = $this->profiles->forPet($pet);
         $policy = (int) (EventRegulationData::rules($event)['version'] ?? 1);
         $credentials = $this->credentials($pet, $event, $policy);

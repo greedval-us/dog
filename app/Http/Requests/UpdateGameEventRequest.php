@@ -26,7 +26,8 @@ class UpdateGameEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plan' => ['required', 'array:stages,offspring_ids,exhibition_class,sport_class,program,test_type,handler_category'],
+            'pet_id' => ['sometimes', 'integer', 'min:1'],
+            'plan' => ['required', 'array:stages,offspring_ids,member_ids,exhibition_class,sport_class,program,test_type,handler_category'],
             'plan.exhibition_class' => ['sometimes', 'string', Rule::enum(ExhibitionClass::class)],
             'plan.sport_class' => ['sometimes', 'string', 'max:40'],
             'plan.program' => ['sometimes', 'in:pr1,pr2'],
@@ -36,6 +37,8 @@ class UpdateGameEventRequest extends FormRequest
             'plan.stages.*' => ['required', 'in:careful,balanced,bold'],
             'plan.offspring_ids' => ['sometimes', 'array', 'max:5'],
             'plan.offspring_ids.*' => ['integer', 'min:1', 'distinct'],
+            'plan.member_ids' => ['sometimes', 'array', 'max:4'],
+            'plan.member_ids.*' => ['integer', 'min:1', 'distinct'],
             'gear_ids' => ['present', 'array', 'max:4'],
             'gear_ids.*' => ['integer', 'min:1', 'distinct'],
         ];

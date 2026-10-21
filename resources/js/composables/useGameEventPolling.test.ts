@@ -108,7 +108,7 @@ it('pauses during a mutation and resumes while registration remains active', asy
     expect(poll.usePoll).toHaveBeenCalledWith(
         30_000,
         {
-            only: ['event', 'entry', 'serverNow'],
+            only: ['event', 'entry', 'ownEntries', 'serverNow'],
             headers: { 'X-DogLive-Background': '1' },
         },
         { mode: 'rest', autoStart: true },

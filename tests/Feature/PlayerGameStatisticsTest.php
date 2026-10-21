@@ -85,6 +85,33 @@ test('public statistics aggregate saved human event receipts without losing hist
     $this->assertDatabaseCount('currency_transactions', 0);
 });
 
+test('collective group wins remain separate statistics and count once in exhibition totals for the entry owner', function () {
+    $owner = User::factory()->create(['coins' => 317]);
+    $otherOwner = User::factory()->create();
+    $anchor = Pet::factory()->for($owner)->create();
+    recordedPlayerEvent($owner, $anchor, 'couple', 'daily', 1, 20, 80);
+    recordedPlayerEvent($owner, $anchor, 'breeders', 'weekly', 1, 30, 120);
+    recordedPlayerEvent($owner, $anchor, 'couple', 'daily', 2, 20, 40);
+    recordedPlayerEvent($otherOwner, $anchor, 'breeders', 'daily', 1, 30, 120);
+
+    $statistics = app(GetPlayerGameStatistics::class)->handle($owner);
+
+    expect($statistics->coupleWins)->toBe(1);
+    expect($statistics->breedersWins)->toBe(1);
+    expect($statistics->exhibitionStarts)->toBe(3);
+    expect($statistics->exhibitionPodiums)->toBe(3);
+    expect($statistics->exhibitionWins)->toBe(2);
+    expect($statistics->competitionStarts)->toBe(0);
+    expect($statistics->competitionWins)->toBe(0);
+    expect($statistics->conformationWins)->toBe(0);
+    expect($statistics->progenyStarts)->toBe(0);
+    expect($statistics->eventPrizeCoins)->toBe(240);
+    expect($statistics->eventFeesCoins)->toBe(70);
+    expect($statistics->achievementMetrics()['exhibition_wins'])->toBe(2);
+    $this->assertDatabaseHas('users', ['id' => $owner->id, 'coins' => 317]);
+    $this->assertDatabaseCount('currency_transactions', 0);
+});
+
 test('incomplete malformed and eliminated receipts never become wins podiums or titles', function () {
     $owner = User::factory()->create();
     $pet = Pet::factory()->for($owner)->create();

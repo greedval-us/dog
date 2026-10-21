@@ -1,7 +1,7 @@
-import { App } from '@inertiajs/vue3';
+import { App, router } from '@inertiajs/vue3';
 import { createRenderer, defineComponent, h, nextTick, reactive } from 'vue';
 import type { DefineComponent } from 'vue';
-import { afterEach, expect, it } from 'vite-plus/test';
+import { afterEach, expect, it, vi } from 'vite-plus/test';
 import { useGameEventEntry } from './useGameEventEntry';
 import type {
     EventDiscipline,
@@ -11,7 +11,164 @@ import type {
 } from '@/types/game-event';
 
 let cleanup: (() => void) | undefined;
-afterEach(() => cleanup?.());
+afterEach(() => {
+    cleanup?.();
+    vi.restoreAllMocks();
+});
+
+it.each(['couple', 'breeders'] as const)(
+    'submits three hidden balanced decisions in the new %s registration payload',
+    (discipline) => {
+        const { state } = mountEntry(discipline, {}, (props) => {
+            props.event.status = 'scheduled';
+            props.event.canRegister = true;
+            props.event.regulation = {
+                version: 1,
+                system: 'rkf',
+                rank: 'cac',
+                rankLabel: 'CAC',
+                country: 'RU',
+                region: 'Moscow',
+                judgeId: 'judge',
+                judgeName: 'Judge',
+                format: `${discipline}_ring`,
+            };
+            props.ownEntries = [];
+            props.dogs[0].entryOptions = [
+                { key: discipline, label: 'Group', plan: {} },
+            ];
+            props.dogs[0].groupEligibility = { eligible: true };
+            props.dogs[0].groupMembers = [3, 4].map((id) => ({
+                id,
+                name: `Member ${id}`,
+                eligible: true,
+            }));
+        });
+        const memberIds = discipline === 'couple' ? [3] : [3, 4];
+        state.form.plan.member_ids = memberIds;
+        const request = vi.spyOn(router, 'post').mockImplementation(() => {});
+
+        state.submit();
+
+        expect(request).toHaveBeenCalledWith(
+            '/game-events/1/register',
+            expect.objectContaining({
+                plan: {
+                    stages: ['balanced', 'balanced', 'balanced'],
+                    member_ids: memberIds,
+                },
+                gear_ids: [],
+            }),
+            expect.any(Object),
+        );
+    },
+);
+
+it('opens a new breeders group for the requested anchor when another group is already saved', () => {
+    const saved: NonNullable<GameEventEntryProps['entry']> = {
+        id: 4,
+        petId: 1,
+        name: 'Dog 1',
+        ownerName: 'owner',
+        isNpc: false,
+        division: 'breed-1',
+        status: 'registered',
+        gearIds: [],
+        rank: null,
+        prize: 0,
+        result: null,
+        plan: {
+            stages: ['balanced', 'balanced', 'balanced'],
+            member_ids: [3, 4],
+        },
+    };
+    const { state } = mountEntry(
+        'breeders',
+        {
+            entry: saved,
+            ownEntries: [saved],
+            selectedPetId: 2,
+        },
+        (props) => {
+            props.event.regulation = {
+                version: 1,
+                system: 'rkf',
+                rank: 'cac',
+                rankLabel: 'CAC',
+                country: 'RU',
+                region: 'Moscow',
+                judgeId: 'judge',
+                judgeName: 'Judge',
+                format: 'breeders_ring',
+            };
+        },
+    );
+
+    expect(state.form.pet_id).toBe(2);
+    expect(state.ownEntry.value).toBeNull();
+    expect(state.form.plan.member_ids).toEqual([]);
+});
+
+it.each(['couple', 'breeders'] as const)(
+    'validates the complete %s membership and clears it when choosing another anchor',
+    async (discipline) => {
+        const { props, state } = mountEntry(discipline, {}, (props) => {
+            props.event.regulation = {
+                version: 1,
+                system: 'rkf',
+                rank: 'cac',
+                rankLabel: 'CAC',
+                country: 'RU',
+                region: 'Moscow',
+                judgeId: 'judge',
+                judgeName: 'Judge',
+                format: `${discipline}_ring`,
+            };
+            props.ownEntries = [];
+            props.dogs[0].entryOptions = [
+                { key: discipline, label: 'Group', plan: {} },
+            ];
+            props.dogs[0].groupEligibility = {
+                eligible: true,
+                reason: null,
+                grade: null,
+            };
+            props.dogs[0].groupMembers = [3, 4, 5, 6, 7].map((id) => ({
+                id,
+                name: `Member ${id}`,
+                eligible: id !== 7,
+            }));
+        });
+
+        expect(state.form.plan.stages).toEqual([
+            'balanced',
+            'balanced',
+            'balanced',
+        ]);
+        expect(state.missingGroupMembers.value).toBe(true);
+        state.form.plan.member_ids = discipline === 'couple' ? [3] : [3, 4];
+        expect(state.missingGroupMembers.value).toBe(false);
+        state.form.plan.member_ids = discipline === 'couple' ? [7] : [3, 7];
+        expect(state.missingGroupMembers.value).toBe(true);
+        state.form.plan.member_ids = discipline === 'couple' ? [999] : [3, 999];
+        expect(state.missingGroupMembers.value).toBe(true);
+        state.form.plan.member_ids =
+            discipline === 'couple' ? [3, 4] : [3, 4, 5, 6, 7];
+        expect(state.missingGroupMembers.value).toBe(true);
+        state.form.plan.member_ids = discipline === 'couple' ? [3] : [3, 4];
+        props.dogs[0].groupEligibility!.eligible = false;
+        expect(state.blockedDog.value).toBe(true);
+
+        state.form.pet_id = 2;
+        await nextTick();
+        expect(state.form.plan.member_ids).toEqual([]);
+        expect(state.form.plan.stages).toEqual([
+            'balanced',
+            'balanced',
+            'balanced',
+        ]);
+    },
+);
 
 function dog(id: number): EventDog {
     return {
@@ -363,6 +520,16 @@ it.each([
             stages: ['balanced', 'balanced', 'balanced'],
             offspring_ids: [7, 8, 9],
         },
+    ],
+    [
+        'couple',
+        'couple_ring',
+        { stages: ['balanced', 'balanced', 'balanced'], member_ids: [7] },
+    ],
+    [
+        'breeders',
+        'breeders_ring',
+        { stages: ['balanced', 'balanced', 'balanced'], member_ids: [7, 8] },
     ],
 ] as [EventDiscipline, string, GameEventPlan][])(
     'sends only fields belonging to %s in the %s format',

@@ -44,7 +44,7 @@ final class RegulatedEventSimulator
                 ?: ($first['time'] <=> $second['time'])
                 ?: (($second['search_tiebreak_score'] ?? 0) <=> ($first['search_tiebreak_score'] ?? 0)),
             'canicross' => $first['time'] <=> $second['time'],
-            'conformation', 'progeny' => $second['score'] <=> $first['score'],
+            'conformation', 'progeny', 'couple', 'breeders' => $second['score'] <=> $first['score'],
             default => throw new InvalidArgumentException('Unknown regulated discipline.'),
         };
     }
@@ -58,6 +58,9 @@ final class RegulatedEventSimulator
      */
     public function simulate(string $discipline, array $snapshot, array $plan, array $rules, array $draws): array
     {
+        if (in_array($discipline, ['progeny', 'couple', 'breeders'], true) && ($rules['regulation']['format'] ?? '') === $discipline.'_ring') {
+            return $this->groupRing($discipline, $snapshot, $plan, $rules, $draws);
+        }
         if ($discipline === 'agility' && ($rules['regulation']['version'] ?? 1) >= 2 && ($rules['regulation']['format'] ?? '') === 'agility_combined') {
             return $this->combinedAgility($snapshot, $plan, $rules, $draws);
         }
@@ -224,6 +227,91 @@ final class RegulatedEventSimulator
             'search_tiebreak_score' => ($scoresByKey['interior'] ?? 0) + ($scoresByKey[isset($scoresByKey['exterior']) ? 'exterior' : 'objects'] ?? 0),
             'stages' => $stages, 'preparation' => $preparation,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $snapshot
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $rules
+     * @param  list<float>  $draws
+     * @return array<string,mixed>
+     */
+    private function groupRing(string $discipline, array $snapshot, array $plan, array $rules, array $draws): array
+    {
+        $members = $snapshot['members'] ?? [];
+        $offspring = $snapshot['offspring'] ?? [];
+        $format = $discipline.'_ring';
+        $validCount = match ($discipline) {
+            'progeny' => count($offspring) >= 3 && count($offspring) <= 5 && count($members) === count($offspring) + 1,
+            'couple' => count($members) === 2,
+            'breeders' => count($members) >= 3 && count($members) <= 5,
+            default => false,
+        };
+        if (($rules['version'] ?? null) !== self::VERSION || ($snapshot['version'] ?? null) !== self::SNAPSHOT_VERSION
+            || ! $validCount
+            || ($plan['stages'] ?? []) !== array_fill(0, 3, 'balanced') || count($draws) < 6) {
+            throw new InvalidArgumentException('Invalid collective show group.');
+        }
+        foreach ($draws as $draw) {
+            if (! is_finite($draw) || $draw < 0 || $draw > 1) {
+                throw new InvalidArgumentException('Event draws must be finite probabilities.');
+            }
+        }
+        $preparations = array_map(fn (array $member): array => $this->performance->preparation('conformation', $member), $members);
+        $average = static fn (string $key): float => array_sum(array_column($preparations, $key)) / count($preparations);
+        $modifiers = [];
+        foreach (['precision', 'stamina', 'pace', 'focus'] as $metric) {
+            $modifiers[$metric] = array_sum(array_column(array_column($preparations, 'modifiers'), $metric)) / count($preparations);
+        }
+        $states = [];
+        $stats = [];
+        foreach (array_keys($preparations[0]['states']) as $state) {
+            $states[$state] = array_sum(array_column(array_column($preparations, 'states'), $state)) / count($preparations);
+        }
+        foreach (array_keys($preparations[0]['normalizedStats']) as $stat) {
+            $stats[$stat] = array_sum(array_column(array_column($preparations, 'normalizedStats'), $stat)) / count($preparations);
+        }
+        $preparation = ['careMultiplier' => $average('careMultiplier'), 'initialFatigue' => $average('initialFatigue'),
+            'initialFocus' => $average('initialFocus'), 'careerExperience' => $average('careerExperience'),
+            'consistencyBonus' => $average('consistencyBonus'), 'states' => $states, 'normalizedStats' => $stats, 'modifiers' => $modifiers];
+        $criteria = (new ShowGroupRules)->criteria($discipline === 'progeny' ? $offspring : $members, $format);
+        $simulation = $this->balance['simulation'];
+        $tactic = $simulation['tactics']['balanced'];
+        $focus = $preparation['initialFocus'];
+        $fatigue = $preparation['initialFatigue'];
+        $stages = [];
+        foreach ($criteria as $key => $quality) {
+            $index = count($stages);
+            $chance = max($simulation['minimum_error_probability'], min($simulation['maximum_error_probability'],
+                $simulation['base_error_probability'] + $simulation['stage_difficulty'][$index]
+                - $stats['obedience'] * $preparation['careMultiplier'] * $simulation['quality_error_reduction']
+                - $focus * $simulation['focus_error_reduction'] + $fatigue * $simulation['fatigue_error_increase']
+                - $preparation['consistencyBonus'] - $modifiers['precision']));
+            $penalties = (int) ($draws[$index * 2] < $chance) + (int) ($draws[$index * 2 + 1] < $chance * 0.4);
+            $presentationMultiplier = 1 + ($key === 'movement' ? $modifiers['pace'] : 0);
+            $presentation = max(0.0, min(100 * $simulation['presentation_weight'],
+                ($states['cleanliness'] + $states['health'] + $focus) / 3 * $preparation['careMultiplier']
+                * $simulation['presentation_weight'] * $presentationMultiplier));
+            $contribution = $quality * $simulation['exterior_weight'];
+            $stages[] = ['key' => $key, 'decision' => 'balanced', 'time' => 0.0, 'penalties' => $penalties,
+                'score' => round(max(0.0, min(100.0, $contribution + $presentation - $penalties * 5)), 2),
+                'fatigue' => round($fatigue, 2), 'focus' => round($focus, 2), 'conditionTiming' => 'before',
+                'qualified' => true, 'note' => $penalties > 0 ? 'precision' : $format,
+                'factors' => ['quality' => round($quality, 4), 'careMultiplier' => $preparation['careMultiplier'],
+                    'consistencyBonus' => $preparation['consistencyBonus'], 'mistakeChance' => round(1 - (1 - $chance) * (1 - $chance * 0.4), 4),
+                    'startFatigue' => round($fatigue, 4), 'startFocus' => round($focus, 4), 'exterior' => $quality,
+                    'exteriorContribution' => round($contribution, 4), 'presentationContribution' => round($presentation, 4),
+                    'presentationMultiplier' => round($presentationMultiplier, 4)]];
+            $fatigue = min(100.0, $fatigue + $tactic['fatigue'] * (1 - $modifiers['stamina']));
+            $focus = max(0.0, min(100.0, $focus + $tactic['focus'] - $penalties * 6));
+        }
+
+        return ['version' => self::VERSION, 'format' => $format, 'score' => round(array_sum(array_column($stages, 'score')) / 3, 2),
+            'time' => 0.0, 'penalties' => array_sum(array_column($stages, 'penalties')), 'eliminated' => false, 'qualified' => true,
+            'grade' => $format, 'stages' => $stages, 'preparation' => $preparation,
+            'members' => array_map(static fn (array $member): array => ['id' => $member['id'], 'name' => $member['name'],
+                'grade' => $member['grade'], 'exhibitionClass' => $member['exhibition_class'],
+                ...($discipline !== 'progeny' && isset($member['age_months']) ? ['ageMonths' => $member['age_months']] : [])], $members)];
     }
 
     /**

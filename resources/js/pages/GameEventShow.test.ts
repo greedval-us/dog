@@ -141,6 +141,75 @@ function showEffectsFixture() {
 
     return { event, dog, entry, equipment };
 }
+function progenyRingFixture() {
+    const event = eventFixture();
+    event.discipline = 'progeny';
+    event.calculationVersion = 3;
+    event.regulation = { ...regulationFixture(), format: 'progeny_ring' };
+    event.linkedShow = {
+        id: 6,
+        name: 'Same-day CAC show',
+        startsAt: '2026-10-04T17:00:00Z',
+        status: 'scheduled',
+    };
+    event.stages = ['type', 'uniformity', 'movement'].map((key) => ({
+        key,
+        label: key,
+        options: [],
+    }));
+    const dog = dogFixture();
+    dog.progenyEligibility = { eligible: true, reason: null, grade: null };
+    dog.entryOptions = [{ key: 'progeny', label: 'Producer group', plan: {} }];
+    dog.offspring = [2, 3, 4, 5].map((id) => ({
+        id,
+        name: `Child ${id}`,
+        exterior: dog.exterior,
+        titlesCount: 10,
+        eligible: true,
+        reason: null,
+        grade: null,
+        pending: true,
+        showEntryId: id + 10,
+    }));
+    dog.offspring[3].eligible = false;
+    dog.offspring[3].reason = 'Not entered in this show';
+    const entry = entryFixture();
+    entry.plan = {
+        stages: ['balanced', 'balanced', 'balanced'],
+        offspring_ids: [2, 3, 4],
+    };
+    return { event, dog, entry };
+}
+
+function showGroupFixture(discipline: 'couple' | 'breeders') {
+    const { event, dog, entry } = progenyRingFixture();
+    event.discipline = discipline;
+    event.regulation = { ...event.regulation!, format: `${discipline}_ring` };
+    dog.groupEligibility = {
+        eligible: true,
+        reason: null,
+        grade: null,
+        pending: true,
+    };
+    dog.entryOptions = [{ key: discipline, label: 'Group', plan: {} }];
+    dog.kennelName = 'Silver Birch';
+    dog.groupMembers = [2, 3, 4, 5, 6].map((id) => ({
+        id,
+        name: `Member ${id}`,
+        eligible: id !== 6,
+        reason: id === 6 ? 'Not entered in this show' : null,
+        grade: null,
+        pending: true,
+        showEntryId: id + 10,
+        ownerName: id === 3 ? 'another-owner' : 'rey-owner',
+        kennelName: 'Silver Birch',
+    }));
+    entry.plan = {
+        stages: ['balanced', 'balanced', 'balanced'],
+        member_ids: discipline === 'couple' ? [2] : [2, 3],
+    };
+    return { event, dog, entry };
+}
 async function renderEvent(
     event: GameEventDetail,
     entry: GameEventEntry | null,
@@ -150,7 +219,7 @@ async function renderEvent(
     equipment: EventEquipment[] = [],
     selection: Pick<
         GameEventEntryProps,
-        'selectedPetId' | 'selectedEntryOptionKey'
+        'selectedPetId' | 'selectedEntryOptionKey' | 'ownEntries'
     > = {},
 ): Promise<string> {
     const props = {
@@ -510,6 +579,446 @@ it('opens a career recommendation with its dog and class selected', async () => 
     expect(html).toMatch(
         /<option(?=[^>]*value="working")(?=[^>]*selected)[^>]*>/,
     );
+});
+
+it('keeps the only saved show entry over an incoming dog hint while allowing local dog selection', async () => {
+    const { event, dog, entry } = showEffectsFixture();
+    const secondDog = { ...dog, id: 2, name: 'Luna' };
+    entry.plan.stages = ['bold', 'bold', 'bold'];
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        [dog, secondDog],
+        undefined,
+        [],
+        {
+            selectedPetId: secondDog.id,
+            ownEntries: [entry],
+        },
+    );
+
+    expect(html).toMatch(/<option(?=[^>]*value="1")(?=[^>]*selected)[^>]*>/);
+    expect(html).toMatch(
+        /<select(?=[^>]*id="event-dog")(?![^>]*disabled)[^>]*>/,
+    );
+    expect(html).toContain('Save performance plan');
+    expect(html).toMatch(
+        /<input(?=[^>]*name="event-stage-0")(?=[^>]*value="bold")(?=[^>]*checked)[^>]*>/,
+    );
+});
+
+it('lets the owner choose another dog while viewing a withdrawn show entry before the deadline', async () => {
+    const { event, dog, entry } = showEffectsFixture();
+    const secondDog = { ...dog, id: 2, name: 'Luna' };
+    entry.status = 'withdrawn';
+    entry.result = {
+        time: 0,
+        score: 0,
+        penalties: 0,
+        eliminated: true,
+        stages: [],
+        reason: 'Withdrawn',
+    };
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        [dog, secondDog],
+        undefined,
+        [],
+        { ownEntries: [entry] },
+    );
+
+    expect(html).toMatch(
+        /<select(?=[^>]*id="event-dog")(?![^>]*disabled)[^>]*>/,
+    );
+});
+
+it('loads the selected dog’s existing show entry when the owner has several entries', async () => {
+    const { event, dog, entry } = showEffectsFixture();
+    const secondDog = { ...dog, id: 2, name: 'Luna' };
+    const secondEntry = {
+        ...entry,
+        id: 5,
+        petId: 2,
+        name: 'Luna',
+        plan: {
+            exhibition_class: 'open',
+            stages: ['bold', 'careful', 'balanced'] as const,
+        },
+    };
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        [dog, secondDog],
+        undefined,
+        [],
+        {
+            selectedPetId: secondDog.id,
+            ownEntries: [
+                entry,
+                {
+                    ...secondEntry,
+                    plan: {
+                        ...secondEntry.plan,
+                        stages: [...secondEntry.plan.stages],
+                    },
+                },
+            ],
+        },
+    );
+
+    expect(html).toMatch(/<option(?=[^>]*value="2")(?=[^>]*selected)[^>]*>/);
+    expect(html).toMatch(
+        /<input(?=[^>]*name="event-stage-0")(?=[^>]*value="bold")(?=[^>]*checked)[^>]*>/,
+    );
+    expect(html).toContain('Save performance plan');
+});
+
+it.each(['en', 'ru'])(
+    'explains inherited exterior without promising guaranteed victories in %s',
+    async (locale) => {
+        const { event, dog } = showEffectsFixture();
+
+        const html = await renderEvent(event, null, locale, dog);
+
+        expect(html).toContain(
+            locale === 'ru' ? 'Экстерьер наследуется' : 'Exterior is inherited',
+        );
+        expect(html).toContain(
+            locale === 'ru' ? 'не тренируется' : 'cannot be trained',
+        );
+        expect(html).toContain(
+            locale === 'ru'
+                ? 'не гарантирует победу'
+                : 'does not guarantee a win',
+        );
+    },
+);
+
+it('explains a producer ring as one clear same-show sequence with pending individual assessment', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toContain('/game-events/6');
+    expect(html).toContain('Same-day CAC show');
+    expect(html).toContain('Individual entries');
+    expect(html).toContain('Parent + 3–5 direct offspring');
+    expect(html).toContain('Breed selection → final ring');
+    expect(html).toContain('Admission follows the individual ring');
+    expect(html).toContain('Very good');
+    expect(html).toContain('Not entered in this show');
+    expect(html).toMatch(/<input(?=[^>]*value="5")(?=[^>]*disabled)[^>]*>/);
+    expect(html).not.toContain('Titles: 10');
+    expect(html).not.toContain('game adaptation');
+    expect(html).not.toContain('does not require event rest');
+    expect(html).not.toContain('event-stage-0');
+    expect(html).toContain('Individual show equipment is reused');
+});
+
+it.each(['couple', 'breeders'] as const)(
+    'shows a physical %s group with its members and no separate tactics or equipment',
+    async (discipline) => {
+        const { event, dog, entry } = showGroupFixture(discipline);
+        const html = await renderEvent(event, entry, 'en', dog);
+
+        expect(html).toContain('Individual entries');
+        expect(html).toContain('Breed selection → final ring');
+        expect(html).toContain(
+            discipline === 'couple'
+                ? 'One male + one female of the same breed and owner'
+                : '3–5 dogs of one breed from the same breeder or kennel',
+        );
+        expect(html).toContain('Member 2');
+        expect(html).toContain('Not entered in this show');
+        expect(html).toContain('Individual show equipment is reused');
+        expect(html).not.toContain('event-stage-0');
+        expect(html).not.toContain('Competition equipment');
+        expect(html).not.toContain('Preparation at a glance');
+        expect(html).not.toContain('Player experience');
+        expect(html).toContain('Save group');
+        expect(html).toMatch(/<input(?=[^>]*value="2")(?=[^>]*checked)[^>]*>/);
+        expect(html).toMatch(/<input(?=[^>]*value="6")(?=[^>]*disabled)[^>]*>/);
+    },
+);
+
+it('explains breeders provenance and different current owners in Russian', async () => {
+    const { event, dog, entry } = showGroupFixture('breeders');
+    const html = await renderEvent(event, entry, 'ru', dog);
+
+    expect(html).toContain('Silver Birch');
+    expect(html).toContain('another-owner');
+    expect(html).toContain('Владельцы собак могут различаться');
+    expect(html).not.toContain('events.discipline.breeders');
+    expect(html).toContain('Сохранить группу');
+});
+
+it('links every same-show group contest from the individual exhibition', async () => {
+    const { event, dog } = showEffectsFixture();
+    event.groupContests = [
+        {
+            id: 11,
+            name: 'Couple competition',
+            discipline: 'couple',
+            startsAt: event.startsAt,
+            status: 'scheduled',
+        },
+        {
+            id: 12,
+            name: 'Breeders group competition',
+            discipline: 'breeders',
+            startsAt: event.startsAt,
+            status: 'scheduled',
+        },
+        {
+            id: 13,
+            name: 'Progeny competition',
+            discipline: 'progeny',
+            startsAt: event.startsAt,
+            status: 'scheduled',
+        },
+    ];
+
+    const html = await renderEvent(event, null, 'en', dog);
+
+    expect(html).toContain('/game-events/11');
+    expect(html).toContain('/game-events/12');
+    expect(html).toContain('/game-events/13');
+    expect(html).toContain('Enter every member here first');
+});
+
+it.each(['couple', 'breeders'] as const)(
+    'shows the %s protocol with actual members and breed and final standings',
+    async (discipline) => {
+        const { event, dog, entry } = showGroupFixture(discipline);
+        event.status = 'completed';
+        entry.status = 'completed';
+        entry.rank = 1;
+        entry.result = {
+            format: discipline === 'couple' ? 'couple_ring' : 'breeders_ring',
+            time: 0,
+            penalties: 0,
+            score: 90,
+            eliminated: false,
+            stages: [],
+            members: [
+                {
+                    id: 1,
+                    name: 'Rey',
+                    grade: 'Excellent',
+                    exhibitionClass: 'open',
+                },
+                {
+                    id: 2,
+                    name: 'Member 2',
+                    grade: 'Very good',
+                    exhibitionClass: 'junior',
+                },
+            ],
+            standings: ['breed', 'final'].map((key) => ({
+                key,
+                label: key === 'breed' ? 'Breed selection' : 'Final ring',
+                rank: 1,
+                score: 90,
+                time: 0,
+                penalties: 0,
+                qualified: true,
+            })),
+        };
+        event.entries = [entry];
+
+        const html = await renderEvent(event, entry, 'en', dog);
+
+        expect(html).toContain('Members in the ring');
+        expect(html).toContain('Group ring — Rey');
+        expect(html).toContain('Member 2');
+        expect(html).toContain('Excellent');
+        expect(html).toContain('Breed selection');
+        expect(html).toContain('Final ring');
+        expect(html).toContain('View group ring');
+        expect(html).not.toContain('Performance replay —');
+    },
+);
+
+it.each(['couple', 'breeders'] as const)(
+    'blocks an ineligible saved %s member and permits removing it',
+    async (discipline) => {
+        const { event, dog, entry } = showGroupFixture(discipline);
+        dog.groupMembers![0].eligible = false;
+        dog.groupMembers![0].reason = 'Individual entry withdrawn';
+        const html = await renderEvent(event, entry, 'en', dog);
+
+        expect(html).toContain('Individual entry withdrawn');
+        expect(html).toContain('Remove ineligible members');
+        expect(html).toMatch(
+            /<button(?=[^>]*type="submit")(?=[^>]*disabled)[^>]*>/,
+        );
+        expect(html).toMatch(
+            /<input(?=[^>]*value="2")(?=[^>]*checked)(?![^>]*disabled)[^>]*>/,
+        );
+    },
+);
+
+it('loads each parent’s own saved offspring group when one owner has two producer groups', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    const mother = {
+        ...dog,
+        id: 9,
+        name: 'Mother',
+        offspring: dog.offspring.map((child) => ({
+            ...child,
+            id: child.id + 10,
+        })),
+    };
+    const motherEntry = {
+        ...entry,
+        id: 8,
+        petId: mother.id,
+        name: mother.name,
+        plan: { ...entry.plan, offspring_ids: [12, 13, 14] },
+    };
+
+    const html = await renderEvent(
+        event,
+        entry,
+        'en',
+        [dog, mother],
+        undefined,
+        [],
+        { selectedPetId: mother.id, ownEntries: [entry, motherEntry] },
+    );
+
+    expect(html).toMatch(/<option(?=[^>]*value="9")(?=[^>]*selected)[^>]*>/);
+    expect(html).toMatch(/<input(?=[^>]*value="12")(?=[^>]*checked)[^>]*>/);
+    expect(html).toMatch(
+        /<select(?=[^>]*id="event-dog")(?![^>]*disabled)[^>]*>/,
+    );
+    expect(html).toContain('Save offspring group');
+});
+
+it('uses a group admission checklist instead of the parents documentary readiness preview', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    dog.preparation = preparationFixture();
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).not.toContain(
+        'The parent’s care, tactics and equipment do not affect this documentary evaluation.',
+    );
+    expect(html).not.toContain('Preparation at a glance');
+    expect(html).toContain(
+        'Every member must be healthy and available for the group ring.',
+    );
+});
+
+it('does not claim that the national very-good grade restriction is an FCI producer group rule', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    event.regulation = { ...event.regulation!, system: 'fci' };
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toContain('Compulsory individual classes');
+    expect(html).not.toContain('Very good or higher');
+    expect(html).not.toContain('Baby and Puppy cannot enter');
+});
+
+it('blocks a producer group when its parent loses individual admission before registration closes', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    dog.progenyEligibility = {
+        eligible: false,
+        reason: 'Parent is not entered in the linked show',
+        grade: null,
+    };
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toContain('Parent is not entered in the linked show');
+    expect(html).toMatch(
+        /<button(?=[^>]*type="submit")(?=[^>]*disabled)[^>]*>/,
+    );
+});
+
+it('explains why a saved group with three selected offspring is blocked when a member is no longer eligible', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    dog.offspring[1].eligible = false;
+    dog.offspring[1].reason = 'Individual entry withdrawn';
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toContain(
+        'Remove ineligible members and select 3–5 admitted offspring.',
+    );
+    expect(html).not.toContain(
+        'Select at least three direct offspring before entering.',
+    );
+    expect(html).toMatch(
+        /<button(?=[^>]*type="submit")(?=[^>]*disabled)[^>]*>/,
+    );
+});
+
+it('shows actual group members and breed and final standings instead of documentary achievements', async () => {
+    const { event, dog, entry } = progenyRingFixture();
+    event.status = 'completed';
+    event.canRegister = false;
+    entry.status = 'completed';
+    entry.rank = 2;
+    entry.result = {
+        format: 'progeny_ring',
+        time: 0,
+        score: 88,
+        penalties: 0,
+        eliminated: false,
+        stages: [],
+        standings: [
+            {
+                key: 'breed',
+                label: 'Breed selection',
+                rank: 1,
+                score: 88,
+                time: 0,
+                penalties: 0,
+                qualified: true,
+            },
+            {
+                key: 'final',
+                label: 'Final ring',
+                rank: 2,
+                score: 88,
+                time: 0,
+                penalties: 0,
+                qualified: true,
+            },
+        ],
+        members: [
+            { id: 1, name: 'Rey', grade: 'Excellent', exhibitionClass: 'open' },
+            {
+                id: 2,
+                name: 'Child 2',
+                grade: 'Very good',
+                exhibitionClass: 'junior',
+            },
+        ],
+    };
+    event.entries = [entry];
+
+    const html = await renderEvent(event, entry, 'en', dog);
+
+    expect(html).toContain('Group ring — Rey');
+    expect(html).toContain('Breed selection');
+    expect(html).toContain('Final ring');
+    expect(html).toContain('Members in the ring');
+    expect(html).toContain('Ring stage');
+    expect(html).toContain('Excellent');
+    expect(html).toContain('Very good');
+    expect(html).not.toContain('game adaptation');
+    expect(html).not.toContain('0 s · 0 penalties');
+    expect(html).toContain('does not award CAC or CACIB');
 });
 
 it.each(['en', 'ru'])(

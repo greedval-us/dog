@@ -45,6 +45,8 @@ function playerFixture(): PlayerProfile {
             conformationWins: 0,
             progenyStarts: 2,
             progenyWins: 1,
+            coupleWins: 2,
+            breedersWins: 3,
             weeklyEventWins: 2,
             monthlyEventWins: 1,
             titlesCount: 4,
@@ -108,6 +110,8 @@ it.each(['en', 'ru'])(
                       monthly: 'Чемпионства месяца',
                       prize: 'Призовые за выступления',
                       currency: '175 монет',
+                      couple: 'Победы в конкурсе пар',
+                      breeders: 'Победы в конкурсе питомников',
                   }
                 : {
                       feeding: 'Feedings',
@@ -117,6 +121,8 @@ it.each(['en', 'ru'])(
                       monthly: 'Monthly event championships',
                       prize: 'Event prize money earned',
                       currency: '175 coins',
+                      couple: 'Couple competition wins',
+                      breeders: 'Breeders group wins',
                   };
 
         for (const [label, value] of [
@@ -126,6 +132,8 @@ it.each(['en', 'ru'])(
             [labels.titles, '4'],
             [labels.monthly, '1'],
             [labels.prize, labels.currency],
+            [labels.couple, '2'],
+            [labels.breeders, '3'],
         ]) {
             expect(html).toContain(`<dt>${label}</dt><dd>${value}</dd>`);
         }

@@ -97,7 +97,7 @@ test('special editions follow game months with two separate judges and safe upgr
     app(GameEventSchedule::class)->ensureUpcoming();
     $count = GameEvent::query()->count();
     app(GameEventSchedule::class)->ensureUpcoming();
-    $eurasia = GameEvent::query()->where('rules->regulation->specialShow', 'eurasia')->orderBy('starts_at')->get();
+    $eurasia = GameEvent::query()->where('discipline', 'conformation')->where('rules->regulation->specialShow', 'eurasia')->orderBy('starts_at')->get();
 
     expect(GameEvent::query()->count())->toBe($count);
     expect($empty->fresh()->rules['regulation']['version'])->toBe(2);
@@ -105,7 +105,13 @@ test('special editions follow game months with two separate judges and safe upgr
     expect($eurasia)->toHaveCount(16);
     expect($eurasia[0]->rules['regulation']['showEdition'])->toBe('2050-05');
     expect($eurasia[15]->rules['regulation']['showEdition'])->toBe('2050-12');
-    expect(GameEvent::query()->whereIn('rules->regulation->specialShow', ['national_club', 'national_breed'])->count())->toBe(72);
+    expect(GameEvent::query()->where('discipline', 'conformation')->whereIn('rules->regulation->specialShow', ['national_club', 'national_breed'])->count())->toBe(72);
+    foreach ($eurasia as $show) {
+        $ring = GameEvent::query()->where('discipline', 'progeny')->where('rules->linked_show_id', $show->id)->first();
+        expect($ring, 'Missing producer ring for Eurasia show '.$show->id.' at '.$show->starts_at->toIso8601String())->not->toBeNull();
+        expect($ring->rules['regulation']['specialShow'])->toBe('eurasia');
+        expect($ring->rules['regulation']['showLeg'])->toBe($show->rules['regulation']['showLeg']);
+    }
     expect($eurasia[0]->rules['regulation']['showEdition'])->toBe($eurasia[1]->rules['regulation']['showEdition']);
     expect($eurasia[0]->rules['regulation']['judgeId'])->not->toBe($eurasia[1]->rules['regulation']['judgeId']);
     expect($eurasia[0]->starts_at->diffInHours($eurasia[1]->starts_at))->toBe(3.0);

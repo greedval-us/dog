@@ -7,6 +7,7 @@ use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\User;
 use App\Modules\Pets\Calculators\GameEventParticipationRules;
+use App\Modules\Pets\DTO\EventRegulationData;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -43,14 +44,21 @@ final class GetGameEventParticipation
             $until = $restUntil;
         }
 
-        return array_values(GameEventEntry::query()->where(fn (Builder $query): Builder => $query->where('user_id', $ownerId)->orWhereIn('pet_id', $petIds))
+        return array_values(GameEventEntry::query()->where(fn (Builder $query): Builder => $query->where('user_id', $ownerId)->orWhere(fn (Builder $members) => $members->involvingPets($petIds)))
             ->whereNotIn('status', ['cancelled', 'withdrawn'])
             ->whereHas('event', fn (Builder $query): Builder => $query->where('ends_at', '>=', $from)->where('closes_at', '<', $until))
-            ->with('event:id,discipline,status,starts_at,closes_at,ends_at')->orderBy('id')->get()
-            ->map(fn (GameEventEntry $entry): array => [
-                'userId' => $entry->user_id, 'petId' => $entry->pet_id, 'status' => $entry->status, 'isNpc' => $entry->is_npc,
-                'event' => $this->event($entry->event),
-            ])->all());
+            ->with('event:id,discipline,status,starts_at,closes_at,ends_at,rules')->orderBy('id')->get()
+            ->flatMap(function (GameEventEntry $entry): array {
+                $members = [$entry->pet_id];
+                if (EventRegulationData::isGroupRing($entry->event)) {
+                    $members = EventRegulationData::memberIds($entry->event, $entry->plan, $entry->pet_id);
+                }
+
+                return array_map(fn (?int $petId): array => [
+                    'userId' => $entry->user_id, 'petId' => $petId, 'status' => $entry->status, 'isNpc' => $entry->is_npc,
+                    'event' => $this->event($entry->event),
+                ], $members);
+            })->all());
     }
 
     /** @param list<Participation> $entries */
@@ -79,6 +87,8 @@ final class GetGameEventParticipation
     private function event(GameEvent $event): array
     {
         return ['id' => $event->id, 'discipline' => $event->discipline, 'status' => $event->status,
-            'startsAt' => $event->starts_at, 'closesAt' => $event->closes_at, 'endsAt' => $event->ends_at];
+            'startsAt' => $event->starts_at, 'closesAt' => $event->closes_at, 'endsAt' => $event->ends_at,
+            'documentary' => EventRegulationData::isDocumentary($event),
+            'attendanceId' => EventRegulationData::isGroupRing($event) ? (int) ($event->rules['linked_show_id'] ?? $event->id) : $event->id];
     }
 }

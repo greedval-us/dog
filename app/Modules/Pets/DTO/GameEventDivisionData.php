@@ -29,7 +29,7 @@ final readonly class GameEventDivisionData
             }
         } else {
             $breedCategory = str_starts_with($category, 'breed-');
-            $classGroup = $breedCategory && in_array($tier, ['working', 'champion', 'club_champion', 'progeny'], true)
+            $classGroup = $breedCategory && in_array($tier, ['working', 'champion', 'club_champion', 'progeny', 'couple', 'breeders'], true)
                 ? 'regulations.classes' : 'classes';
             $label = __('events.'.$classGroup.'.'.$tier, [], $locale);
             $label .= ' · '.($breedCategory

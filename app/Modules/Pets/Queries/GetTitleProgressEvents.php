@@ -53,7 +53,8 @@ final class GetTitleProgressEvents
                 if (! $option['eligible']) {
                     continue;
                 }
-                $own = $event->entries->first();
+                $own = $event->discipline === 'conformation'
+                    ? $event->entries->firstWhere('pet_id', $pet->id) : $event->entries->first();
                 $sameDog = $own !== null && $own->pet_id === $pet->id && $own->status === 'registered';
                 $registered = $sameDog && $this->rules->division($event->discipline, $regulation, $profile, $own->plan) === $option['categoryKey'];
                 $reasons = $this->admission->blockingReasons(GameEventDiscipline::from($event->discipline), [
