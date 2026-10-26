@@ -1,0 +1,89 @@
+name: Repository hygiene
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reject tracked files covered by gitignore
+        shell: bash
+        run: |
+          ignored_files="$(git ls-files --cached --ignored --exclude-standard)"
+          if [[ -n "$ignored_files" ]]; then
+            printf 'Ignored files must not be tracked:\n%s\n' "$ignored_files"
+            exit 1
+          fi
+
+      - name: Verify local files stay ignored
+        shell: bash
+        run: |
+          while IFS= read -r path; do
+            if ! git check-ignore --no-index --quiet -- "$path"; then
+              printf 'Missing gitignore rule for: %s\n' "$path"
+              exit 1
+            fi
+          done <<'PATHS'
+          .osp/project.ini
+          .agents/skills/example/SKILL.md
+          .codex/config.toml
+          AGENTS.md
+          boost.json
+          .env
+          .env.local
+          .env.testing
+          .env.production
+          auth.json
+          vendor/autoload.php
+          node_modules/example/package.json
+          public/build/manifest.json
+          public/fonts-manifest.dev.json
+          resources/js/actions/example.ts
+          resources/js/routes/example.ts
+          resources/js/wayfinder/index.ts
+          bootstrap/cache/config.php
+          storage/logs/laravel.log
+          storage/framework/testing/report.json
+          tests/Browser/Screenshots/example.png
+          PATHS
+
+      - name: Verify project sources can be committed
+        shell: bash
+        run: |
+          while IFS= read -r path; do
+            if git check-ignore --no-index --quiet -- "$path"; then
+              printf 'Project file must not be ignored: %s\n' "$path"
+              exit 1
+            fi
+          done <<'PATHS'
+          .env.example
+          composer.json
+          composer.lock
+          package.json
+          package-lock.json
+          .github/workflows/tests.yml
+          .github/workflows/repository.yml
+          bootstrap/cache/.gitignore
+          storage/logs/.gitignore
+          storage/app/private/appearance/backgrounds/forest_glade.webp
+          app/Models/User.php
+          resources/js/app.ts
+          PATHS

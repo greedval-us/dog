@@ -1,33 +1,63 @@
+# Dependencies
 /vendor/
 node_modules/
-npm-debug.log
-yarn-error.log
-
-# Laravel 4 specific
-bootstrap/compiled.php
-app/storage/
-
-# Laravel 5 & Lumen specific
-public/storage
-public/hot
-
-# Laravel 5 & Lumen specific with changed public path
-public_html/storage
-public_html/hot
-
-storage/*.key
-.env
-Homestead.yaml
-Homestead.json
-/.vagrant
-.phpunit.result.cache
-
-/public/build
-/bootstrap/ssr/
-/storage/pail
-/tests/Browser/Screenshots
-/tests/Browser/Traces
-.env.backup
-.env.production
-.phpactor.json
 auth.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment and credentials
+.env*
+!.env.example
+/.osp/
+/Homestead.yaml
+/Homestead.json
+/.vagrant/
+/storage/*.key
+/database/*.sqlite
+/database/*.sqlite-*
+
+# Local agent configuration
+/.agents/
+/.codex/
+/.claude/
+/.cursor/
+/.junie/
+/AGENTS.md
+/CLAUDE.md
+/boost.json
+
+# Generated application files
+/public/build/
+/public/hot
+/public/storage
+/public/fonts-manifest.dev.json
+/public_html/hot
+/public_html/storage
+/bootstrap/ssr/
+/resources/js/actions/
+/resources/js/routes/
+/resources/js/wayfinder/
+
+# Test, analysis, and development output
+/.phpunit.cache/
+/.phpunit.result.cache
+/.phpactor.json
+/.phpstan.cache/
+/coverage/
+/playwright-report/
+/test-results/
+/storage/pail/
+/tests/Browser/Screenshots/
+/tests/Browser/Traces/
+
+# Local editor and operating system files
+/.idea/
+/.vscode/
+/.fleet/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
