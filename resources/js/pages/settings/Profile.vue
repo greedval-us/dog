@@ -11,6 +11,7 @@ import FormField from '@/components/FormField.vue';
 import PlayerCard from '@/components/PlayerCard.vue';
 import PlayerAvatarForm from '@/components/PlayerAvatarForm.vue';
 import SurfaceCard from '@/components/SurfaceCard.vue';
+import TelegramConnection from '@/components/TelegramConnection.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { show as playerProfile } from '@/routes/players';
@@ -19,11 +20,13 @@ import type {
     BoardingSettings as BoardingSettingsData,
     PlayerProfile,
 } from '@/types/player';
+import type { TelegramConnectionData } from '@/types/telegram';
 
 defineProps<{
     player: PlayerProfile;
     avatarLimits: AvatarLimits;
     boarding: BoardingSettingsData;
+    telegram: TelegramConnectionData;
 }>();
 const page = usePage();
 const user = computed(() => page.props.auth.user);
@@ -150,6 +153,7 @@ const { t } = useI18n();
                 </Form>
             </div>
         </SurfaceCard>
+        <TelegramConnection :telegram="telegram" />
         <BoardingSettings :boarding="boarding" />
         <DeleteUser />
     </div>

@@ -1,6 +1,7 @@
 <?php
 
-use DefStudio\Telegraph\Handlers\EmptyWebhookHandler;
+use App\Http\Middleware\VerifyTelegramWebhook;
+use App\Http\Telegram\WebhookHandler;
 use DefStudio\Telegraph\Models\TelegraphBot;
 use DefStudio\Telegraph\Models\TelegraphChat;
 use DefStudio\Telegraph\Storage\CacheStorageDriver;
@@ -25,7 +26,7 @@ return [
          * Sets a custom webhook domain to be used,
          * if null defaults to the app.url
          */
-        'domain' => env('TELEGRAM_WEBHOOK_DOMAIN'),
+        'domain' => env('TELEGRAM_WEBHOOK_DOMAIN') ?: null,
 
         /*
          * Sets the webhook URL that will be exposed by the server,
@@ -39,12 +40,12 @@ return [
          *
          * For reference, see https://docs.defstudio.it/telegraph/webhooks/overview
          */
-        'handler' => EmptyWebhookHandler::class,
+        'handler' => WebhookHandler::class,
 
         /*
          * Middleware to be applied to the webhook route
          */
-        'middleware' => [],
+        'middleware' => [VerifyTelegramWebhook::class],
 
         /*
          * Sets a custom domain when registering a webhook. This will allow a local telegram bot api server
@@ -91,7 +92,7 @@ return [
     /*
      * Sets HTTP request timeout when interacting with Telegram servers
      */
-    'http_timeout' => env('TELEGRAPH_HTTP_TIMEOUT', 30),
+    'http_timeout' => env('TELEGRAPH_HTTP_TIMEOUT', 8),
 
     /*
      * Sets HTTP proxy to be used when interacting with Telegram servers
@@ -102,7 +103,7 @@ return [
     /*
      * Sets HTTP connection request timeout when interacting with Telegram servers
      */
-    'http_connection_timeout' => env('TELEGRAPH_HTTP_CONNECTION_TIMEOUT', 10),
+    'http_connection_timeout' => env('TELEGRAPH_HTTP_CONNECTION_TIMEOUT', 3),
 
     'security' => [
         /*
