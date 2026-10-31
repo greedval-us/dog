@@ -2,7 +2,9 @@
 
 namespace App\Http\Telegram\Menus;
 
+use App\Models\User;
 use App\Modules\Telegram\DTO\TelegramScreen;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 /**
@@ -13,6 +15,16 @@ use Illuminate\Support\Str;
 final class MenuView
 {
     public const PAGE_SIZE = 6;
+
+    public function dateTime(string $value, User $user): string
+    {
+        return CarbonImmutable::parse($value)->setTimezone($user->timezone ?: config('app.timezone'))->format('d.m H:i T');
+    }
+
+    public function reason(string $reason, string $locale): string
+    {
+        return (string) trans($reason, [], $locale);
+    }
 
     /** @param list<array<string, mixed>> $risks */
     public function riskText(array $risks, string $locale): string

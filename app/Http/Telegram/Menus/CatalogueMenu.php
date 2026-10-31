@@ -14,11 +14,12 @@ use Illuminate\Pagination\Cursor;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\PaginationState;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 /**
  * @phpstan-import-type Command from MenuView
  * @phpstan-import-type State from MenuView
+ *
+ * @phpstan-type PurchaseQuote array{offerId: int, itemId: int, expectedCurrency: string, expectedPrice: int, name: string, categoryId: int|null, cursor: string|null}
  */
 final class CatalogueMenu
 {
@@ -99,8 +100,9 @@ final class CatalogueMenu
     /** @param State $state */
     public function purchaseConfirmation(string $locale, array $state): TelegramScreen
     {
-        $purchase = $state['purchase'] ?? throw new InvalidArgumentException('Missing purchase quote.');
-        $purchase['token'] ??= (string) Str::uuid();
+        $saved = new SavedMenuState($state, 'purchase');
+        $purchase = $this->purchaseQuote($saved);
+        $purchase['token'] = $saved->has('token') ? $saved->uuid() : (string) Str::uuid();
 
         return $this->view->screen($this->view->translate('confirm_purchase', $locale, ['name' => $purchase['name'], 'price' => $purchase['expectedPrice'], 'currency' => $this->view->translate($purchase['expectedCurrency'], $locale)]),
             [[$this->view->button('confirm', 'shop.buy', $locale)]], $locale,
@@ -110,10 +112,19 @@ final class CatalogueMenu
     /** @param State $state */
     public function buy(User $user, string $locale, array $state): TelegramScreen
     {
-        $quote = $state['purchase'] ?? throw new InvalidArgumentException('Missing purchase quote.');
-        $this->purchase->handle($user, new PurchaseItemData((int) $quote['offerId'], (int) $quote['itemId'], (string) $quote['expectedCurrency'], (int) $quote['expectedPrice'], (string) $quote['token']));
+        $saved = new SavedMenuState($state, 'purchase');
+        $quote = $this->purchaseQuote($saved);
+        $this->purchase->handle($user, new PurchaseItemData($quote['offerId'], $quote['itemId'], $quote['expectedCurrency'], $quote['expectedPrice'], $saved->uuid()));
 
         return $this->view->screen($this->view->translate('purchased', $locale, ['name' => $quote['name']]), [[$this->view->button('inventory', 'inventory', $locale)], [$this->view->button('shop', 'shop', $locale)]], $locale, ['action' => 'shop']);
+    }
+
+    /** @return PurchaseQuote */
+    private function purchaseQuote(SavedMenuState $state): array
+    {
+        return ['offerId' => $state->integer('offerId'), 'itemId' => $state->integer('itemId'),
+            'expectedCurrency' => $state->string('expectedCurrency'), 'expectedPrice' => $state->integer('expectedPrice', minimum: 0),
+            'name' => $state->string('name'), 'categoryId' => $state->nullableInteger('categoryId'), 'cursor' => $state->nullableString('cursor')];
     }
 
     /** @param array<string, mixed> $item */

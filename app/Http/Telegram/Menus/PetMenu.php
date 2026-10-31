@@ -7,7 +7,6 @@ use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Pets\Queries\GetPrimaryPet;
 use App\Modules\Players\Queries\GetPlayerDogs;
 use App\Modules\Telegram\DTO\TelegramScreen;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
@@ -60,7 +59,7 @@ final class PetMenu
         $state = [];
         if ($care['active'] !== null) {
             $active = $care['active'];
-            $lines[] = $this->view->translate('activity_until', $locale, ['name' => $this->activeLabel($active['label'], $locale), 'time' => $this->time($active['endsAt'], $user)]);
+            $lines[] = $this->view->translate('activity_until', $locale, ['name' => $this->activeLabel($active['label'], $locale), 'time' => $this->view->dateTime($active['endsAt'], $user)]);
             $state['care'] = ['petId' => $petId, 'token' => $active['token'], 'endsAt' => $active['endsAt']];
             $rows[] = [$this->view->button('refresh', 'pet', $locale, ['petId' => $petId])];
             $rows[] = [$this->view->button('complete', 'care.complete', $locale, ['petId' => $petId, 'token' => $active['token']])];
@@ -72,6 +71,15 @@ final class PetMenu
             $rows[] = [$this->view->button('trainings', 'care.variants', $locale, ['petId' => $petId, 'group' => 'training'])];
         }
 
+        if (in_array($pet->lifecycle['status'], ['active', 'retired'], true)) {
+            $activities = [$this->view->button('work.title', 'work', $locale, ['petId' => $petId])];
+            if ($pet->lifecycle['status'] === 'active') {
+                array_unshift($activities, $this->view->button('skill.title', 'skills', $locale, ['petId' => $petId]));
+            }
+            $rows[] = $activities;
+            $rows[] = [$this->view->button('clinic.title', 'clinic', $locale, ['petId' => $petId])];
+        }
+
         return $this->view->screen(implode("\n", $lines), $rows, $locale, ['action' => 'pets'], $state);
     }
 
@@ -81,10 +89,5 @@ final class PetMenu
             'Play together' => 'attention', 'Play with a toy' => 'toy', 'Rinse paws' => 'wash', 'Use a care product' => 'care', 'Take a nap' => 'nap', 'Long sleep' => 'sleep'];
 
         return isset($labels[$label]) ? $this->view->translate('variants.'.$labels[$label], $locale) : $label;
-    }
-
-    private function time(string $value, User $user): string
-    {
-        return CarbonImmutable::parse($value)->setTimezone($user->timezone ?: config('app.timezone'))->format('d.m H:i T');
     }
 }

@@ -18,7 +18,28 @@ final class GetDogWorkBoard
     public function __construct(private SkillRules $skills, private DogWorkRules $rules, private PetDecayCalculator $decay,
         private GetPetStatSnapshot $getAttributes) {}
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array{
+     *     token: string,
+     *     serverNow: string,
+     *     date: string,
+     *     resetsAt: string,
+     *     timezone: string,
+     *     selectedPetId: int|null,
+     *     dogs: array<int, array{id: int, name: string, busy: bool, retired: bool}>,
+     *     offers: list<array{
+     *         id: int, name: string, description: string, skill: string,
+     *         skillLevel: int, dogSkillLevel: int, skillActive: bool,
+     *         coins: int, gems: int, duration: int, energy: int,
+     *         places: int, limit: int, reason: string|null,
+     *         status: 'cancelled'|'started'|'completed'|null
+     *     }>,
+     *     shifts: array<int, array{
+     *         token: string, petId: int, petName: string, name: string,
+     *         endsAt: string, coins: int, gems: int
+     *     }>
+     * }
+     */
     public function handle(User $user, DogWorkBoard $board, ?int $petId, string $locale): array
     {
         $pets = $user->pets()->active()->orderBy('id')->get();

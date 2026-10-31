@@ -15,6 +15,7 @@ final class PlayerMenu
         return new TelegramScreen($this->view->escape($this->view->translate('welcome_player', $locale, ['name' => $user->name])), [
             [$this->view->button('pets', 'pets', $locale), $this->view->button('profile', 'profile', $locale)],
             [$this->view->button('inventory', 'inventory', $locale), $this->view->button('shop', 'shop', $locale)],
+            [$this->view->button('work.title', 'work', $locale)],
             [$this->view->button('help', 'help', $locale), $this->view->website($locale)],
         ]);
     }

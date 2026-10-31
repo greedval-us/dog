@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Telegram\GameMenu;
 use App\Http\Telegram\MenuMessenger;
 use App\Http\Telegram\TelegramDeliveryFailed;
 use App\Jobs\RefreshTelegramCare;
 use App\Models\Pet;
 use App\Models\PetCareAction;
+use App\Models\Skill;
 use App\Models\TelegramAccount;
 use App\Models\User;
 use App\Modules\Pets\Actions\StartPetCare;
@@ -240,6 +242,64 @@ test('a current button resolves only its saved command and acknowledges string c
     Telegraph::assertSentData('answerCallbackQuery', ['callback_query_id' => 'query-id-not-an-integer']);
     Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
     expect($account->fresh()->menu_revision)->toBe(3);
+});
+
+test('telegram gameplay confirmations execute through saved inline callbacks once', function (string $screenAction, string $confirmAction, int $price, string $receiptTable, bool $deliveryFails) {
+    $this->freezeSecond();
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $account->user->forceFill(['coins' => 500])->save();
+    $pet = Pet::factory()->for($account->user)->create(['health' => 50, 'health_max' => 100, 'intelligence' => 50, 'obedience' => 50]);
+    $skill = Skill::factory()->create();
+    fakeTelegramMenu();
+    $screen = app(GameMenu::class)->render($account->user->refresh(), ['action' => $screenAction, 'petId' => $pet->id, 'service' => 'checkup', 'skillId' => $skill->id]);
+    app(MenuMessenger::class)->publish($account, $screen);
+    $key = array_search($confirmAction, array_column($account->menu_state['commands'], 'action'), true);
+    expect(array_column($account->menu_state['commands'], 'action'))->toContain($confirmAction);
+    $update = telegramButtonUpdate('action:tap;k:'.$key.';v:'.$account->menu_revision.';s:'.$account->id);
+    $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
+
+    if ($deliveryFails) {
+        Telegraph::fake([
+            'answerCallbackQuery' => ['ok' => true, 'result' => true],
+            'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+        ]);
+        $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
+        expect($account->fresh()->menu_revision)->toBe($account->menu_revision);
+        expect($account->user->fresh()->coins)->toBe(500 - $price);
+        fakeTelegramMenu();
+    }
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertNoContent();
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertNoContent();
+
+    expect($account->user->fresh()->coins)->toBe(500 - $price);
+    $this->assertDatabaseCount($receiptTable, 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    Telegraph::assertSentData('answerCallbackQuery', ['callback_query_id' => '12345']);
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+})->with([
+    'veterinary service' => ['clinic.service', 'clinic.perform', 60, 'veterinary_visits', false],
+    'skill lesson' => ['skills.lesson', 'skills.train', 100, 'pet_skill_lessons', false],
+    'retry after Telegram rate limit' => ['clinic.service', 'clinic.perform', 60, 'veterinary_visits', true],
+]);
+
+test('a damaged saved confirmation returns a localized stale screen through the webhook', function () {
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $account->forceFill(['menu_message_id' => 900, 'menu_revision' => 2, 'menu_state' => [
+        'commands' => [['action' => 'clinic.perform']],
+        'data' => ['veterinary' => ['petId' => 1, 'service' => []]],
+    ]])->save();
+    fakeTelegramMenu();
+
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramButtonUpdate('action:tap;k:0;v:2;s:'.$account->id), [
+        'X-Telegram-Bot-Api-Secret-Token' => 'test-secret',
+    ])->assertNoContent();
+
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'text' => trans('telegram.errors.stale', [], 'ru')]);
+    expect($account->fresh()->menu_state['commands'])->toBe([['action' => 'home']]);
+    $this->assertDatabaseCount('veterinary_visits', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
 });
 
 test('linking adopts the welcome message instead of sending another menu', function () {

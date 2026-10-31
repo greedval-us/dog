@@ -188,12 +188,10 @@ final class CareMenu
      */
     private function draft(array $state): array
     {
-        $draft = $state['draft'] ?? throw new InvalidArgumentException('Missing care draft.');
-        if (! is_array($draft) || ! isset($draft['petId'], $draft['variant'], $draft['itemIds'], $draft['skipped'], $draft['token']) || ! Str::isUuid($draft['token'])) {
-            throw new InvalidArgumentException('Invalid care draft.');
-        }
+        $draft = new SavedMenuState($state, 'draft');
 
-        return $draft;
+        return ['petId' => $draft->integer('petId'), 'variant' => $draft->string('variant'),
+            'itemIds' => $draft->integerMap('itemIds'), 'skipped' => $draft->stringList('skipped'), 'token' => $draft->uuid()];
     }
 
     /** @param OptionView $option */

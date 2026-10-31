@@ -10,6 +10,7 @@ use App\Models\Training;
 use App\Models\User;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
 use App\Modules\Inventory\Queries\GetPlayerInventory;
+use App\Modules\Pets\Actions\StartPetCare;
 use App\Modules\Telegram\DTO\TelegramScreen;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Str;
@@ -174,6 +175,21 @@ test('telegram deceased pet cards show lifecycle and no care controls', function
 
     expect(collect(telegramMenuCommands($screen))->pluck('action')->all())->not->toContain('care.groups', 'care.variants');
     expect($screen->state)->not->toHaveKey('care');
+});
+
+test('telegram dog cards expose gameplay menus while busy and keep veterinary care for retirees', function () {
+    $pet = Pet::factory()->create(['energy' => 50]);
+    $retired = Pet::factory()->for($pet->user)->retired()->create();
+    $menu = app(GameMenu::class);
+    app(StartPetCare::class)->handle($pet->user, $pet->id, 'nap', [], (string) Str::uuid());
+
+    $busy = $menu->render($pet->user, ['action' => 'pet', 'petId' => $pet->id]);
+    $retiree = $menu->render($pet->user, ['action' => 'pet', 'petId' => $retired->id]);
+
+    expect(collect(telegramMenuCommands($busy))->pluck('action')->all())->toContain('skills', 'work', 'clinic');
+    expect(collect(telegramMenuCommands($retiree))->pluck('action')->all())->toContain('clinic', 'work')->not->toContain('skills');
+    expect($menu->render($pet->user, ['action' => 'skills', 'petId' => $pet->id])->text)->not->toBeEmpty();
+    expect($menu->render($pet->user, ['action' => 'clinic', 'petId' => $retired->id])->text)->not->toBeEmpty();
 });
 
 test('telegram treats a removed confirmed training as a stale screen without spending equipment', function () {

@@ -11,6 +11,11 @@ use App\Modules\Pets\Calculators\VeterinaryRules;
 use App\Modules\Pets\Enums\VeterinaryService;
 use Illuminate\Support\Str;
 
+/**
+ * @phpstan-type ClinicServiceView array{code: string, price: int, reason: string|null, lastVisitAt: string|null, availableAt: string|null}
+ * @phpstan-type ClinicDiseaseView array{id: int, name: string, startedAt: string}
+ * @phpstan-type ClinicVisitView array{id: int, service: string, price: int, diseaseName: string|null, performedAt: string}
+ */
 final class GetVeterinarian
 {
     public function __construct(
@@ -20,7 +25,9 @@ final class GetVeterinarian
         private VeterinaryRules $rules,
     ) {}
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array{token: string, selectedPetId: int|null, dogs: array<int, array{id: int, name: string}>, health: float|null, reason: string|null, checkupDays: int, checkupHealth: int, vaccinationDays: int, vaccinationBonus: int, services: list<ClinicServiceView>, diseases: array<int, ClinicDiseaseView>, history: array<int, ClinicVisitView>}
+     */
     public function handle(User $user, ?int $petId, string $locale): array
     {
         $pets = $user->pets()->active()->orderBy('id')->get();
