@@ -4,6 +4,7 @@ use App\Models\User;
 use App\Models\WorkShift;
 use App\Models\WorkType;
 use App\Modules\Players\Actions\CompleteDailyWork;
+use App\Modules\Players\DTO\DailyWorkQuote;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\WorkUnavailable;
 use Carbon\CarbonImmutable;
@@ -129,6 +130,69 @@ test('a failed bonus payment rolls back the shift and coin payment', function ()
     $this->assertDatabaseCount('work_shifts', 1);
     $this->assertDatabaseCount('currency_transactions', 0);
     $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 12, 'gems' => PHP_INT_MAX]);
+});
+
+test('daily work rejects a stale date or reward quote before paying', function (string $workedOn, int $coins, int $gems) {
+    $user = User::factory()->create(['coins' => 12, 'gems' => 2]);
+    $work = WorkType::factory()->create();
+    WorkShift::factory()->for($user)->for($work)->create(['worked_on' => '2026-09-26', 'streak_day' => 4]);
+    $quote = new DailyWorkQuote($workedOn, $coins, $gems);
+
+    expect(fn () => app(CompleteDailyWork::class)->handle($user, $work->id, $quote))
+        ->toThrow(WorkUnavailable::class, 'The daily work details changed. Refresh and confirm again.');
+
+    $this->assertDatabaseCount('work_shifts', 1);
+    $this->assertDatabaseCount('currency_transactions', 0);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 12, 'gems' => 2]);
+})->with([
+    'previous game day' => ['2026-09-26', 50, 5],
+    'coin reward changed' => ['2026-09-27', 35, 5],
+    'gem reward changed' => ['2026-09-27', 50, 8],
+]);
+
+test('daily work replays the quoted receipt after the catalogue changes', function () {
+    $user = User::factory()->create(['coins' => 12, 'gems' => 2]);
+    $work = WorkType::factory()->create();
+    WorkShift::factory()->for($user)->for($work)->create(['worked_on' => '2026-09-26', 'streak_day' => 4]);
+    $quote = new DailyWorkQuote('2026-09-27', 50, 5);
+    $action = app(CompleteDailyWork::class);
+    $original = $action->handle($user, $work->id, $quote);
+    $work->update(['coins_reward' => 100, 'gems_bonus' => 20, 'is_active' => false]);
+
+    $replayed = $action->handle($user, $work->id, $quote);
+
+    expect($replayed->id)->toBe($original->id);
+    expect($replayed->coins_reward)->toBe(50);
+    expect($replayed->gems_reward)->toBe(5);
+    $this->assertDatabaseCount('work_shifts', 2);
+    $this->assertDatabaseCount('currency_transactions', 2);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 62, 'gems' => 7]);
+});
+
+test('daily work refuses replay when the quote does not match the saved receipt', function (int $coins, int $gems) {
+    $user = User::factory()->create(['coins' => 12, 'gems' => 2]);
+    $work = WorkType::factory()->create();
+    $action = app(CompleteDailyWork::class);
+    $action->handle($user, $work->id);
+    $quote = new DailyWorkQuote('2026-09-27', $coins, $gems);
+
+    expect(fn () => $action->handle($user, $work->id, $quote))
+        ->toThrow(WorkUnavailable::class, 'The daily work details changed. Refresh and confirm again.');
+
+    $this->assertDatabaseCount('work_shifts', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'coins' => 62, 'gems' => 2]);
+})->with(['coins differ' => [100, 0], 'gems differ' => [50, 5]]);
+
+test('blocked daily work accounts are refused before their stale quote is checked', function () {
+    $user = User::factory()->create(['status' => PlayerStatus::Blocked]);
+    $work = WorkType::factory()->create();
+
+    expect(fn () => app(CompleteDailyWork::class)->handle($user, $work->id, new DailyWorkQuote('2026-09-26', 50, 0)))
+        ->toThrow(WorkUnavailable::class, 'Work is unavailable for this account.');
+
+    $this->assertDatabaseCount('work_shifts', 0);
+    $this->assertDatabaseCount('currency_transactions', 0);
 });
 
 test('the work card is private and shows localized catalogue rewards and progress', function (string $locale, string $name) {

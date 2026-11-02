@@ -4,8 +4,11 @@ namespace App\Http\Telegram;
 
 use App\Http\Telegram\Menus\CareMenu;
 use App\Http\Telegram\Menus\CatalogueMenu;
+use App\Http\Telegram\Menus\DailyWorkMenu;
 use App\Http\Telegram\Menus\DogWorkMenu;
 use App\Http\Telegram\Menus\MenuView;
+use App\Http\Telegram\Menus\NotificationMenu;
+use App\Http\Telegram\Menus\PetHistoryMenu;
 use App\Http\Telegram\Menus\PetMenu;
 use App\Http\Telegram\Menus\PlayerMenu;
 use App\Http\Telegram\Menus\SkillMenu;
@@ -28,6 +31,9 @@ final class GameMenu
         private SkillMenu $skills,
         private DogWorkMenu $work,
         private VeterinarianMenu $clinic,
+        private DailyWorkMenu $dailyWork,
+        private NotificationMenu $notifications,
+        private PetHistoryMenu $history,
     ) {}
 
     /**
@@ -66,6 +72,15 @@ final class GameMenu
             'clinic.service' => $this->clinic->service($user, $locale, $command),
             'clinic.perform' => $this->clinic->perform($user, $locale, $state),
             'clinic.history' => $this->clinic->history($user, $locale, $command),
+            'daily_work' => $this->dailyWork->index($user, $locale, $command),
+            'daily_work.confirm' => $this->dailyWork->confirm($user, $locale, $command),
+            'daily_work.complete' => $this->dailyWork->complete($user, $locale, $state),
+            'notifications' => $this->notifications->index($user, $locale, $command),
+            'notifications.show' => $this->notifications->show($user, $locale, $command),
+            'notifications.read' => $this->notifications->read($user, $locale, $state),
+            'pet.history' => $this->history->index($user, $locale, $command),
+            'pet.history.entry' => $this->history->show($user, $locale, $command),
+            'pet.history.events' => $this->history->events($user, $locale, $command),
             default => throw new InvalidArgumentException('Unknown Telegram menu action.'),
         };
     }

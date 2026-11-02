@@ -9,10 +9,13 @@ use App\Models\PetCareAction;
 use App\Models\Skill;
 use App\Models\TelegramAccount;
 use App\Models\User;
+use App\Models\WorkType;
 use App\Modules\Pets\Actions\StartPetCare;
+use App\Modules\Players\Actions\CompleteDailyWork;
 use App\Modules\Telegram\Actions\ConnectTelegramAccount;
 use App\Modules\Telegram\Actions\CreateTelegramLink;
 use App\Modules\Telegram\DTO\TelegramScreen;
+use App\Notifications\SystemNotification;
 use DefStudio\Telegraph\Facades\Telegraph;
 use DefStudio\Telegraph\Models\TelegraphBot;
 use DefStudio\Telegraph\Models\TelegraphChat;
@@ -300,6 +303,76 @@ test('a damaged saved confirmation returns a localized stale screen through the 
     expect($account->fresh()->menu_state['commands'])->toBe([['action' => 'home']]);
     $this->assertDatabaseCount('veterinary_visits', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
+});
+
+test('daily work callbacks replay the earned reward after Telegram delivery fails', function () {
+    $this->freezeSecond();
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $work = WorkType::factory()->create(['coins_reward' => 50]);
+    fakeTelegramMenu();
+    $screen = app(GameMenu::class)->render($account->user, ['action' => 'daily_work.confirm', 'workTypeId' => $work->id]);
+    app(MenuMessenger::class)->publish($account, $screen);
+    $key = array_search('daily_work.complete', array_column($account->menu_state['commands'], 'action'), true);
+    expect($key)->not->toBeFalse();
+    $update = telegramButtonUpdate('action:tap;k:'.$key.';v:'.$account->menu_revision.';s:'.$account->id);
+    $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
+    Telegraph::fake([
+        'answerCallbackQuery' => ['ok' => true, 'result' => true],
+        'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+    ]);
+
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
+    fakeTelegramMenu();
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertNoContent();
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertNoContent();
+
+    expect($account->user->fresh()->coins)->toBe(50);
+    $this->assertDatabaseCount('work_shifts', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    Telegraph::assertNotSentData('sendMessage', []);
+});
+
+test('daily work completed on the website returns a localized refusal in Telegram', function () {
+    $this->freezeSecond();
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $selected = WorkType::factory()->create();
+    $other = WorkType::factory()->create(['coins_reward' => 70]);
+    fakeTelegramMenu();
+    $screen = app(GameMenu::class)->render($account->user, ['action' => 'daily_work.confirm', 'workTypeId' => $selected->id]);
+    app(MenuMessenger::class)->publish($account, $screen);
+    $key = array_search('daily_work.complete', array_column($account->menu_state['commands'], 'action'), true);
+    app(CompleteDailyWork::class)->handle($account->user, $other->id);
+
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramButtonUpdate('action:tap;k:'.$key.';v:'.$account->menu_revision.';s:'.$account->id), [
+        'X-Telegram-Bot-Api-Secret-Token' => 'test-secret',
+    ])->assertNoContent();
+
+    expect($account->user->fresh()->coins)->toBe(70);
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'text' => trans('You have already worked today. Come back tomorrow.', [], 'ru')]);
+    $this->assertDatabaseCount('work_shifts', 1);
+});
+
+test('notifications use saved inline state and update the home unread count', function () {
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $account->user->notify(SystemNotification::siteUpdate(['ru' => 'Новость', 'en' => 'News'], ['ru' => 'Текст', 'en' => 'Message']));
+    $notification = $account->user->notifications()->sole();
+    $menu = app(GameMenu::class);
+    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('Уведомления (1)');
+    fakeTelegramMenu();
+    app(MenuMessenger::class)->publish($account, $menu->render($account->user, ['action' => 'notifications.show', 'notificationId' => $notification->id]));
+    $key = array_search('notifications.read', array_column($account->menu_state['commands'], 'action'), true);
+
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramButtonUpdate('action:tap;k:'.$key.';v:'.$account->menu_revision.';s:'.$account->id), [
+        'X-Telegram-Bot-Api-Secret-Token' => 'test-secret',
+    ])->assertNoContent();
+
+    expect($notification->fresh()->read_at)->not->toBeNull();
+    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('Уведомления')->not->toContain('Уведомления (1)');
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
 });
 
 test('linking adopts the welcome message instead of sending another menu', function () {

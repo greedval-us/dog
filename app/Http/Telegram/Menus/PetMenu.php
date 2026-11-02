@@ -80,6 +80,8 @@ final class PetMenu
             $rows[] = [$this->view->button('clinic.title', 'clinic', $locale, ['petId' => $petId])];
         }
 
+        $rows[] = [$this->view->button('history.title', 'pet.history', $locale, ['petId' => $petId])];
+
         return $this->view->screen(implode("\n", $lines), $rows, $locale, ['action' => 'pets'], $state);
     }
 

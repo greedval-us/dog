@@ -37,6 +37,7 @@ test('telegram home and profile use the player language and escape names without
 
     expect($home->text)->toContain('&lt;b&gt;Alice&lt;/b&gt;')->not->toContain('<b>Alice</b>');
     expect($home->rows[0][0]['command'])->toBe(['action' => 'pets']);
+    expect(array_column(telegramMenuCommands($home), 'action'))->toContain('daily_work', 'notifications');
     expect($profile->text)->toContain('Level')->not->toContain($user->email);
 });
 
@@ -186,7 +187,7 @@ test('telegram dog cards expose gameplay menus while busy and keep veterinary ca
     $busy = $menu->render($pet->user, ['action' => 'pet', 'petId' => $pet->id]);
     $retiree = $menu->render($pet->user, ['action' => 'pet', 'petId' => $retired->id]);
 
-    expect(collect(telegramMenuCommands($busy))->pluck('action')->all())->toContain('skills', 'work', 'clinic');
+    expect(collect(telegramMenuCommands($busy))->pluck('action')->all())->toContain('skills', 'work', 'clinic', 'pet.history');
     expect(collect(telegramMenuCommands($retiree))->pluck('action')->all())->toContain('clinic', 'work')->not->toContain('skills');
     expect($menu->render($pet->user, ['action' => 'skills', 'petId' => $pet->id])->text)->not->toBeEmpty();
     expect($menu->render($pet->user, ['action' => 'clinic', 'petId' => $retired->id])->text)->not->toBeEmpty();

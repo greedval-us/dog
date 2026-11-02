@@ -91,11 +91,11 @@ final class MenuView
      * @param  Command  $command
      * @return list<list<Button>>
      */
-    public function pageNavigation(int $count, int $offset, ?string $cursor, ?string $next, ?string $previous, array $command, string $locale): array
+    public function pageNavigation(int $count, int $offset, ?string $cursor, ?string $next, ?string $previous, array $command, string $locale, int $previousOffset = 0): array
     {
         $buttons = [];
         if ($offset > 0 || $previous !== null) {
-            $buttons[] = $this->button('previous', (string) $command['action'], $locale, [...$command, 'offset' => max(0, $offset - self::PAGE_SIZE), 'cursor' => $offset > 0 ? $cursor : $previous]);
+            $buttons[] = $this->button('previous', (string) $command['action'], $locale, [...$command, 'offset' => $offset > 0 ? max(0, $offset - self::PAGE_SIZE) : $previousOffset, 'cursor' => $offset > 0 ? $cursor : $previous]);
         }
         if ($offset + self::PAGE_SIZE < $count || $next !== null) {
             $buttons[] = $this->button('next', (string) $command['action'], $locale, [...$command, 'offset' => $offset + self::PAGE_SIZE < $count ? $offset + self::PAGE_SIZE : 0, 'cursor' => $offset + self::PAGE_SIZE < $count ? $cursor : $next]);

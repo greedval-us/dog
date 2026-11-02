@@ -8,6 +8,7 @@ use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Players\Enums\PlayerStatus;
 use App\Modules\Players\Exceptions\InsufficientFunds;
+use App\Modules\Players\Exceptions\WorkUnavailable;
 use App\Modules\Telegram\Actions\ConnectTelegramAccount;
 use App\Modules\Telegram\DTO\TelegramScreen;
 use App\Modules\Telegram\DTO\TelegramUpdate;
@@ -55,7 +56,7 @@ final class HandleTelegramUpdate
             if ($command !== null) {
                 $this->game->handle($account, $command);
             }
-        } catch (TelegramUnavailable|PetUnavailable|ItemUnavailable|InsufficientFunds|PendingGameEventRegistration|ModelNotFoundException $exception) {
+        } catch (TelegramUnavailable|PetUnavailable|ItemUnavailable|InsufficientFunds|WorkUnavailable|PendingGameEventRegistration|ModelNotFoundException $exception) {
             $chat ??= $bot->chats()->make(['chat_id' => $update->senderId]);
             $account ??= $chat->exists ? TelegramAccount::query()->where('telegraph_chat_id', $chat->id)->first() : null;
             $this->renderFailure($account, $chat, $exception);

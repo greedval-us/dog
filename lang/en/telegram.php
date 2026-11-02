@@ -19,6 +19,24 @@ return [
     'level' => 'Level', 'experience' => 'Experience', 'progress' => 'Level progress', 'coins' => 'coins', 'gems' => 'gems', 'walks' => 'Walks',
     'competition_wins' => 'Competition wins', 'exhibition_wins' => 'Exhibition wins', 'actions_count' => 'Completed actions', 'active_days' => 'Active days',
     'energy' => 'Energy', 'pet_busy' => 'Your dog has another activity. Check back after it finishes.',
+    'daily_work' => [
+        'title' => 'Daily work', 'description' => 'Complete one job per game day. Rewards are paid immediately.',
+        'streak' => 'Streak: :progress/:total', 'resets' => 'Next game day: :time (:timezone)',
+        'reward' => 'Reward: :coins coins · :gems gems', 'bonus' => 'Every :days consecutive days: :gems gems.',
+        'confirmation' => 'Complete this job and collect the reward?', 'complete' => 'Work and collect',
+        'completed' => 'Received today: :coins coins · :gems gems', 'empty' => 'No jobs are available now.',
+        'unavailable' => 'Daily work is unavailable for this profile.', 'choose' => 'Choose a job:',
+    ],
+    'notifications' => [
+        'title' => 'Notifications', 'unread_count' => 'Unread: :count', 'empty' => 'No unread notifications.',
+        'read' => 'Mark as read', 'read_done' => 'Marked as read.', 'created_at' => 'Received: :time', 'read_at' => 'Read: :time',
+    ],
+    'history' => [
+        'title' => 'Dog history', 'actions' => 'Actions', 'thoughts' => 'Thoughts', 'week' => '7 days', 'month' => '30 days',
+        'period' => 'Past :days days', 'empty' => 'There are no records for the selected period.', 'events' => 'Event type', 'all_events' => 'All events',
+        'changes' => 'Changes', 'change' => 'Metric', 'skill_level' => 'Skill level', 'duration' => 'Duration: :seconds sec',
+        'started' => 'Started', 'completed' => 'Completed',
+    ],
     'skill' => [
         'title' => 'Skills', 'empty' => 'No skill lessons are available.', 'level' => 'Level :level/5',
         'active' => 'This learned skill is active.', 'inactive' => 'This learned skill is inactive. Restore the required attributes to use it.',
@@ -56,7 +74,7 @@ return [
     'quality' => 'Quality', 'usage_limit' => 'Total uses', 'remaining_uses' => 'Remaining uses', 'price' => 'Price', 'stock' => 'In stock', 'unlimited' => 'Unlimited',
     'base_effects' => 'Base effects', 'stat_gains' => 'Stat gains', 'risk' => 'Effect chance', 'granted_effect' => 'Effect',
     'purchase_limit' => 'Purchased / delivery limit', 'confirm_purchase' => 'Buy :name for :price :currency? One item will be added to your inventory.', 'purchased' => 'Purchased: :name. The item is in your inventory.',
-    'help_text' => "DogLive in Telegram\n\nView your profile and dogs, care for them, train their stats, learn skills, buy supplies and visit the veterinarian. The new sections are on each dog's card.\n\nIn Dog work, choose jobs that match learned skills. When a shift ends, open Accepted jobs and complete it to receive the reward.\n\nActivities use the same items, energy and waiting times as the website. Review the terms and confirm before starting or paying. Use Menu to return here.",
+    'help_text' => "DogLive in Telegram\n\nView your profile and dogs, care for them, train their stats, learn skills, buy supplies and visit the veterinarian. Each dog's card also has a history of actions and thoughts for the past 7 or 30 days.\n\nDaily work rewards the player once per game day. In Dog work, choose jobs that match learned skills, then complete finished shifts in Accepted jobs.\n\nRead game events in Notifications and mark them as read. Activities use the same items, energy and waiting times as the website. Review the terms and confirm before starting or paying. Use Menu to return here.",
     'lifecycle' => ['active' => 'Active dog', 'retired' => 'Retired', 'deceased' => 'In memory — care is unavailable', 'surrendered' => 'Rehomed — care is unavailable'],
     'groups' => ['feed' => 'Food & water', 'walk' => 'Walk', 'play' => 'Play', 'groom' => 'Grooming', 'sleep' => 'Rest', 'training' => 'Training'],
     'variants' => ['meal' => 'A portion of food', 'water' => 'Fresh water', 'walk' => 'Walk outside', 'home' => 'Move around at home', 'attention' => 'Play together', 'toy' => 'Play with a toy', 'wash' => 'Rinse paws', 'care' => 'Use a care product', 'nap' => 'Take a nap', 'sleep' => 'Long sleep'],
