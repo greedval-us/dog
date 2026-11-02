@@ -14,12 +14,14 @@ final class PlayerMenu
     public function home(User $user, string $locale): TelegramScreen
     {
         $unread = $this->unread->handle($user);
-        $notifications = $this->view->translate('notifications.title', $locale).($unread > 0 ? ' ('.$unread.')' : '');
+        $notifications = $this->view->label('notifications.title', $locale).($unread > 0 ? ' ('.$unread.')' : '');
         $summary = $this->summary->build($user, $locale);
 
-        return new TelegramScreen($this->view->escape($this->view->translate('welcome_player', $locale, ['name' => $user->name]))."\n\n".$summary->text, [
+        return new TelegramScreen($this->view->heading($this->view->translate('welcome_player', $locale, ['name' => $user->name]))."\n\n".$summary->text, [
             ...$summary->rows,
             [$this->view->button('pets', 'pets', $locale), $this->view->button('profile', 'profile', $locale)],
+            [$this->view->button('kennel.title', 'kennel', $locale), $this->view->button('slots.title', 'slots', $locale)],
+            [$this->view->button('market.title', 'market', $locale), $this->view->button('market.own', 'market', $locale, ['tab' => 'own'])],
             [$this->view->button('inventory', 'inventory', $locale), $this->view->button('shop', 'shop', $locale)],
             [$this->view->button('daily_work.title', 'daily_work', $locale), $this->view->button('work.title', 'work', $locale)],
             [$this->view->button('event.competitions', 'events', $locale, ['kind' => 'competition']), $this->view->button('event.exhibitions', 'events', $locale, ['kind' => 'exhibition'])],
@@ -32,17 +34,21 @@ final class PlayerMenu
     {
         $profile = $this->profiles->handle($user);
         $wallet = $user->fresh();
-        $lines = [$profile->name, '@'.$profile->username,
+        $lines = [$this->view->label('profile', $locale), $profile->name, '@'.$profile->username,
+            '', $this->view->translate('sections.progress', $locale),
             $this->view->translate('level', $locale).': '.$profile->level,
             $this->view->translate('experience', $locale).': '.$profile->experience,
-            $this->view->translate('progress', $locale).': '.round($profile->progress['percent']).'% ('.$profile->progress['levelExperience'].'/'.$profile->progress['requiredExperience'].')',
+            $this->view->translate('progress', $locale).': '.$this->view->bar($profile->progress['percent']).' '.round($profile->progress['percent']).'% ('.$profile->progress['levelExperience'].'/'.$profile->progress['requiredExperience'].')',
+            '',
             $this->view->translate('coins', $locale).': '.$wallet?->coins.' · '.$this->view->translate('gems', $locale).': '.$wallet?->gems,
+            '', $this->view->translate('sections.activity', $locale),
             $this->view->translate('pets', $locale).': '.$profile->dogsCount,
             $this->view->translate('walks', $locale).': '.$profile->walksCount.' · '.$this->view->translate('trainings', $locale).': '.$profile->trainingsCount,
-            $this->view->translate('competition_wins', $locale).': '.$profile->competitionWins,
-            $this->view->translate('exhibition_wins', $locale).': '.$profile->exhibitionWins,
             $this->view->translate('actions_count', $locale).': '.$profile->statistics['actionsCount'],
             $this->view->translate('active_days', $locale).': '.$profile->statistics['activeDays'],
+            '', $this->view->translate('sections.achievements', $locale),
+            $this->view->translate('competition_wins', $locale).': '.$profile->competitionWins,
+            $this->view->translate('exhibition_wins', $locale).': '.$profile->exhibitionWins,
         ];
 
         return $this->view->screen(implode("\n", $lines), [], $locale);

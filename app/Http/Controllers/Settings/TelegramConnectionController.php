@@ -47,7 +47,7 @@ class TelegramConnectionController extends Controller
                 $disconnect->handle($user);
                 if ($account?->menu_message_id !== null) {
                     try {
-                        $messenger->welcome($account->chat, messageId: $account->menu_message_id);
+                        $messenger->welcome($account->chat, messageId: $account->menu_message_id, mediaIds: $messenger->mediaMessageIds($account));
                     } catch (TelegramDeliveryFailed) {
                         Log::notice('Telegram could not refresh the disconnected menu.', ['account_id' => $account->id]);
                     }

@@ -42,7 +42,7 @@ final class RunTelegramGameCommand
     private function render(User $user, TelegramAccount $account, array $command): ?TelegramScreen
     {
         $action = $command['action'] ?? 'home';
-        if (is_string($action) && ($action === 'events' || str_starts_with($action, 'events.'))) {
+        if (is_string($action) && in_array(explode('.', $action, 2)[0], ['events', 'market'], true)) {
             $context = DB::transaction(fn (): ?array => $this->context($user, $account), attempts: 3);
 
             return $context === null ? null : $this->menu->render($context['owner'], $command, $context['state']);

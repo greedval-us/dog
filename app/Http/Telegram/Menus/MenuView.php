@@ -16,6 +16,22 @@ final class MenuView
 {
     public const PAGE_SIZE = 6;
 
+    private const LABEL_ICONS = [
+        'pets' => '🐾', 'profile' => '👤', 'kennel.title' => '🐕', 'slots.title' => '🏡',
+        'inventory' => '🎒', 'shop' => '🛍', 'daily_work.title' => '🧰', 'work.title' => '💼',
+        'event.competitions' => '🏆', 'event.exhibitions' => '🎖', 'notifications.title' => '🔔',
+        'help' => '❔', 'website' => '🌐', 'back' => '←', 'home' => '🏠', 'refresh' => '↻',
+        'care' => '💚', 'trainings' => '🏃', 'skill.title' => '🎓', 'clinic.title' => '🩺', 'history.title' => '📖',
+        'start' => '▶', 'complete' => '✓', 'buy' => '🛒', 'confirm' => '✓', 'skip' => '↷',
+        'daily_work.complete' => '✓', 'work.start' => '▶', 'work.complete' => '✓', 'skill.train' => '✓',
+        'clinic.confirm' => '✓', 'event.register' => '✓', 'event.update' => '✓', 'event.continue' => '→',
+        'kennel.adopt_free' => '🐾', 'kennel.buy' => '✓', 'kennel.rename' => '✎', 'kennel.open_pet' => '🐾',
+        'slots.kennel' => '🐕', 'home_summary.ready_care' => '✓', 'home_summary.ready_work' => '✓',
+        'home_summary.care_dog' => '💚', 'home_summary.pending_activity' => '⏳',
+        'market.title' => '🐕', 'market.own' => '📋', 'market.sell_title' => '🏷', 'market.open_pet' => '🐾',
+        'market.publish' => '✓', 'market.withdraw_action' => '✕', 'market.withdraw' => '✕', 'market.edit_price' => '✎',
+    ];
+
     public function dateTime(string $value, User $user): string
     {
         return CarbonImmutable::parse($value)->setTimezone($user->timezone ?: config('app.timezone'))->format('d.m H:i T');
@@ -44,6 +60,26 @@ final class MenuView
         return (string) trans('telegram.'.$key, $replace, $locale);
     }
 
+    /** @param array<string, string|int> $replace */
+    public function label(string $key, string $locale, array $replace = []): string
+    {
+        $icon = self::LABEL_ICONS[$key] ?? null;
+
+        return ($icon === null ? '' : $icon.' ').$this->translate($key, $locale, $replace);
+    }
+
+    public function heading(string $text): string
+    {
+        return '<b>'.$this->escape($text).'</b>';
+    }
+
+    public function bar(float $percentage): string
+    {
+        $filled = (int) round(max(0, min(100, $percentage)) / 20);
+
+        return str_repeat('■', $filled).str_repeat('□', 5 - $filled);
+    }
+
     public function escape(string $value): string
     {
         $escaped = htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -60,7 +96,7 @@ final class MenuView
      */
     public function button(string $label, string $action, string $locale, array $parameters = []): array
     {
-        return $this->commandButton($this->translate($label, $locale), ['action' => $action, ...$parameters]);
+        return $this->commandButton($this->label($label, $locale), ['action' => $action, ...$parameters]);
     }
 
     /**
@@ -75,7 +111,7 @@ final class MenuView
     /** @return Button */
     public function website(string $locale): array
     {
-        return ['text' => $this->translate('website', $locale), 'url' => route('dashboard')];
+        return ['text' => $this->label('website', $locale), 'url' => route('dashboard')];
     }
 
     /**
@@ -109,10 +145,12 @@ final class MenuView
      * @param  Command  $back
      * @param  State  $state
      */
-    public function screen(string $text, array $rows, string $locale, array $back = ['action' => 'home'], array $state = []): TelegramScreen
+    public function screen(string $text, array $rows, string $locale, array $back = ['action' => 'home'], array $state = [], ?string $photoPath = null): TelegramScreen
     {
         $rows[] = [$this->button('back', (string) $back['action'], $locale, $back), $this->button('home', 'home', $locale)];
+        $lines = explode("\n", $this->escape($text), 2);
+        $formatted = '<b>'.$lines[0].'</b>'.(isset($lines[1]) ? "\n".$lines[1] : '');
 
-        return new TelegramScreen($this->escape($text), $rows, $state);
+        return new TelegramScreen($formatted, $rows, $state, $photoPath);
     }
 }

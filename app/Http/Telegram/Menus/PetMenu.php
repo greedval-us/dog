@@ -2,6 +2,7 @@
 
 namespace App\Http\Telegram\Menus;
 
+use App\Http\Telegram\TelegramPetImage;
 use App\Models\User;
 use App\Modules\Pets\Queries\GetPetCare;
 use App\Modules\Pets\Queries\GetPrimaryPet;
@@ -19,6 +20,7 @@ final class PetMenu
         private GetPlayerDogs $dogs,
         private GetPrimaryPet $pets,
         private GetPetCare $care,
+        private TelegramPetImage $images,
     ) {}
 
     /** @param Command $command */
@@ -31,9 +33,7 @@ final class PetMenu
             $rows[] = [$this->view->commandButton($pet['name'].' · '.$pet['breed'], ['action' => 'pet', 'petId' => $pet['id']])];
         }
         $rows = [...$rows, ...$this->view->offsetNavigation(count($pets), $offset, ['action' => 'pets'], $locale)];
-        if ($pets === []) {
-            $rows[] = [$this->view->website($locale)];
-        }
+        $rows[] = [$this->view->button('kennel.title', 'kennel', $locale), $this->view->button('slots.title', 'slots', $locale)];
 
         return $this->view->screen($this->view->translate($pets === [] ? 'pets_empty' : 'choose_pet', $locale), $rows, $locale);
     }
@@ -45,25 +45,39 @@ final class PetMenu
             throw new ModelNotFoundException;
         }
         $care = $this->care->handle($user, $petId, $locale);
-        $lines = array_values(array_filter([$notice, $pet->name.' · '.$pet->breed,
+        $lines = ['🐾 '.$pet->name.' · '.$pet->breed,
             $this->view->translate('lifecycle.'.$pet->lifecycle['status'], $locale),
-            $this->view->translate('energy', $locale).': '.round($pet->energy['value']).'/'.$pet->energy['maximum'],
-        ]));
-        foreach ($pet->states as $key => $value) {
-            $lines[] = $this->view->translate('stats.'.$key, $locale).': '.round($value).'%';
+        ];
+        if ($notice !== null) {
+            $lines[] = $notice;
         }
+        $lines[] = '';
+        $lines[] = $this->view->translate('sections.needs', $locale);
+        $energyPercent = $pet->energy['maximum'] > 0 ? $pet->energy['value'] / $pet->energy['maximum'] * 100 : 0;
+        $lines[] = $this->view->translate('energy', $locale).' '.$this->view->bar($energyPercent).' '.round($pet->energy['value']).'/'.$pet->energy['maximum'];
+        foreach ($pet->states as $key => $value) {
+            $lines[] = $this->view->translate('stats.'.$key, $locale).' '.$this->view->bar($value).' '.round($value).'%';
+        }
+        $stats = [];
         foreach ($pet->stats as $key => $value) {
-            $lines[] = $this->view->translate('stats.'.$key, $locale).': '.$value['value'].'/'.$value['potential'];
+            $stats[] = $this->view->translate('stats.'.$key, $locale).': '.$value['value'].'/'.$value['potential'];
+        }
+        $lines[] = '';
+        $lines[] = $this->view->translate('sections.stats', $locale);
+        foreach (array_chunk($stats, 2) as $pair) {
+            $lines[] = implode(' · ', $pair);
         }
         $rows = [];
         $state = [];
         if ($care['active'] !== null) {
             $active = $care['active'];
+            $lines[] = '';
             $lines[] = $this->view->translate('activity_until', $locale, ['name' => $this->activeLabel($active['label'], $locale), 'time' => $this->view->dateTime($active['endsAt'], $user)]);
             $state['care'] = ['petId' => $petId, 'token' => $active['token'], 'endsAt' => $active['endsAt']];
             $rows[] = [$this->view->button('refresh', 'pet', $locale, ['petId' => $petId])];
             $rows[] = [$this->view->button('complete', 'care.complete', $locale, ['petId' => $petId, 'token' => $active['token']])];
         } elseif ($care['busy']) {
+            $lines[] = '';
             $lines[] = $this->view->translate('pet_busy', $locale);
             $rows[] = [$this->view->button('refresh', 'pet', $locale, ['petId' => $petId])];
         } elseif (! $care['blocked']) {
@@ -78,11 +92,12 @@ final class PetMenu
             }
             $rows[] = $activities;
             $rows[] = [$this->view->button('clinic.title', 'clinic', $locale, ['petId' => $petId])];
+            $rows[] = [$this->view->button('market.sell_title', 'market.sell.pet', $locale, ['petId' => $petId])];
         }
 
         $rows[] = [$this->view->button('history.title', 'pet.history', $locale, ['petId' => $petId])];
 
-        return $this->view->screen(implode("\n", $lines), $rows, $locale, ['action' => 'pets'], $state);
+        return $this->view->screen(implode("\n", $lines), $rows, $locale, ['action' => 'pets'], $state, $this->images->forPet($user, $petId));
     }
 
     private function activeLabel(string $label, string $locale): string

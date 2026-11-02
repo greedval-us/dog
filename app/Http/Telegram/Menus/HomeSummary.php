@@ -36,13 +36,14 @@ final class HomeSummary
         }
         $pets = $pets->filter(fn (Pet $pet): bool => $pet->isActive());
         $needy = $pets->filter(fn (Pet $pet): bool => collect($pet->statePercentages())->contains(fn (float $value): bool => $value < 50));
+        $heading = $this->view->heading($this->view->translate('sections.overview', $locale));
         $lines = [
             $this->view->translate('home_summary.balance', $locale, ['coins' => $wallet->coins, 'gems' => $wallet->gems]),
             $this->view->translate('home_summary.dogs', $locale, ['count' => $pets->count()]),
             $this->view->translate('home_summary.needs_care', $locale, ['count' => $needy->count()]),
         ];
         if ($pets->isEmpty()) {
-            return new TelegramScreen($this->view->escape(implode("\n", [...$lines, $this->view->translate('home_summary.no_activities', $locale)])), []);
+            return new TelegramScreen($heading."\n".$this->view->escape(implode("\n", [...$lines, '', $this->view->translate('home_summary.no_activities', $locale)])), []);
         }
 
         $care = PetCareAction::query()->join('pets', function (JoinClause $join): void {
@@ -57,6 +58,7 @@ final class HomeSummary
         $workCounts = $this->counts($work, $at);
         $ready = $careCounts['ready'] + $workCounts['ready'];
         $pending = $careCounts['pending'] + $workCounts['pending'];
+        $lines[] = '';
         $lines[] = $this->view->translate($ready + $pending === 0 ? 'home_summary.no_activities' : 'home_summary.activities', $locale, ['ready' => $ready, 'pending' => $pending]);
         $nextFinishes = array_values(array_filter([$careCounts['next'], $workCounts['next']]));
         sort($nextFinishes);
@@ -99,7 +101,7 @@ final class HomeSummary
                 break;
             }
             if (! in_array($pet->id, $shownPets, true)) {
-                $rows[] = [$this->view->commandButton($this->view->translate('home_summary.care_dog', $locale, ['name' => Str::limit($pet->name, 24)]), ['action' => 'pet', 'petId' => $pet->id])];
+                $rows[] = [$this->view->commandButton($this->view->label('home_summary.care_dog', $locale, ['name' => Str::limit($pet->name, 24)]), ['action' => 'pet', 'petId' => $pet->id])];
                 $shownPets[] = $pet->id;
             }
         }
@@ -113,7 +115,7 @@ final class HomeSummary
             }
         }
 
-        return new TelegramScreen($this->view->escape(implode("\n", $lines)), $rows);
+        return new TelegramScreen($heading."\n".$this->view->escape(implode("\n", $lines)), $rows);
     }
 
     /**
@@ -134,7 +136,7 @@ final class HomeSummary
      */
     private function activityButton(array $activity, string $locale, bool $ready): array
     {
-        return $this->view->commandButton($this->view->translate($ready ? $activity['readyLabel'] : 'home_summary.pending_activity', $locale, ['name' => Str::limit($activity['name'], 24)]),
+        return $this->view->commandButton($this->view->label($ready ? $activity['readyLabel'] : 'home_summary.pending_activity', $locale, ['name' => Str::limit($activity['name'], 24)]),
             $ready ? $activity['readyCommand'] : $activity['pendingCommand']);
     }
 }

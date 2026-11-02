@@ -17,6 +17,7 @@ use App\Modules\Players\Actions\CompleteDailyWork;
 use App\Modules\Telegram\Actions\ConnectTelegramAccount;
 use App\Modules\Telegram\Actions\CreateTelegramLink;
 use App\Modules\Telegram\DTO\TelegramScreen;
+use App\Modules\Telegram\Services\MenuSession;
 use App\Notifications\SystemNotification;
 use DefStudio\Telegraph\Facades\Telegraph;
 use DefStudio\Telegraph\Models\TelegraphBot;
@@ -71,13 +72,12 @@ function telegramButtonUpdate(string $data, int $sender = 123456, int $message =
     ];
 }
 
-function fakeTelegramMenu(): void
+function fakeTelegramMenu(int $messageId = 900): void
 {
     Http::preventStrayRequests();
     Telegraph::fake([
         'getMe' => ['ok' => true, 'result' => ['username' => 'doglive_test_bot']],
-        'sendMessage' => ['ok' => true, 'result' => ['message_id' => 900]],
-        'editMessageText' => ['ok' => true, 'result' => ['message_id' => 900]],
+        'sendMessage' => ['ok' => true, 'result' => ['message_id' => $messageId]],
         'answerCallbackQuery' => ['ok' => true, 'result' => true],
         'deleteMessage' => ['ok' => true, 'result' => true],
     ]);
@@ -139,7 +139,7 @@ test('webhook does not expose inherited handler commands', function () {
     Telegraph::assertNothingSent();
 });
 
-test('start consumes a site link and later menus edit the existing message', function () {
+test('start consumes a site link and later menus replace the existing message quietly', function () {
     $bot = telegramWebhookBot();
     $user = User::factory()->create(['locale' => 'ru']);
     $link = app(CreateTelegramLink::class)->handle($user);
@@ -153,10 +153,12 @@ test('start consumes a site link and later menus edit the existing message', fun
     expect($account->menu_message_id)->toBe(900);
     Telegraph::assertSentData('sendMessage', ['chat_id' => '123456']);
 
-    fakeTelegramMenu();
+    fakeTelegramMenu(901);
     $this->postJson(route('telegraph.webhook', $bot->token), telegramMessageUpdate('/menu'), $headers)->assertNoContent();
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'chat_id' => '123456']);
-    Telegraph::assertNotSentData('sendMessage', []);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertSentData('deleteMessage', ['message_id' => 900]);
+    Telegraph::assertNotSentData('editMessageText', []);
+    expect($account->fresh()->menu_message_id)->toBe(901);
 });
 
 test('stale and malformed buttons cannot execute gameplay commands', function (string $data) {
@@ -195,13 +197,12 @@ test('telegram configuration does not print the bot token and registers an expli
     expect($bot->fresh()->name)->toBe('DogLive companion');
 });
 
-test('a missing menu message is replaced and the previous keyboard is retired', function () {
+test('a new menu remains current when deleting the old message fails and its keyboard is retired', function () {
     $bot = telegramWebhookBot();
     $account = linkedTelegramPlayer($bot);
     $account->forceFill(['menu_message_id' => 800])->save();
     Http::preventStrayRequests();
     Telegraph::fake([
-        'editMessageText' => ['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: message to edit not found'],
         'sendMessage' => ['ok' => true, 'result' => ['message_id' => 900]],
         'deleteMessage' => ['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: message cannot be deleted'],
         'editMessageReplyMarkup' => ['ok' => true, 'result' => true],
@@ -212,6 +213,7 @@ test('a missing menu message is replaced and the previous keyboard is retired', 
     expect($account->fresh()->menu_message_id)->toBe(900);
     Telegraph::assertSentData('deleteMessage', ['message_id' => 800]);
     Telegraph::assertSentData('editMessageReplyMarkup', ['message_id' => 800]);
+    Telegraph::assertNotSentData('editMessageText', []);
 });
 
 test('background care completion preserves player activity and does not overwrite a newer screen', function () {
@@ -232,12 +234,12 @@ test('background care completion preserves player activity and does not overwrit
     Telegraph::assertNothingSent();
 });
 
-test('telegram rate limits preserve retry timing and do not create replacement messages', function () {
+test('telegram rate limits preserve retry timing and leave the previous menu intact', function () {
     $bot = telegramWebhookBot();
     $account = linkedTelegramPlayer($bot);
     $account->forceFill(['menu_message_id' => 900])->save();
     Http::preventStrayRequests();
-    Telegraph::fake(['editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]]]);
+    Telegraph::fake(['sendMessage' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]]]);
 
     try {
         app(MenuMessenger::class)->publish($account, new TelegramScreen('Menu', []));
@@ -246,7 +248,9 @@ test('telegram rate limits preserve retry timing and do not create replacement m
         expect($exception->retryAfter)->toBe(23);
     }
     expect($account->fresh()->menu_revision)->toBe(0);
-    Telegraph::assertNotSentData('sendMessage', []);
+    expect($account->fresh()->menu_message_id)->toBe(900);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertNotSentData('deleteMessage', []);
 });
 
 test('a current button resolves only its saved command and acknowledges string callback ids', function () {
@@ -260,7 +264,7 @@ test('a current button resolves only its saved command and acknowledges string c
     $this->postJson(route('telegraph.webhook', $bot->token), $payload, ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertNoContent();
 
     Telegraph::assertSentData('answerCallbackQuery', ['callback_query_id' => 'query-id-not-an-integer']);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
     expect($account->fresh()->menu_revision)->toBe(3);
 });
 
@@ -282,7 +286,7 @@ test('telegram gameplay confirmations execute through saved inline callbacks onc
     if ($deliveryFails) {
         Telegraph::fake([
             'answerCallbackQuery' => ['ok' => true, 'result' => true],
-            'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+            'sendMessage' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
         ]);
         $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
         expect($account->fresh()->menu_revision)->toBe($account->menu_revision);
@@ -296,7 +300,7 @@ test('telegram gameplay confirmations execute through saved inline callbacks onc
     $this->assertDatabaseCount($receiptTable, 1);
     $this->assertDatabaseCount('currency_transactions', 1);
     Telegraph::assertSentData('answerCallbackQuery', ['callback_query_id' => '12345']);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
 })->with([
     'veterinary service' => ['clinic.service', 'clinic.perform', 60, 'veterinary_visits', false],
     'skill lesson' => ['skills.lesson', 'skills.train', 100, 'pet_skill_lessons', false],
@@ -316,7 +320,7 @@ test('a damaged saved confirmation returns a localized stale screen through the 
         'X-Telegram-Bot-Api-Secret-Token' => 'test-secret',
     ])->assertNoContent();
 
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'text' => trans('telegram.errors.stale', [], 'ru')]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true, 'text' => trans('telegram.errors.stale', [], 'ru')]);
     expect($account->fresh()->menu_state['commands'])->toBe([['action' => 'home']]);
     $this->assertDatabaseCount('veterinary_visits', 0);
     $this->assertDatabaseCount('currency_transactions', 0);
@@ -336,7 +340,7 @@ test('daily work callbacks replay the earned reward after Telegram delivery fail
     $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
     Telegraph::fake([
         'answerCallbackQuery' => ['ok' => true, 'result' => true],
-        'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+        'sendMessage' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
     ]);
 
     $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
@@ -347,8 +351,8 @@ test('daily work callbacks replay the earned reward after Telegram delivery fail
     expect($account->user->fresh()->coins)->toBe(50);
     $this->assertDatabaseCount('work_shifts', 1);
     $this->assertDatabaseCount('currency_transactions', 1);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
-    Telegraph::assertNotSentData('sendMessage', []);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertNotSentData('editMessageText', []);
 });
 
 test('daily work completed on the website returns a localized refusal in Telegram', function () {
@@ -368,7 +372,7 @@ test('daily work completed on the website returns a localized refusal in Telegra
     ])->assertNoContent();
 
     expect($account->user->fresh()->coins)->toBe(70);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'text' => trans('You have already worked today. Come back tomorrow.', [], 'ru')]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true, 'text' => trans('You have already worked today. Come back tomorrow.', [], 'ru')]);
     $this->assertDatabaseCount('work_shifts', 1);
 });
 
@@ -378,7 +382,7 @@ test('notifications use saved inline state and update the home unread count', fu
     $account->user->notify(SystemNotification::siteUpdate(['ru' => 'Новость', 'en' => 'News'], ['ru' => 'Текст', 'en' => 'Message']));
     $notification = $account->user->notifications()->sole();
     $menu = app(GameMenu::class);
-    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('Уведомления (1)');
+    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('🔔 Уведомления (1)');
     fakeTelegramMenu();
     app(MenuMessenger::class)->publish($account, $menu->render($account->user, ['action' => 'notifications.show', 'notificationId' => $notification->id]));
     $key = array_search('notifications.read', array_column($account->menu_state['commands'], 'action'), true);
@@ -388,8 +392,8 @@ test('notifications use saved inline state and update the home unread count', fu
     ])->assertNoContent();
 
     expect($notification->fresh()->read_at)->not->toBeNull();
-    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('Уведомления')->not->toContain('Уведомления (1)');
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('🔔 Уведомления')->not->toContain('🔔 Уведомления (1)');
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
 });
 
 test('event callbacks preserve native transaction ownership through registration editing and cancellation', function () {
@@ -431,7 +435,7 @@ test('event callbacks preserve native transaction ownership through registration
     expect($entry->fresh()->status)->toBe('cancelled');
     expect($eventLockLevels)->toBe([$baseTransaction + 1, $baseTransaction + 1, $baseTransaction + 1]);
     $this->assertDatabaseCount('currency_transactions', 2);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
 });
 
 test('event registration retries after Telegram rate limits do not charge a second fee', function () {
@@ -449,7 +453,7 @@ test('event registration retries after Telegram rate limits do not charge a seco
     $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
     Telegraph::fake([
         'answerCallbackQuery' => ['ok' => true, 'result' => true],
-        'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+        'sendMessage' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
     ]);
 
     $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
@@ -459,11 +463,11 @@ test('event registration retries after Telegram rate limits do not charge a seco
     expect($account->user->fresh()->coins)->toBe(475);
     $this->assertDatabaseCount('game_event_entries', 1);
     $this->assertDatabaseCount('currency_transactions', 1);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
-    Telegraph::assertNotSentData('sendMessage', []);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertNotSentData('editMessageText', []);
 });
 
-test('linking adopts the welcome message instead of sending another menu', function () {
+test('linking sends a game menu and removes the previous welcome', function () {
     $bot = telegramWebhookBot();
     $user = User::factory()->create(['locale' => 'ru']);
     $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
@@ -471,32 +475,36 @@ test('linking adopts the welcome message instead of sending another menu', funct
     $this->postJson(route('telegraph.webhook', $bot->token), telegramMessageUpdate('/start'), $headers)->assertNoContent();
     Telegraph::assertSentData('sendMessage', ['chat_id' => '123456']);
     $link = app(CreateTelegramLink::class)->handle($user);
-    fakeTelegramMenu();
+    fakeTelegramMenu(901);
 
     $this->postJson(route('telegraph.webhook', $bot->token), telegramMessageUpdate('/start '.$link->token), $headers)->assertNoContent();
 
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'chat_id' => '123456']);
-    Telegraph::assertNotSentData('sendMessage', []);
-    $this->assertDatabaseHas('telegram_accounts', ['user_id' => $user->id, 'menu_message_id' => 900]);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertSentData('deleteMessage', ['message_id' => 900]);
+    Telegraph::assertNotSentData('editMessageText', []);
+    $this->assertDatabaseHas('telegram_accounts', ['user_id' => $user->id, 'menu_message_id' => 901]);
 });
 
-test('unlink replaces the game keyboard and relinking reuses the same message', function () {
+test('unlink sends a welcome and relinking replaces it with a new game menu', function () {
     $bot = telegramWebhookBot();
     $account = linkedTelegramPlayer($bot);
     $user = $account->user;
     $account->forceFill(['menu_message_id' => 900, 'menu_revision' => 2, 'menu_state' => ['commands' => ['0' => ['action' => 'profile']], 'data' => []]])->save();
-    fakeTelegramMenu();
+    fakeTelegramMenu(901);
 
     $this->actingAs($user)->delete(route('telegram.unlink'))->assertRedirect(route('profile.edit'));
 
     $this->assertModelMissing($account);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900, 'text' => __('telegram.welcome'),
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true, 'text' => __('telegram.welcome'),
         'reply_markup' => ['inline_keyboard' => [[['text' => __('telegram.connect_site'), 'url' => route('profile.edit')]]]]]);
+    Telegraph::assertSentData('deleteMessage', ['message_id' => 900]);
     $link = app(CreateTelegramLink::class)->handle($user);
-    fakeTelegramMenu();
+    fakeTelegramMenu(902);
     $this->postJson(route('telegraph.webhook', $bot->token), telegramMessageUpdate('/start '.$link->token), ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertNoContent();
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
-    Telegraph::assertNotSentData('sendMessage', []);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertSentData('deleteMessage', ['message_id' => 901]);
+    Telegraph::assertNotSentData('editMessageText', []);
+    $this->assertDatabaseHas('telegram_accounts', ['user_id' => $user->id, 'menu_message_id' => 902]);
 });
 
 test('cleanup timeouts do not prevent scheduling completion after a replacement care menu is delivered', function () {
@@ -514,7 +522,6 @@ test('cleanup timeouts do not prevent scheduling completion after a replacement 
     Http::preventStrayRequests();
     Http::fake([
         'api.telegram.org/bot*/answerCallbackQuery' => Http::response(['ok' => true, 'result' => true]),
-        'api.telegram.org/bot*/editMessageText' => Http::response(['ok' => false, 'error_code' => 400, 'description' => 'Bad Request: message to edit not found']),
         'api.telegram.org/bot*/sendMessage' => Http::response(['ok' => true, 'result' => ['message_id' => 900]]),
         'api.telegram.org/bot*/deleteMessage' => Http::failedConnection(),
         'api.telegram.org/bot*/editMessageReplyMarkup' => Http::failedConnection(),
@@ -525,6 +532,8 @@ test('cleanup timeouts do not prevent scheduling completion after a replacement 
     $this->assertDatabaseHas('pet_care_actions', ['pet_id' => $pet->id, 'token' => $token, 'completed_at' => null]);
     $this->assertDatabaseHas('telegram_accounts', ['id' => $account->id, 'menu_message_id' => 900, 'menu_revision' => 3]);
     Queue::assertPushed(RefreshTelegramCare::class, fn (RefreshTelegramCare $job): bool => $job->accountId === $account->id && $job->petId === $pet->id && $job->token === $token && $job->revision === 3);
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/sendMessage') && $request['disable_notification'] === true);
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/deleteMessage') && $request['message_id'] === 800);
     Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/editMessageReplyMarkup') && $request['message_id'] === 800);
 });
 
@@ -537,34 +546,38 @@ test('failed unlink refresh still disconnects and old game buttons cannot start 
         'data' => ['draft' => ['petId' => $pet->id, 'variant' => 'water', 'itemIds' => [], 'skipped' => [], 'token' => (string) Str::uuid()]],
     ]])->save();
     Http::preventStrayRequests();
-    Http::fake(['api.telegram.org/bot*/editMessageText' => Http::failedConnection()]);
+    Http::fake(['api.telegram.org/bot*/sendMessage' => Http::failedConnection()]);
 
     $this->actingAs($account->user)->delete(route('telegram.unlink'))->assertRedirect(route('profile.edit'));
 
     $this->assertModelMissing($account);
-    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/editMessageText') && $request['message_id'] === 900);
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/sendMessage') && $request['disable_notification'] === true);
+    Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/deleteMessage') && $request['message_id'] === 900);
     fakeTelegramMenu();
     $this->postJson(route('telegraph.webhook', $bot->token), telegramButtonUpdate('action:tap;k:0;v:2;s:'.$account->id), ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'])->assertNoContent();
     Telegraph::assertSentData('answerCallbackQuery', ['callback_query_id' => '12345']);
-    Telegraph::assertNotSentData('editMessageText', []);
+    Telegraph::assertNotSentData('sendMessage', []);
     $this->assertDatabaseCount('pet_care_actions', 0);
 });
 
-test('welcome refresh failures preserve the message and do not send duplicates', function (int $status) {
+test('welcome delivery failures preserve the previous message until a replacement is sent', function (int $status) {
     $bot = telegramWebhookBot();
     $chat = TelegraphChat::factory()->for($bot, 'bot')->create(['chat_id' => '123456']);
     fakeTelegramMenu();
     app(MenuMessenger::class)->welcome($chat);
     Telegraph::assertSentData('sendMessage', ['chat_id' => '123456']);
-    Telegraph::fake(['editMessageText' => ['ok' => false, 'error_code' => $status, 'parameters' => ['retry_after' => 23]]]);
+    Telegraph::fake(['sendMessage' => ['ok' => false, 'error_code' => $status, 'parameters' => ['retry_after' => 23]]]);
 
     expect(fn () => app(MenuMessenger::class)->welcome($chat))->toThrow(TelegramDeliveryFailed::class);
 
-    Telegraph::assertNotSentData('sendMessage', []);
-    fakeTelegramMenu();
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertNotSentData('deleteMessage', []);
+    expect(app(MenuSession::class)->messageId($chat))->toBe(900);
+    fakeTelegramMenu(901);
     app(MenuMessenger::class)->welcome($chat);
-    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
-    Telegraph::assertNotSentData('sendMessage', []);
+    Telegraph::assertSentData('sendMessage', ['chat_id' => '123456', 'disable_notification' => true]);
+    Telegraph::assertSentData('deleteMessage', ['message_id' => 900]);
+    expect(app(MenuSession::class)->messageId($chat))->toBe(901);
 })->with([429, 500]);
 
 test('buttons from a previous connection cannot confirm a new care draft with the same message and revision', function () {
@@ -576,7 +589,7 @@ test('buttons from a previous connection cannot confirm a new care draft with th
     $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
     Http::preventStrayRequests();
     Http::fake([
-        'api.telegram.org/bot*/editMessageText' => Http::response(['ok' => true, 'result' => ['message_id' => 900]]),
+        'api.telegram.org/bot*/sendMessage' => Http::response(['ok' => true, 'result' => ['message_id' => 900]]),
         'api.telegram.org/bot*/answerCallbackQuery' => Http::response(['ok' => true, 'result' => true]),
     ]);
     $account->forceFill(['menu_message_id' => 900, 'menu_revision' => 5])->save();

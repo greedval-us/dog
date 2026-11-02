@@ -21,9 +21,19 @@ final class MenuSession
         return is_int($messageId) && $messageId > 0 ? $messageId : null;
     }
 
-    public function rememberMessage(TelegraphChat $chat, int $messageId): void
+    /** @return list<int> */
+    public function mediaMessageIds(TelegraphChat $chat): array
+    {
+        $ids = Cache::get($this->messageKey($chat).':media', []);
+
+        return is_array($ids) ? array_values(array_filter($ids, fn (mixed $id): bool => is_int($id) && $id > 0)) : [];
+    }
+
+    /** @param list<int> $mediaIds */
+    public function rememberMessage(TelegraphChat $chat, int $messageId, array $mediaIds = []): void
     {
         Cache::put($this->messageKey($chat), $messageId, now()->addDays(2));
+        Cache::put($this->messageKey($chat).':media', $mediaIds, now()->addDays(2));
     }
 
     private function messageKey(TelegraphChat $chat): string

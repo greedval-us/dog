@@ -11,13 +11,10 @@ use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
 use DefStudio\Telegraph\Models\TelegraphChat;
 use DefStudio\Telegraph\Telegraph;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Log;
-use RuntimeException;
 
 final class MenuMessenger
 {
-    public function __construct(private MenuSession $session) {}
+    public function __construct(private MenuSession $session, private TelegramMessageSender $sender) {}
 
     public function publish(TelegramAccount $account, TelegramScreen $screen): void
     {
@@ -46,111 +43,66 @@ final class MenuMessenger
 
         $chat = $account->chat;
         $oldMessageId = $account->menu_message_id ?? $this->session->messageId($chat);
-        if ($oldMessageId !== null) {
-            if ($this->editMessage($chat, $oldMessageId, $screen->text, $keyboard)) {
-                $this->remember($account, $oldMessageId, $revision, $state);
-
-                return;
-            }
-            Log::notice('Telegram menu message was unavailable; replacing it.', ['account_id' => $account->id]);
+        $oldMediaIds = $this->mediaMessageIds($account);
+        $delivery = $this->sender->createScreen($chat, $screen, $keyboard);
+        if ($delivery['mediaIds'] !== []) {
+            $state['mediaIds'] = $delivery['mediaIds'];
         }
-
-        $messageId = $this->createMessage($chat, $screen->text, $keyboard);
-        if ($messageId === null || $messageId < 1) {
-            throw new RuntimeException('Telegram did not return a menu message identifier.');
-        }
-        $this->remember($account, $messageId, $revision, $state);
-        $this->retireMessage($chat, $oldMessageId, $messageId);
+        $this->remember($account, $delivery['messageId'], $revision, $state, $delivery['mediaIds']);
+        $this->retireMessages($chat, [$oldMessageId, ...$oldMediaIds], [$delivery['messageId'], ...$delivery['mediaIds']]);
     }
 
-    /** @param array<string, mixed> $state */
-    private function remember(TelegramAccount $account, int $messageId, int $revision, array $state): void
+    /**
+     * @param  array<string, mixed>  $state
+     * @param  list<int>  $mediaIds
+     */
+    private function remember(TelegramAccount $account, int $messageId, int $revision, array $state, array $mediaIds): void
     {
         $account->forceFill(['menu_message_id' => $messageId, 'menu_revision' => $revision, 'menu_state' => $state])->save();
-        $this->session->rememberMessage($account->chat, $messageId);
+        $this->session->rememberMessage($account->chat, $messageId, $mediaIds);
     }
 
-    public function welcome(TelegraphChat $chat, ?string $notice = null, ?int $messageId = null): void
+    /** @param list<int> $mediaIds */
+    public function welcome(TelegraphChat $chat, ?string $notice = null, ?int $messageId = null, array $mediaIds = []): void
     {
         $keyboard = Keyboard::make()->row([Button::make(__('telegram.connect_site'))->url(route('profile.edit'))]);
         $text = ($notice === null ? '' : htmlspecialchars($notice, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')."\n\n").__('telegram.welcome');
         $messageId ??= $this->session->messageId($chat);
-        if ($messageId !== null) {
-            $this->session->rememberMessage($chat, $messageId);
-            if ($this->editMessage($chat, $messageId, $text, $keyboard)) {
-                return;
-            }
-        }
-        $newId = $this->createMessage($chat, $text, $keyboard);
-        if ($newId === null || $newId < 1) {
-            throw new TelegramDeliveryFailed;
-        }
+        $oldMediaIds = [...$mediaIds, ...$this->session->mediaMessageIds($chat)];
+        $newId = $this->sender->createMessage($chat, $text, $keyboard);
         $this->session->rememberMessage($chat, $newId);
-        $this->retireMessage($chat, $messageId, $newId);
+        $this->retireMessages($chat, [$messageId, ...$oldMediaIds], [$newId]);
     }
 
-    private function editMessage(TelegraphChat $chat, int $messageId, string $text, Keyboard $keyboard): bool
+    /** @return list<int> */
+    public function mediaMessageIds(TelegramAccount $account): array
     {
-        $response = $this->send($chat->edit($messageId)->html($text)->keyboard($keyboard));
-        if ($response->telegraphOk() || str_contains((string) $response->json('description', ''), 'message is not modified')) {
-            return true;
-        }
-        $description = strtolower((string) $response->json('description', ''));
-        if (! str_contains($description, 'message to edit not found') && ! str_contains($description, "message can't be edited")) {
-            $this->assertSuccess($response);
-        }
+        $saved = $account->menu_state['mediaIds'] ?? [];
+        $ids = is_array($saved) ? array_filter($saved, fn (mixed $id): bool => is_int($id) && $id > 0) : [];
 
-        return false;
+        return array_values(array_unique([...$ids, ...$this->session->mediaMessageIds($account->chat)]));
     }
 
-    private function createMessage(TelegraphChat $chat, string $text, Keyboard $keyboard): ?int
+    /**
+     * @param  list<int|null>  $oldIds
+     * @param  list<int>  $newIds
+     */
+    private function retireMessages(TelegraphChat $chat, array $oldIds, array $newIds): void
     {
-        $response = $this->send($chat->html($text)->keyboard($keyboard));
-        $this->assertSuccess($response);
-
-        return $response->telegraphMessageId();
-    }
-
-    private function retireMessage(TelegraphChat $chat, ?int $oldMessageId, int $messageId): void
-    {
-        if ($oldMessageId !== null && $oldMessageId !== $messageId) {
-            $this->remove($chat, $oldMessageId, true);
+        foreach (array_unique($oldIds) as $id) {
+            if ($id !== null && ! in_array($id, $newIds, true)) {
+                $this->remove($chat, $id, true);
+            }
         }
     }
 
     public function remove(TelegraphChat $chat, int $messageId, bool $clearKeyboard = false): void
     {
-        try {
-            $response = $this->send($chat->deleteMessage($messageId));
-            if ($response->telegraphOk()) {
-                return;
-            }
-        } catch (TelegramDeliveryFailed) {
-        }
-        Log::notice('Telegram could not delete an old message.', ['chat_id' => $chat->id, 'message_id' => $messageId]);
-        if ($clearKeyboard) {
-            try {
-                $this->send($chat->deleteKeyboard($messageId));
-            } catch (TelegramDeliveryFailed) {
-                Log::notice('Telegram could not clear an old keyboard.', ['chat_id' => $chat->id, 'message_id' => $messageId]);
-            }
-        }
+        $this->sender->remove($chat, $messageId, $clearKeyboard);
     }
 
     public function send(Telegraph $request): TelegraphResponse
     {
-        try {
-            return $request->send();
-        } catch (ConnectionException) {
-            throw new TelegramDeliveryFailed;
-        }
-    }
-
-    private function assertSuccess(TelegraphResponse $response): void
-    {
-        if ($response->telegraphError()) {
-            $retryAfter = (int) $response->json('parameters.retry_after', 0);
-            throw new TelegramDeliveryFailed($retryAfter, (int) $response->json('error_code', $response->status()));
-        }
+        return $this->sender->send($request);
     }
 }

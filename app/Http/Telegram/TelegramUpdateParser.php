@@ -32,9 +32,19 @@ final class TelegramUpdateParser
                 callbackQueryId: (string) $queryId,
                 callback: is_string($payload['data'] ?? null) ? MenuCallbackCodec::decode($payload['data']) : null);
         }
-        $text = $payload['text'] ?? '';
-        if (! is_string($text) || ! preg_match('/^\/(start|menu|help)(?:@[a-zA-Z0-9_]+)?(?:\s+([a-zA-Z0-9_-]{1,64}))?\s*$/D', $text, $matches)) {
+        $text = $payload['text'] ?? null;
+        if (! is_string($text) || mb_strlen($text) > 4096) {
             return null;
+        }
+        $sentAt = $payload['date'] ?? null;
+        $sentAt = is_int($sentAt) && $sentAt > 0 ? $sentAt : null;
+        if (! preg_match('/^\/(start|menu|help)(?:@[a-zA-Z0-9_]+)?(?:\s+([a-zA-Z0-9_-]{1,64}))?\s*$/D', $text, $matches)) {
+            if (str_starts_with($text, '/')) {
+                return null;
+            }
+
+            return new TelegramUpdate((string) $senderId, (int) ($payload['message_id'] ?? 0), '', null,
+                text: $text, sentAt: $sentAt);
         }
         $firstName = '';
         $username = null;
@@ -45,6 +55,6 @@ final class TelegramUpdateParser
         }
 
         return new TelegramUpdate((string) $senderId, (int) ($payload['message_id'] ?? 0), $firstName, $username,
-            command: $matches[1], parameter: $matches[2] ?? null);
+            command: $matches[1], parameter: $matches[2] ?? null, sentAt: $sentAt);
     }
 }

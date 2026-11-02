@@ -4,6 +4,9 @@ namespace App\Http\Telegram;
 
 use App\Models\TelegramAccount;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
+use App\Modules\Kennel\Exceptions\AdoptionUnavailable;
+use App\Modules\Kennel\Exceptions\StarterBreedUnavailable;
+use App\Modules\Kennel\Exceptions\StarterPetAlreadyClaimed;
 use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Exceptions\PetUnavailable;
@@ -34,6 +37,7 @@ final class HandleTelegramUpdate
     {
         $chat = $bot->chats()->where('chat_id', $update->senderId)->first();
         $account = null;
+        $removeIncomingMessage = ! $update->isCallback() && $update->command !== null;
         try {
             if ($update->command === 'start' && $update->parameter !== null) {
                 $account = $this->connectAccount($bot, $chat, $update, $update->parameter);
@@ -41,7 +45,7 @@ final class HandleTelegramUpdate
             }
             $account = $chat === null ? null : TelegramAccount::query()->where('telegraph_chat_id', $chat->id)->where('telegram_user_id', $update->senderId)->first();
             if ($account === null) {
-                if (! $update->isCallback()) {
+                if (! $update->isCallback() && $update->command !== null) {
                     $chat ??= $bot->chats()->make(['chat_id' => $update->senderId]);
                     $this->messenger->welcome($chat);
                 }
@@ -55,14 +59,15 @@ final class HandleTelegramUpdate
             app()->setLocale($user->preferredLocale());
             $command = $this->resolveCommand($account, $update);
             if ($command !== null) {
+                $removeIncomingMessage = ! $update->isCallback();
                 $this->game->handle($account, $command);
             }
-        } catch (TelegramUnavailable|PetUnavailable|GameEventUnavailable|ItemUnavailable|InsufficientFunds|WorkUnavailable|PendingGameEventRegistration|ModelNotFoundException $exception) {
+        } catch (TelegramUnavailable|PetUnavailable|GameEventUnavailable|ItemUnavailable|InsufficientFunds|WorkUnavailable|PendingGameEventRegistration|ModelNotFoundException|AdoptionUnavailable|StarterBreedUnavailable|StarterPetAlreadyClaimed $exception) {
             $chat ??= $bot->chats()->make(['chat_id' => $update->senderId]);
             $account ??= $chat->exists ? TelegramAccount::query()->where('telegraph_chat_id', $chat->id)->first() : null;
             $this->renderFailure($account, $chat, $exception);
         } finally {
-            if (! $update->isCallback() && $chat !== null && $update->messageId > 0) {
+            if ($removeIncomingMessage && $chat !== null && $update->messageId > 0) {
                 $this->messenger->remove($chat, $update->messageId);
             }
         }
@@ -81,7 +86,19 @@ final class HandleTelegramUpdate
     private function resolveCommand(TelegramAccount $account, TelegramUpdate $update): ?array
     {
         if (! $update->isCallback()) {
-            return ['action' => $update->command === 'help' ? 'help' : 'home'];
+            if ($update->command !== null) {
+                return ['action' => $update->command === 'help' ? 'help' : 'home'];
+            }
+            foreach ([['marketSale', 'awaitingPrice', 'priceRequestedAt', 'market.sell.value'], ['kennel', 'awaitingName', 'nameRequestedAt', 'kennel.name']] as [$key, $flag, $timestamp, $action]) {
+                $draft = $account->menu_state['data'][$key] ?? null;
+                if ($update->text !== null && is_array($draft) && ($draft['userId'] ?? null) === $account->user_id
+                    && ($draft[$flag] ?? false) === true && is_int($draft[$timestamp] ?? null)
+                    && $draft[$timestamp] > 0 && $update->sentAt !== null && $update->sentAt >= $draft[$timestamp]) {
+                    return ['action' => $action, 'text' => $update->text];
+                }
+            }
+
+            return null;
         }
         $callback = $update->callback;
         if ($callback === null || $account->id !== $callback->accountId) {
@@ -100,8 +117,14 @@ final class HandleTelegramUpdate
 
     private function renderFailure(?TelegramAccount $account, TelegraphChat $chat, Throwable $exception): void
     {
-        $message = $exception instanceof ModelNotFoundException ? __('telegram.errors.stale') : $exception->getMessage();
-        $translated = Lang::has($message) ? __($message, [
+        $message = match (true) {
+            $exception instanceof ModelNotFoundException => __('telegram.errors.stale'),
+            $exception instanceof StarterBreedUnavailable => 'This breed is currently unavailable. Please choose another.',
+            $exception instanceof StarterPetAlreadyClaimed => 'Your first dog is available only once, before you have any pets.',
+            default => $exception->getMessage(),
+        };
+        $isKennelFailure = $exception instanceof AdoptionUnavailable || $exception instanceof StarterBreedUnavailable || $exception instanceof StarterPetAlreadyClaimed;
+        $translated = $message !== '' && ($isKennelFailure || Lang::has($message)) ? __($message, [
             'pet_daily_limit' => (int) config('game-events.pet_daily_limit', 2),
             'pet_rest_hours' => (int) config('game-events.pet_rest_hours', 2),
         ]) : __('telegram.errors.unavailable_action');

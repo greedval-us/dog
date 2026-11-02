@@ -23,7 +23,11 @@ final class WebhookHandler extends TelegraphWebhookHandler
         if (! $bot->exists) {
             return;
         }
-        $update = $this->parser->parse($request->all());
+        $payload = $request->isJson() ? json_decode($request->getContent(), true) : $request->all();
+        if (! is_array($payload)) {
+            return;
+        }
+        $update = $this->parser->parse($payload);
         if ($update === null) {
             return;
         }
