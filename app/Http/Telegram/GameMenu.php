@@ -6,6 +6,9 @@ use App\Http\Telegram\Menus\CareMenu;
 use App\Http\Telegram\Menus\CatalogueMenu;
 use App\Http\Telegram\Menus\DailyWorkMenu;
 use App\Http\Telegram\Menus\DogWorkMenu;
+use App\Http\Telegram\Menus\EventEntryMenu;
+use App\Http\Telegram\Menus\EventMenu;
+use App\Http\Telegram\Menus\EventRegistrationMenu;
 use App\Http\Telegram\Menus\MenuView;
 use App\Http\Telegram\Menus\NotificationMenu;
 use App\Http\Telegram\Menus\PetHistoryMenu;
@@ -34,6 +37,9 @@ final class GameMenu
         private DailyWorkMenu $dailyWork,
         private NotificationMenu $notifications,
         private PetHistoryMenu $history,
+        private EventMenu $events,
+        private EventEntryMenu $eventEntries,
+        private EventRegistrationMenu $eventRegistration,
     ) {}
 
     /**
@@ -81,6 +87,18 @@ final class GameMenu
             'pet.history' => $this->history->index($user, $locale, $command),
             'pet.history.entry' => $this->history->show($user, $locale, $command),
             'pet.history.events' => $this->history->events($user, $locale, $command),
+            'events' => $this->events->index($user, $locale, $command),
+            'events.show' => $this->events->show($user, $locale, $command),
+            'events.own' => $this->events->own($user, $locale, $command),
+            'events.entry' => $this->events->entry($user, $locale, $command),
+            'events.results' => $this->events->results($user, $locale, $command),
+            'events.divisions' => $this->events->divisions($user, $locale, $command),
+            'events.prepare' => $this->eventRegistration->prepare($user, $locale, $command),
+            'events.draft.show', 'events.draft.option', 'events.draft.member', 'events.draft.stage', 'events.draft.gear' => $this->eventRegistration->draft($user, $locale, $command, $state),
+            'events.register' => $this->eventEntries->register($user, $locale, $state),
+            'events.update' => $this->eventEntries->update($user, $locale, $state),
+            'events.cancel-confirm' => $this->eventEntries->cancelConfirmation($user, $locale, $command),
+            'events.cancel' => $this->eventEntries->cancel($user, $locale, $state),
             default => throw new InvalidArgumentException('Unknown Telegram menu action.'),
         };
     }

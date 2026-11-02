@@ -4,6 +4,8 @@ use App\Http\Telegram\GameMenu;
 use App\Http\Telegram\MenuMessenger;
 use App\Http\Telegram\TelegramDeliveryFailed;
 use App\Jobs\RefreshTelegramCare;
+use App\Models\GameEvent;
+use App\Models\GameEventEntry;
 use App\Models\Pet;
 use App\Models\PetCareAction;
 use App\Models\Skill;
@@ -19,6 +21,8 @@ use App\Notifications\SystemNotification;
 use DefStudio\Telegraph\Facades\Telegraph;
 use DefStudio\Telegraph\Models\TelegraphBot;
 use DefStudio\Telegraph\Models\TelegraphChat;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -86,6 +90,19 @@ function linkedTelegramPlayer(TelegraphBot $bot): TelegramAccount
     $link = app(CreateTelegramLink::class)->handle($user);
 
     return app(ConnectTelegramAccount::class)->handle($bot, $chat, '123456', 'Player', null, $link->token);
+}
+
+/** @return array<string,mixed> */
+function telegramActionUpdate(TelegramAccount $account, string $action): array
+{
+    $account->refresh();
+    foreach ($account->menu_state['commands'] as $key => $command) {
+        if ($command['action'] === $action) {
+            return telegramButtonUpdate('action:tap;k:'.$key.';v:'.$account->menu_revision.';s:'.$account->id, message: $account->menu_message_id);
+        }
+    }
+
+    throw new RuntimeException('The current Telegram screen has no '.$action.' action.');
 }
 
 test('webhook rejects a missing secret before handling an update', function () {
@@ -373,6 +390,77 @@ test('notifications use saved inline state and update the home unread count', fu
     expect($notification->fresh()->read_at)->not->toBeNull();
     expect(collect($menu->render($account->user)->rows)->flatten(1)->pluck('text')->all())->toContain('Уведомления')->not->toContain('Уведомления (1)');
     Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+});
+
+test('event callbacks preserve native transaction ownership through registration editing and cancellation', function () {
+    $this->freezeSecond();
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $account->user->forceFill(['coins' => 500])->save();
+    $pet = Pet::factory()->for($account->user)->create();
+    $event = GameEvent::factory()->create();
+    $values = ['userId' => $account->user_id, 'eventId' => $event->id, 'petId' => $pet->id, 'entryId' => null,
+        'fee' => 25, 'token' => (string) Str::uuid(), 'plan' => ['stages' => ['balanced', 'careful', 'bold']], 'gearIds' => []];
+    $baseTransaction = DB::transactionLevel();
+    $eventLockLevels = [];
+    DB::listen(function (QueryExecuted $query) use (&$eventLockLevels): void {
+        if (str_contains($query->sql, '"game_events"') && str_contains($query->sql, 'for update')) {
+            $eventLockLevels[] = DB::transactionLevel();
+        }
+    });
+    fakeTelegramMenu();
+    $messenger = app(MenuMessenger::class);
+    $messenger->publish($account, new TelegramScreen('Confirm registration', [[['text' => 'Register', 'command' => ['action' => 'events.register']]]], ['eventDraft' => $values]));
+    $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
+
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramActionUpdate($account, 'events.register'), $headers)->assertNoContent();
+    $entry = GameEventEntry::query()->where('user_id', $account->user_id)->sole();
+    expect($account->user->fresh()->coins)->toBe(475);
+    $values['entryId'] = $entry->id;
+    $values['plan']['stages'] = ['careful', 'careful', 'careful'];
+    $values['token'] = (string) Str::uuid();
+    $messenger->publish($account->refresh(), new TelegramScreen('Confirm changes', [[['text' => 'Save', 'command' => ['action' => 'events.update']]]], ['eventDraft' => $values]));
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramActionUpdate($account, 'events.update'), $headers)->assertNoContent();
+    expect($entry->fresh()->plan['stages'])->toBe(['careful', 'careful', 'careful']);
+    $this->postJson(route('telegraph.webhook', $bot->token), telegramActionUpdate($account, 'events.cancel-confirm'), $headers)->assertNoContent();
+    $cancel = telegramActionUpdate($account, 'events.cancel');
+    $this->postJson(route('telegraph.webhook', $bot->token), $cancel, $headers)->assertNoContent();
+    $this->postJson(route('telegraph.webhook', $bot->token), $cancel, $headers)->assertNoContent();
+
+    expect($account->user->fresh()->coins)->toBe(500);
+    expect($entry->fresh()->status)->toBe('cancelled');
+    expect($eventLockLevels)->toBe([$baseTransaction + 1, $baseTransaction + 1, $baseTransaction + 1]);
+    $this->assertDatabaseCount('currency_transactions', 2);
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+});
+
+test('event registration retries after Telegram rate limits do not charge a second fee', function () {
+    $this->freezeSecond();
+    $bot = telegramWebhookBot();
+    $account = linkedTelegramPlayer($bot);
+    $account->user->forceFill(['coins' => 500])->save();
+    $pet = Pet::factory()->for($account->user)->create();
+    $event = GameEvent::factory()->create();
+    $values = ['userId' => $account->user_id, 'eventId' => $event->id, 'petId' => $pet->id, 'entryId' => null, 'fee' => 25,
+        'token' => (string) Str::uuid(), 'plan' => ['stages' => ['balanced', 'careful', 'bold']], 'gearIds' => []];
+    fakeTelegramMenu();
+    app(MenuMessenger::class)->publish($account, new TelegramScreen('Confirm', [[['text' => 'Register', 'command' => ['action' => 'events.register']]]], ['eventDraft' => $values]));
+    $update = telegramActionUpdate($account, 'events.register');
+    $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'test-secret'];
+    Telegraph::fake([
+        'answerCallbackQuery' => ['ok' => true, 'result' => true],
+        'editMessageText' => ['ok' => false, 'error_code' => 429, 'parameters' => ['retry_after' => 23]],
+    ]);
+
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertStatus(500);
+    fakeTelegramMenu();
+    $this->postJson(route('telegraph.webhook', $bot->token), $update, $headers)->assertNoContent();
+
+    expect($account->user->fresh()->coins)->toBe(475);
+    $this->assertDatabaseCount('game_event_entries', 1);
+    $this->assertDatabaseCount('currency_transactions', 1);
+    Telegraph::assertSentData('editMessageText', ['message_id' => 900]);
+    Telegraph::assertNotSentData('sendMessage', []);
 });
 
 test('linking adopts the welcome message instead of sending another menu', function () {

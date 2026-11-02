@@ -9,17 +9,20 @@ use App\Modules\Telegram\DTO\TelegramScreen;
 
 final class PlayerMenu
 {
-    public function __construct(private MenuView $view, private GetPlayerProfile $profiles, private GetUnreadSystemNotificationCount $unread) {}
+    public function __construct(private MenuView $view, private GetPlayerProfile $profiles, private GetUnreadSystemNotificationCount $unread, private HomeSummary $summary) {}
 
     public function home(User $user, string $locale): TelegramScreen
     {
         $unread = $this->unread->handle($user);
         $notifications = $this->view->translate('notifications.title', $locale).($unread > 0 ? ' ('.$unread.')' : '');
+        $summary = $this->summary->build($user, $locale);
 
-        return new TelegramScreen($this->view->escape($this->view->translate('welcome_player', $locale, ['name' => $user->name])), [
+        return new TelegramScreen($this->view->escape($this->view->translate('welcome_player', $locale, ['name' => $user->name]))."\n\n".$summary->text, [
+            ...$summary->rows,
             [$this->view->button('pets', 'pets', $locale), $this->view->button('profile', 'profile', $locale)],
             [$this->view->button('inventory', 'inventory', $locale), $this->view->button('shop', 'shop', $locale)],
             [$this->view->button('daily_work.title', 'daily_work', $locale), $this->view->button('work.title', 'work', $locale)],
+            [$this->view->button('event.competitions', 'events', $locale, ['kind' => 'competition']), $this->view->button('event.exhibitions', 'events', $locale, ['kind' => 'exhibition'])],
             [$this->view->commandButton($notifications, ['action' => 'notifications'])],
             [$this->view->button('help', 'help', $locale), $this->view->website($locale)],
         ]);

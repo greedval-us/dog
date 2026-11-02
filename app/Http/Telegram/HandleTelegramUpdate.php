@@ -4,6 +4,7 @@ namespace App\Http\Telegram;
 
 use App\Models\TelegramAccount;
 use App\Modules\Inventory\Exceptions\ItemUnavailable;
+use App\Modules\Pets\Exceptions\GameEventUnavailable;
 use App\Modules\Pets\Exceptions\PendingGameEventRegistration;
 use App\Modules\Pets\Exceptions\PetUnavailable;
 use App\Modules\Players\Enums\PlayerStatus;
@@ -56,7 +57,7 @@ final class HandleTelegramUpdate
             if ($command !== null) {
                 $this->game->handle($account, $command);
             }
-        } catch (TelegramUnavailable|PetUnavailable|ItemUnavailable|InsufficientFunds|WorkUnavailable|PendingGameEventRegistration|ModelNotFoundException $exception) {
+        } catch (TelegramUnavailable|PetUnavailable|GameEventUnavailable|ItemUnavailable|InsufficientFunds|WorkUnavailable|PendingGameEventRegistration|ModelNotFoundException $exception) {
             $chat ??= $bot->chats()->make(['chat_id' => $update->senderId]);
             $account ??= $chat->exists ? TelegramAccount::query()->where('telegraph_chat_id', $chat->id)->first() : null;
             $this->renderFailure($account, $chat, $exception);
@@ -100,7 +101,10 @@ final class HandleTelegramUpdate
     private function renderFailure(?TelegramAccount $account, TelegraphChat $chat, Throwable $exception): void
     {
         $message = $exception instanceof ModelNotFoundException ? __('telegram.errors.stale') : $exception->getMessage();
-        $translated = Lang::has($message) ? __($message) : __('telegram.errors.unavailable_action');
+        $translated = Lang::has($message) ? __($message, [
+            'pet_daily_limit' => (int) config('game-events.pet_daily_limit', 2),
+            'pet_rest_hours' => (int) config('game-events.pet_rest_hours', 2),
+        ]) : __('telegram.errors.unavailable_action');
         if ($account === null) {
             $this->messenger->welcome($chat, $translated);
 

@@ -29,21 +29,43 @@ final class RunTelegramGameCommand
     {
         $user = $account->user;
         $this->synchronize($user);
-        $screen = DB::transaction(function () use ($user, $account, $command): ?TelegramScreen {
-            $owner = User::query()->lockForUpdate()->findOrFail($user->id);
-            $linked = TelegramAccount::query()->whereKey($account->id)->where('user_id', $owner->id)->lockForUpdate()->first();
-            if ($linked === null || $owner->status !== PlayerStatus::Active) {
-                return null;
-            }
-
-            return $this->menu->render($owner, $command, $linked->menu_state['data'] ?? []);
-        }, attempts: 3);
+        $screen = $this->render($user, $account, $command);
         if ($screen === null) {
             return;
         }
         $account->refresh();
         $this->messenger->publish($account, $screen);
         $this->queueCompletion($account, $screen);
+    }
+
+    /** @param array<string,mixed> $command */
+    private function render(User $user, TelegramAccount $account, array $command): ?TelegramScreen
+    {
+        $action = $command['action'] ?? 'home';
+        if (is_string($action) && ($action === 'events' || str_starts_with($action, 'events.'))) {
+            $context = DB::transaction(fn (): ?array => $this->context($user, $account), attempts: 3);
+
+            return $context === null ? null : $this->menu->render($context['owner'], $command, $context['state']);
+        }
+
+        return DB::transaction(function () use ($user, $account, $command): ?TelegramScreen {
+            $context = $this->context($user, $account);
+
+            return $context === null ? null : $this->menu->render($context['owner'], $command, $context['state']);
+        }, attempts: 3);
+    }
+
+    /** @return array{owner:User,state:array<string,mixed>}|null */
+    private function context(User $user, TelegramAccount $account): ?array
+    {
+        $owner = User::query()->lockForUpdate()->findOrFail($user->id);
+        $linked = TelegramAccount::query()->whereKey($account->id)->where('user_id', $owner->id)->lockForUpdate()->first();
+        if ($linked === null || $owner->status !== PlayerStatus::Active) {
+            return null;
+        }
+        $state = $linked->menu_state['data'] ?? [];
+
+        return ['owner' => $owner, 'state' => is_array($state) ? $state : []];
     }
 
     private function synchronize(User $user): void
