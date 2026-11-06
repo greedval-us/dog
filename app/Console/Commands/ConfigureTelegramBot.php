@@ -65,7 +65,7 @@ class ConfigureTelegramBot extends Command
                 return self::FAILURE;
             }
             $response = $messenger->send($bot->registerCommands([
-                'menu' => 'DogLive: game menu / Игровое меню',
+                'status' => 'Статус уведомлений / Notification status',
                 'help' => 'Help / Помощь',
             ]));
             if ($response->telegraphError()) {

@@ -2,7 +2,6 @@
 
 namespace App\Http\Telegram;
 
-use App\Modules\Telegram\Calculators\MenuCallbackCodec;
 use App\Modules\Telegram\DTO\TelegramUpdate;
 
 final class TelegramUpdateParser
@@ -30,31 +29,36 @@ final class TelegramUpdateParser
 
             return new TelegramUpdate((string) $senderId, (int) data_get($payload, 'message.message_id'), '', null,
                 callbackQueryId: (string) $queryId,
-                callback: is_string($payload['data'] ?? null) ? MenuCallbackCodec::decode($payload['data']) : null);
+                legacyAccountId: $this->legacyAccountId($payload['data'] ?? null));
         }
         $text = $payload['text'] ?? null;
         if (! is_string($text) || mb_strlen($text) > 4096) {
             return null;
         }
-        $sentAt = $payload['date'] ?? null;
-        $sentAt = is_int($sentAt) && $sentAt > 0 ? $sentAt : null;
-        if (! preg_match('/^\/(start|menu|help)(?:@[a-zA-Z0-9_]+)?(?:\s+([a-zA-Z0-9_-]{1,64}))?\s*$/D', $text, $matches)) {
-            if (str_starts_with($text, '/')) {
-                return null;
-            }
-
-            return new TelegramUpdate((string) $senderId, (int) ($payload['message_id'] ?? 0), '', null,
-                text: $text, sentAt: $sentAt);
+        if (! preg_match('/^\/(start|status|menu|help)(?:@[a-zA-Z0-9_]+)?(?:\s+([a-zA-Z0-9_-]{1,64}))?\s*$/D', $text, $matches)
+            || (isset($matches[2]) && $matches[1] !== 'start')) {
+            return null;
         }
         $firstName = '';
         $username = null;
         if ($matches[1] === 'start' && isset($matches[2])) {
-            $firstName = mb_substr((string) data_get($payload, 'from.first_name', ''), 0, 255);
+            $name = data_get($payload, 'from.first_name');
+            $firstName = is_string($name) ? mb_substr($name, 0, 255) : '';
             $username = data_get($payload, 'from.username');
             $username = is_string($username) ? mb_substr($username, 0, 255) : null;
         }
 
         return new TelegramUpdate((string) $senderId, (int) ($payload['message_id'] ?? 0), $firstName, $username,
-            command: $matches[1], parameter: $matches[2] ?? null, sentAt: $sentAt);
+            command: $matches[1], parameter: $matches[2] ?? null);
+    }
+
+    private function legacyAccountId(mixed $data): ?int
+    {
+        if (! is_string($data) || ! preg_match('/^action:tap;k:[0-9]{1,4};v:[0-9]{1,10};s:([1-9][0-9]{0,18})$/D', $data, $matches)) {
+            return null;
+        }
+        $id = filter_var($matches[1], FILTER_VALIDATE_INT);
+
+        return is_int($id) ? $id : null;
     }
 }

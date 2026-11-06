@@ -12,9 +12,7 @@ final readonly class TelegramUpdate
         public ?string $command = null,
         public ?string $parameter = null,
         public ?string $callbackQueryId = null,
-        public ?TelegramCallbackData $callback = null,
-        public ?string $text = null,
-        public ?int $sentAt = null,
+        public ?int $legacyAccountId = null,
     ) {}
 
     public function isCallback(): bool

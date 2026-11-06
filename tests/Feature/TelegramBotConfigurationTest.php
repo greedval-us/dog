@@ -75,7 +75,7 @@ test('configuration refreshes the selected database bot identity and preserves e
             && $request['allowed_updates'] === ['message', 'callback_query'],
         fn (Request $request): bool => $request->url() === $apiUrl.'/setMyCommands'
             && $request['commands'] === [
-                ['command' => 'menu', 'description' => 'DogLive: game menu / Игровое меню'],
+                ['command' => 'status', 'description' => 'Статус уведомлений / Notification status'],
                 ['command' => 'help', 'description' => 'Help / Помощь'],
             ],
     ]);

@@ -33,7 +33,7 @@ final class WebhookHandler extends TelegraphWebhookHandler
         }
         if ($update->isCallback()) {
             $this->messenger->send($bot->withEndpoint('answerCallbackQuery')->withData('callback_query_id', (string) $update->callbackQueryId));
-            if ($update->callback === null) {
+            if ($update->legacyAccountId === null) {
                 return;
             }
         }

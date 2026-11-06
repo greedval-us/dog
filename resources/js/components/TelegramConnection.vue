@@ -104,7 +104,11 @@ function disconnect(): void {
     <Dialog v-model:open="confirmUnlink">
         <SurfaceCard
             :title="t('Telegram')"
-            :description="t('Connect Telegram to play DogLive in the bot.')"
+            :description="
+                t(
+                    'Get competition and show results, news about your pets, and achievement notifications in Telegram.',
+                )
+            "
         >
             <div class="form-stack">
                 <template v-if="connected && telegram.account">
@@ -241,7 +245,7 @@ function disconnect(): void {
                     <DialogDescription>
                         {{
                             t(
-                                'You will no longer be able to manage your pets in the bot. You can connect Telegram again at any time.',
+                                'Telegram notifications will stop. You can reconnect at any time.',
                             )
                         }}
                     </DialogDescription>

@@ -1485,7 +1485,7 @@
     "Gameplay and account updates": "События игры и аккаунта",
     "View details: {title}": "Подробнее: {title}",
     "Telegram": "Telegram",
-    "Connect Telegram to play DogLive in the bot.": "Подключи Telegram, чтобы играть в DogLive через бота.",
+    "Get competition and show results, news about your pets, and achievement notifications in Telegram.": "Получай в Telegram результаты соревнований и выставок, новости о своих питомцах и уведомления о достижениях.",
     "Telegram connected": "Telegram подключён",
     "Telegram connection is temporarily unavailable.": "Подключение Telegram временно недоступно.",
     "Open Telegram bot": "Открыть бота в Telegram",
@@ -1500,6 +1500,6 @@
     "Create new link": "Создать новую ссылку",
     "Connect Telegram": "Подключить Telegram",
     "Disconnect Telegram?": "Отключить Telegram?",
-    "You will no longer be able to manage your pets in the bot. You can connect Telegram again at any time.": "Ты больше не сможешь управлять питомцами через бота. Подключить Telegram снова можно в любой момент.",
+    "Telegram notifications will stop. You can reconnect at any time.": "Уведомления в Telegram перестанут приходить. Подключить их снова можно в любой момент.",
     "Disconnecting…": "Отключаем…"
 }
