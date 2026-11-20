@@ -26,6 +26,7 @@ use App\Modules\Pets\Enums\GameEventDiscipline;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Pagination\Cursor;
 use Illuminate\Support\Facades\Lang;
 
 /**
@@ -36,6 +37,8 @@ use Illuminate\Support\Facades\Lang;
  */
 final class GetGameEvents
 {
+    public const PAGE_SIZE = 30;
+
     public function __construct(
         private PetDecayCalculator $decay,
         private CompetitionAmmunitionRules $ammunition,
@@ -52,9 +55,9 @@ final class GetGameEvents
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * @return array{events:list<array<string,mixed>>, filters:array{frequency:mixed,kind:mixed}, nextCursor:string|null, previousCursor:string|null}
      */
-    public function index(User $user, array $filters = []): array
+    public function index(User $user, array $filters = [], ?Cursor $cursor = null): array
     {
         $query = GameEvent::query()->where(function (Builder $query) use ($user): void {
             $query->where('ends_at', '>', now())->orWhere(function (Builder $history) use ($user): void {
@@ -69,12 +72,13 @@ final class GetGameEvents
             $disciplines = GameEventDiscipline::exhibitions();
             $filters['kind'] === 'exhibition' ? $query->whereIn('discipline', $disciplines) : $query->whereNotIn('discipline', $disciplines);
         }
-        $page = $query->orderBy('starts_at')->orderBy('id')->cursorPaginate(30);
+        $page = $query->orderBy('starts_at')->orderBy('id')->cursorPaginate(self::PAGE_SIZE, ['*'], 'cursor', $cursor);
 
         return [
             'events' => array_values($page->getCollection()->map(fn (GameEvent $event): array => $this->summary($event, $user))->all()),
             'filters' => ['frequency' => $filters['frequency'] ?? null, 'kind' => $filters['kind'] ?? null],
             'nextCursor' => $page->nextCursor()?->encode(),
+            'previousCursor' => $page->previousCursor()?->encode(),
         ];
     }
 

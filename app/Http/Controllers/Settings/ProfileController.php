@@ -10,6 +10,7 @@ use App\Modules\Pets\Queries\GetPetBoardingSettings;
 use App\Modules\Players\Actions\UpdatePlayerAvatar;
 use App\Modules\Players\Actions\UpdatePlayerProfile;
 use App\Modules\Players\Queries\GetPlayerProfile;
+use App\Modules\Telegram\Queries\GetTelegramConnection;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class ProfileController extends Controller
     /**
      * Show the user's profile settings page.
      */
-    public function edit(Request $request, GetPlayerProfile $profile, GetPetBoardingSettings $boarding): Response
+    public function edit(Request $request, GetPlayerProfile $profile, GetPetBoardingSettings $boarding, GetTelegramConnection $telegram): Response
     {
         $user = $request->user();
         abort_unless($user instanceof User, 403);
@@ -34,6 +35,7 @@ class ProfileController extends Controller
             'player' => $profile->handle($user)->toArray(),
             'avatarLimits' => config('doglive.avatar'),
             'boarding' => $boarding->handle($user),
+            'telegram' => $telegram->handle($user, $request->session()->get('telegram.link_token')),
         ]);
     }
 
