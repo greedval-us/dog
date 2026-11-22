@@ -399,10 +399,14 @@ test('bounded event progress avoids unrelated achievement history scans for a fi
             DB::flushQueryLog();
         }
         $notificationWrites = count(array_filter($queries, fn (array $query): bool => str_starts_with($query['query'], 'insert into "notifications"')));
+        $telegramAccountLookups = count(array_filter($queries, fn (array $query): bool => str_starts_with(
+            $query['query'], 'select "id" from "telegram_accounts" where "user_id" = ?',
+        )));
         $measurements[$mode] = [
             'queries' => count($queries),
-            'progressQueries' => count($queries) - $notificationWrites,
+            'progressQueries' => count($queries) - $notificationWrites - $telegramAccountLookups,
             'notificationWrites' => $notificationWrites,
+            'telegramAccountLookups' => $telegramAccountLookups,
             'sqlMilliseconds' => round(array_sum(array_column($queries, 'time')), 2),
             'mealHistoryScans' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'daily_feeding'))),
             'eventLoads' => count(array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from "game_events"'))),
